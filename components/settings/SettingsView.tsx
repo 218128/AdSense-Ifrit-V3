@@ -273,15 +273,22 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                 settings,
             };
 
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `ifrit-settings-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Use data URI for reliable download
+            const jsonString = JSON.stringify(exportData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonString);
+            const filename = `ifrit-settings-${new Date().toISOString().split('T')[0]}.json`;
+
+            const link = document.createElement('a');
+            link.setAttribute('href', dataUri);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+
+            // Use setTimeout to ensure the download triggers
+            setTimeout(() => {
+                link.click();
+                document.body.removeChild(link);
+            }, 100);
 
             // Also save to server
             await fetch('/api/settings/export', {
@@ -290,7 +297,7 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                 body: JSON.stringify({ clientSettings: settings }),
             });
 
-            alert('Settings exported successfully!');
+            alert('Settings exported! Check your Downloads folder for: ' + filename);
         } catch (err) {
             console.error('Export failed:', err);
             alert('Failed to export settings');
