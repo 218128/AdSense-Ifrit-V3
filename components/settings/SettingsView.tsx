@@ -245,52 +245,47 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
     ];
 
     // Export all settings to downloadable file
-    const handleExportSettings = async () => {
-        try {
-            // Collect all localStorage keys
-            const allKeys = [
-                'ifrit_gemini_keys', 'ifrit_deepseek_keys', 'ifrit_openrouter_keys',
-                'ifrit_vercel_keys', 'ifrit_perplexity_keys', 'ifrit_enabled_providers',
-                'GEMINI_API_KEY', 'ifrit_gemini_key',
-                'ifrit_github_token', 'ifrit_github_user', 'ifrit_vercel_token', 'ifrit_vercel_user',
-                'ADSENSE_PUBLISHER_ID', 'ADSENSE_LEADERBOARD_SLOT', 'ADSENSE_ARTICLE_SLOT', 'ADSENSE_MULTIPLEX_SLOT',
-                'USER_BLOG_URL',
-                'ifrit_namecheap_user', 'ifrit_namecheap_key', 'ifrit_spamzilla_key', 'ifrit_cloudflare_token',
-                'ifrit_expireddomains_user', 'ifrit_expireddomains_pass',
-                'ifrit_devto_api_key', 'devto_api_key',
-            ];
+    const handleExportSettings = () => {
+        // Collect all localStorage keys
+        const allKeys = [
+            'ifrit_gemini_keys', 'ifrit_deepseek_keys', 'ifrit_openrouter_keys',
+            'ifrit_vercel_keys', 'ifrit_perplexity_keys', 'ifrit_enabled_providers',
+            'GEMINI_API_KEY', 'ifrit_gemini_key',
+            'ifrit_github_token', 'ifrit_github_user', 'ifrit_vercel_token', 'ifrit_vercel_user',
+            'ADSENSE_PUBLISHER_ID', 'ADSENSE_LEADERBOARD_SLOT', 'ADSENSE_ARTICLE_SLOT', 'ADSENSE_MULTIPLEX_SLOT',
+            'USER_BLOG_URL',
+            'ifrit_namecheap_user', 'ifrit_namecheap_key', 'ifrit_spamzilla_key', 'ifrit_cloudflare_token',
+            'ifrit_expireddomains_user', 'ifrit_expireddomains_pass',
+            'ifrit_devto_api_key', 'devto_api_key',
+        ];
 
-            const settings: Record<string, string | null> = {};
-            for (const key of allKeys) {
-                const value = localStorage.getItem(key);
-                if (value) settings[key] = value;
-            }
-
-            if (Object.keys(settings).length === 0) {
-                alert('No settings to export. Please configure some API keys first.');
-                return;
-            }
-
-            // First, save settings to server
-            const saveRes = await fetch('/api/settings/export', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clientSettings: settings }),
-            });
-
-            if (!saveRes.ok) {
-                throw new Error('Failed to save settings to server');
-            }
-
-            // Now download from server
-            window.open('/api/settings/export', '_blank');
-
-            const keyCount = Object.keys(settings).length;
-            alert(`Exported ${keyCount} API keys! A download should start in your browser.`);
-        } catch (err) {
-            console.error('Export failed:', err);
-            alert('Failed to export settings: ' + err);
+        const settings: Record<string, string> = {};
+        for (const key of allKeys) {
+            const value = localStorage.getItem(key);
+            if (value) settings[key] = value;
         }
+
+        if (Object.keys(settings).length === 0) {
+            alert('No settings to export. Please configure some API keys first.');
+            return;
+        }
+
+        const exportData = {
+            version: '2.0.0',
+            exportedAt: new Date().toISOString(),
+            app: 'AdSense Ifrit V3',
+            settings,
+        };
+
+        // Standard file download
+        const jsonString = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ifrit-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     // Import settings from file
