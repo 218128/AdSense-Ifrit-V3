@@ -85,9 +85,6 @@ interface ExportData {
 // GET - Generate export file for download
 export async function GET() {
     try {
-        // Collect all keys
-        const allKeys = Object.values(STORAGE_KEYS).flat();
-
         // Read from saved backup file if exists
         const backupFile = path.join(BACKUP_DIR, 'user-settings-backup.json');
         let savedSettings: Record<string, string | null> = {};
@@ -96,8 +93,12 @@ export async function GET() {
             try {
                 const content = fs.readFileSync(backupFile, 'utf-8');
                 const backup = JSON.parse(content);
-                // Flatten the backup structure to simple key-value
-                if (backup.settings) {
+
+                // Use rawKeys directly if available (contains all original localStorage keys)
+                if (backup.rawKeys) {
+                    savedSettings = backup.rawKeys;
+                } else if (backup.settings) {
+                    // Fallback: Flatten the backup structure to simple key-value
                     const { integrations, blog, adsense, aiProviders } = backup.settings;
 
                     if (integrations) {
@@ -114,7 +115,6 @@ export async function GET() {
                         if (adsense.multiplexSlot) savedSettings['ADSENSE_MULTIPLEX_SLOT'] = adsense.multiplexSlot;
                     }
                     if (aiProviders) {
-                        // Store AI provider data as JSON strings
                         for (const [provider, data] of Object.entries(aiProviders)) {
                             savedSettings[`ifrit_${provider}_keys`] = JSON.stringify(data);
                         }

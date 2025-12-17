@@ -266,41 +266,30 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                 if (value) settings[key] = value;
             }
 
-            const exportData = {
-                version: '2.0.0',
-                exportedAt: new Date().toISOString(),
-                app: 'AdSense Ifrit V3',
-                settings,
-            };
+            if (Object.keys(settings).length === 0) {
+                alert('No settings to export. Please configure some API keys first.');
+                return;
+            }
 
-            // Use data URI for reliable download
-            const jsonString = JSON.stringify(exportData, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonString);
-            const filename = `ifrit-settings-${new Date().toISOString().split('T')[0]}.json`;
-
-            const link = document.createElement('a');
-            link.setAttribute('href', dataUri);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-
-            // Use setTimeout to ensure the download triggers
-            setTimeout(() => {
-                link.click();
-                document.body.removeChild(link);
-            }, 100);
-
-            // Also save to server
-            await fetch('/api/settings/export', {
+            // First, save settings to server
+            const saveRes = await fetch('/api/settings/export', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ clientSettings: settings }),
             });
 
-            alert('Settings exported! Check your Downloads folder for: ' + filename);
+            if (!saveRes.ok) {
+                throw new Error('Failed to save settings to server');
+            }
+
+            // Now download from server
+            window.open('/api/settings/export', '_blank');
+
+            const keyCount = Object.keys(settings).length;
+            alert(`Exported ${keyCount} API keys! A download should start in your browser.`);
         } catch (err) {
             console.error('Export failed:', err);
-            alert('Failed to export settings');
+            alert('Failed to export settings: ' + err);
         }
     };
 

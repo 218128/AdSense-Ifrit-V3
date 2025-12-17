@@ -42,3 +42,4 @@ next-env.d.ts
 
 # NOTE: websites/ folder IS tracked to preserve all content
 # NOTE: .site-builder-jobs/ IS tracked to preserve job state
+/data/
