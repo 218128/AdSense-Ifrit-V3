@@ -257,7 +257,7 @@ export default function Home() {
 }
 
 function generateArticlePage(name: string, role: string, bio: string) {
-    return \`import { getArticleBySlug, getAllArticles } from '../../lib/content';
+    return `import { getArticleBySlug, getAllArticles } from '../../lib/content';
 import ReactMarkdown from 'react-markdown';
 
 export async function generateStaticParams() {
@@ -297,18 +297,22 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         </article>
     );
 }
-\`; }
+`;
+}
 
-function generateAboutPage(siteName: string, name: string, role: string, bio: string) { return \`export default function About() {
+function generateAboutPage(siteName: string, name: string, role: string, bio: string) {
+    return `export default function About() {
     return (
         <div className="container" style={{ padding: '4rem 1.5rem' }}>
             <h1>About Us</h1>
             <p className="lead" style={{ fontSize: '1.25rem', color: '#64748b' }}>We provide data-driven insights for professionals.</p>
         </div>
     );
-}\`; }
+}`;
+}
 
-function generateContentLib() { return \`import fs from 'fs';
+function generateContentLib() {
+    return `import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 
@@ -327,4 +331,5 @@ export function getArticleBySlug(slug: string) {
         return { slug, title: data.title, date: data.date, description: data.description, author: data.author, content };
     } catch { return null; }
 }
-\`; }
+`;
+}

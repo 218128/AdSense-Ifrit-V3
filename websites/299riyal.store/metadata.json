@@ -1,0 +1,54 @@
+{
+  "id": "site_1765805319234_sk1w",
+  "domain": "299riyal.store",
+  "name": "299Riyal",
+  "niche": "Budget Tech & Gadgets",
+  "template": {
+    "id": "niche-authority",
+    "version": "1.0.0",
+    "installedAt": 1702504120000
+  },
+  "fingerprint": {
+    "providers": [],
+    "providerHistory": [],
+    "contentStrategy": "unknown",
+    "eeatEnabled": false,
+    "aiOverviewOptimized": false,
+    "generatedAt": 1702504120000,
+    "articleTemplatesUsed": []
+  },
+  "deployment": {
+    "githubRepo": "299riyal-store-blog",
+    "githubOwner": "218128",
+    "vercelProject": "299riyal-store-blog",
+    "liveUrl": "https://299riyal.store",
+    "lastDeployAt": 1734217746000,
+    "lastDeployCommit": "7027b2350883e4efc11248be8ef4d8dde5ef92e7",
+    "pendingChanges": 0
+  },
+  "stats": {
+    "articlesCount": 13,
+    "totalWords": 15106,
+    "lastPublishedAt": 1765670400000,
+    "estimatedMonthlyRevenue": 0
+  },
+  "versions": [
+    {
+      "version": "1.0.1",
+      "templateVersion": "1.0.0",
+      "deployedAt": 1734217746000,
+      "commitSha": "7027b2350883e4efc11248be8ef4d8dde5ef92e7",
+      "changes": [
+        "Initial site creation"
+      ],
+      "canRollback": false
+    }
+  ],
+  "author": {
+    "name": "Ahmed Al-Rashid",
+    "role": "Tech Reviewer"
+  },
+  "status": "live",
+  "createdAt": 1702504120000,
+  "updatedAt": 1765932934208
+}

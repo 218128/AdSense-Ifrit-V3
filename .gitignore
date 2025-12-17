@@ -31,7 +31,7 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+# .env*  <-- Commented out to preserve env if needed
 
 # vercel
 .vercel
@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# NOTE: websites/ folder IS tracked to preserve all content
+# NOTE: .site-builder-jobs/ IS tracked to preserve job state

@@ -1,0 +1,91 @@
+# Site Configuration: 299riyal.store
+# This file defines the site identity and content structure
+
+site:
+  name: "299Riyal"
+  tagline: "Best Tech Under 299 SAR"
+  domain: "299riyal.store"
+  language: "en"
+  locale: "en-SA"
+  
+niche:
+  category: "Budget Tech & Gadgets"
+  focus: "Affordable technology under 299 SAR"
+  audience: "Saudi shoppers looking for quality tech at affordable prices"
+  voice: "Helpful, practical, deal-savvy"
+
+brand:
+  colors:
+    primary: "#2563eb"      # Blue - Trust
+    secondary: "#10b981"    # Green - Money/Deals
+    accent: "#f59e0b"       # Amber - Highlights
+    background: "#ffffff"
+    text: "#1f2937"
+    muted: "#6b7280"
+  
+author:
+  name: "Ahmed Al-Rashid"
+  role: "Tech Editor"
+  experience: "8+ years"
+  specialty: "Budget tech reviews, value-focused recommendations"
+  bio_short: "Tech enthusiast helping Saudi shoppers find the best deals on quality gadgets."
+
+content_structure:
+  pillars:
+    - title: "Best Budget Smartphones 2025"
+      slug: "best-budget-smartphones-2025"
+      clusters:
+        - "Xiaomi Phones Under 299 SAR"
+        - "Samsung Budget Phones Comparison"
+        - "Best Phone Features for the Price"
+        - "How to Choose a Budget Phone"
+    
+    - title: "Best Wireless Earbuds Under 299 SAR"
+      slug: "best-wireless-earbuds-under-299-sar"
+      clusters:
+        - "AirPods Alternatives That Sound Great"
+        - "Gaming Earbuds on a Budget"
+        - "Earbuds for Workout and Sports"
+        - "Noise Cancelling Under 299"
+    
+    - title: "Smart Home Gadgets Under 299 SAR"
+      slug: "smart-home-gadgets-under-299-sar"
+      clusters:
+        - "Smart Plugs and Outlets Guide"
+        - "Budget Security Cameras"
+        - "LED Smart Lights Comparison"
+        - "Voice Assistants Worth Buying"
+    
+    - title: "Gaming Accessories Under 299 SAR"
+      slug: "gaming-accessories-under-299-sar"
+      clusters:
+        - "Best Gaming Mice 2025"
+        - "Mechanical Keyboards on Budget"
+        - "Gaming Headsets Comparison"
+        - "Controllers and Gamepads"
+
+pages:
+  - type: "homepage"
+    title: "Home"
+    path: "/"
+  - type: "about"
+    title: "About Us"
+    path: "/about"
+  - type: "contact"
+    title: "Contact"
+    path: "/contact"
+  - type: "privacy"
+    title: "Privacy Policy"
+    path: "/privacy"
+  - type: "terms"
+    title: "Terms of Service"
+    path: "/terms"
+
+seo:
+  title_template: "%s | 299Riyal - Best Budget Tech"
+  default_description: "Discover the best tech gadgets under 299 SAR. Expert reviews, comparisons, and buying guides for budget-conscious shoppers in Saudi Arabia."
+  keywords:
+    - "budget tech saudi arabia"
+    - "cheap gadgets SAR"
+    - "best tech under 299"
+    - "affordable electronics riyadh"

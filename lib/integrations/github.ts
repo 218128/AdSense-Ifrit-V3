@@ -144,7 +144,7 @@ export async function pushTemplateFiles(
     token: string,
     repoName: string,
     siteConfig?: Partial<SiteConfig>
-): Promise<{ success: boolean; files?: any[]; repoFullName?: string; error?: string }> {
+): Promise<{ success: boolean; files?: Array<{ path: string; success: boolean; error?: string }>; repoFullName?: string; error?: string }> {
     try {
         const userRes = await validateGitHubToken(token);
         if (!userRes.success || !userRes.user) {

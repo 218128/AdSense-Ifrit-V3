@@ -9,6 +9,8 @@ export interface ArticleMetadata {
     date: string;
     description: string;
     slug: string;
+    author?: string;
+    template?: string;
     schema?: string;
 }
 
@@ -63,7 +65,8 @@ export function getArticleBySlug(slug: string): Article | null {
             content: matterResult.content,
             ...(matterResult.data as { title: string; date: string; description: string }),
         };
-    } catch (err) {
+    } catch (error) {
+        console.error(`Failed to load article with slug "${slug}":`, error);
         return null;
     }
 }

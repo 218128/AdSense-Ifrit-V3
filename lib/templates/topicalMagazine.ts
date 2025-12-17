@@ -331,7 +331,7 @@ export default function Home() {
 
 // Re-use standard generators for pages
 function generateArticlePage(name: string, role: string, bio: string) {
-    return \`import { getArticleBySlug, getAllArticles } from '../../lib/content';
+    return `import { getArticleBySlug, getAllArticles } from '../../lib/content';
 import ReactMarkdown from 'react-markdown';
 
 export async function generateStaticParams() {
@@ -370,9 +370,11 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         </article>
     );
 }
-\`; }
+`;
+}
 
-function generateAboutPage(siteName: string, name: string, role: string, bio: string) { return \`export default function About() {
+function generateAboutPage(siteName: string, name: string, role: string, bio: string) {
+    return `export default function About() {
     return (
         <div className="container" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
             <h1>About ${siteName}</h1>
@@ -392,9 +394,11 @@ function generateAboutPage(siteName: string, name: string, role: string, bio: st
             </div>
         </div>
     );
-}\`; }
+}`;
+}
 
-function generateContentLib() { return \`import fs from 'fs';
+function generateContentLib() {
+    return `import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 
@@ -439,4 +443,5 @@ export function getArticleBySlug(slug: string): Article | null {
         };
     } catch { return null; }
 }
-\`; }
+`;
+}
