@@ -8,13 +8,14 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, AlertCircle, CheckCircle2, Loader2, Copy, Check } from 'lucide-react';
+import { Sparkles, AlertCircle, CheckCircle2, Loader2, Copy, Check, Edit3 } from 'lucide-react';
 
 interface StreamingArticlePreviewProps {
     keyword: string;
     context: string;
     onComplete?: (content: string) => void;
     onError?: (error: string) => void;
+    onRefine?: (content: string) => void; // V4: Open RefineArticleModal
 }
 
 type StreamState = 'idle' | 'connecting' | 'streaming' | 'complete' | 'error';
@@ -23,7 +24,8 @@ export default function StreamingArticlePreview({
     keyword,
     context,
     onComplete,
-    onError
+    onError,
+    onRefine
 }: StreamingArticlePreviewProps) {
     const [content, setContent] = useState('');
     const [state, setState] = useState<StreamState>('idle');
@@ -204,13 +206,24 @@ export default function StreamingArticlePreview({
             <div className="flex items-center justify-between px-4 py-2 bg-neutral-100 border-b border-neutral-200">
                 {getStatusIndicator()}
                 {content && (
-                    <button
-                        onClick={handleCopy}
-                        className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-neutral-200 rounded hover:bg-neutral-50"
-                    >
-                        {copied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
-                        {copied ? 'Copied!' : 'Copy'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {state === 'complete' && onRefine && (
+                            <button
+                                onClick={() => onRefine(content)}
+                                className="flex items-center gap-1 px-2 py-1 text-xs bg-indigo-600 text-white border border-indigo-600 rounded hover:bg-indigo-700"
+                            >
+                                <Edit3 className="w-3 h-3" />
+                                Refine
+                            </button>
+                        )}
+                        <button
+                            onClick={handleCopy}
+                            className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-neutral-200 rounded hover:bg-neutral-50"
+                        >
+                            {copied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                            {copied ? 'Copied!' : 'Copy'}
+                        </button>
+                    </div>
                 )}
             </div>
 

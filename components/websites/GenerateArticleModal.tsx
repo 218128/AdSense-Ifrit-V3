@@ -15,6 +15,7 @@ import { Loader2, Sparkles, X, Zap, BookOpen, FileText, Lightbulb, Image as Imag
 import { addToGenerationHistory } from './GenerationHistory';
 import StockPhotoSelector, { StockPhoto } from '../shared/StockPhotoSelector';
 import StreamingArticlePreview from '../shared/StreamingArticlePreview';
+import RefineArticleModal from './RefineArticleModal';
 
 interface GenerateArticleModalProps {
     domain: string;
@@ -66,6 +67,7 @@ export default function GenerateArticleModal({
     const [streamingMode, setStreamingMode] = useState(false);
     const [showStreamingPreview, setShowStreamingPreview] = useState(false);
     const [streamedContent, setStreamedContent] = useState<string | null>(null);
+    const [showRefineModal, setShowRefineModal] = useState(false);
 
     const handleGenerate = async () => {
         if (!config.keyword.trim()) {
@@ -386,6 +388,10 @@ export default function GenerateArticleModal({
                                     setGenerating(false);
                                     setShowStreamingPreview(false);
                                 }}
+                                onRefine={(content) => {
+                                    setStreamedContent(content);
+                                    setShowRefineModal(true);
+                                }}
                             />
                         </div>
                     )}
@@ -429,6 +435,19 @@ export default function GenerateArticleModal({
                         setShowPhotoSelector(false);
                     }}
                     onClose={() => setShowPhotoSelector(false)}
+                />
+            )}
+
+            {/* V4: Refine Article Modal */}
+            {showRefineModal && streamedContent && (
+                <RefineArticleModal
+                    articleContent={streamedContent}
+                    articleTitle={config.keyword}
+                    onClose={() => setShowRefineModal(false)}
+                    onSave={(refinedContent) => {
+                        setStreamedContent(refinedContent);
+                        setShowRefineModal(false);
+                    }}
                 />
             )}
         </div>
