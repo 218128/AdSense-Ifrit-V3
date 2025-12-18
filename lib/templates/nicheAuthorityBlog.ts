@@ -380,7 +380,15 @@ export default function Home() {
                     <div className="articles-grid">
                         {articles.map((article) => (
                             <article key={article.slug} className="article-card">
-                                <div className="article-card-image">📄</div>
+                                <div className="article-card-image">
+                                    {article.image || article.featuredImage ? (
+                                        <img 
+                                            src={article.image || article.featuredImage} 
+                                            alt={article.title}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        />
+                                    ) : '📄'}
+                                </div>
                                 <div className="article-card-content">
                                     <span className="article-card-category">Article</span>
                                     <h3>
@@ -541,6 +549,8 @@ export interface Article {
     description: string;
     author?: string;
     category?: string;
+    image?: string;
+    featuredImage?: string;
     content: string;
 }
 
@@ -571,6 +581,8 @@ export function getAllArticles(): Article[] {
             description: data.description || '',
             author: data.author,
             category: data.category,
+            image: data.image || data.featuredImage,
+            featuredImage: data.featuredImage || data.image,
             content
         };
     }).sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -589,6 +601,8 @@ export function getArticleBySlug(slug: string): Article | null {
             description: data.description || '',
             author: data.author,
             category: data.category,
+            image: data.image || data.featuredImage,
+            featuredImage: data.featuredImage || data.image,
             content
         };
     } catch {

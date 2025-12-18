@@ -22,8 +22,8 @@
     "githubOwner": "218128",
     "vercelProject": "299riyal-store-blog",
     "liveUrl": "https://299riyal.store",
-    "lastDeployAt": 1766086708812,
-    "lastDeployCommit": "064b98cc481945adeef4033f6328b33c1c9590c9",
+    "lastDeployAt": 1766089634128,
+    "lastDeployCommit": "0886c1c64419c1e10865b4fd5ea75753ea759aa1",
     "pendingChanges": 0
   },
   "stats": {
@@ -36,8 +36,8 @@
     {
       "version": "1.0.2",
       "templateVersion": "1.2.0",
-      "deployedAt": 1766086708814,
-      "commitSha": "064b98cc481945adeef4033f6328b33c1c9590c9",
+      "deployedAt": 1766089634129,
+      "commitSha": "0886c1c64419c1e10865b4fd5ea75753ea759aa1",
       "changes": [
         "Upgraded from v1.0.0 to v1.2.0"
       ],
@@ -60,5 +60,5 @@
   },
   "status": "live",
   "createdAt": 1702504120000,
-  "updatedAt": 1766086708812
+  "updatedAt": 1766089634128
 }

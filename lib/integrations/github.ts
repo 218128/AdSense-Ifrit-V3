@@ -145,7 +145,8 @@ export async function pushTemplateFiles(
     token: string,
     repoName: string,
     siteConfig?: Partial<SiteConfig>,
-    extraFiles?: Record<string, string>  // Additional files like essential pages
+    extraFiles?: Record<string, string>,  // Additional files like essential pages
+    options?: { preserveContent?: boolean }  // Don't overwrite content/ folder
 ): Promise<{ success: boolean; files?: Array<{ path: string; success: boolean; error?: string }>; repoFullName?: string; commitSha?: string; error?: string }> {
     try {
         const userRes = await validateGitHubToken(token);
@@ -176,9 +177,18 @@ export async function pushTemplateFiles(
                 break;
         }
 
+        // Filter out content/ folder if preserveContent is true (for upgrades)
+        if (options?.preserveContent) {
+            templateFiles = templateFiles.filter(f => !f.path.startsWith('content/'));
+        }
+
         // Add extra files (like essential pages)
         if (extraFiles) {
             for (const [filePath, content] of Object.entries(extraFiles)) {
+                // Also respect preserveContent for extra files
+                if (options?.preserveContent && filePath.startsWith('content/')) {
+                    continue;
+                }
                 templateFiles.push({ path: filePath, content });
             }
         }

@@ -83,7 +83,9 @@ export async function POST(
                     role: website.author.role,
                     bio: website.author.bio || ''
                 }
-            }
+            },
+            undefined,  // No extra files
+            { preserveContent: true }  // Don't overwrite content/ folder (articles, images)
         );
 
         if (!pushResult.success) {
