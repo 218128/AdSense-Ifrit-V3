@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Settings, Lock, Globe, DollarSign, Key, Zap, Link2, BarChart3, Image, Layout } from 'lucide-react';
 import { AIKeyManager } from './AIKeyManager';
+import CacheStatusPanel from './CacheStatusPanel';
 import { AIUsagePanel } from './AIUsagePanel';
 import TemplatesPanel from './TemplatesPanel';
 
@@ -372,6 +373,10 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                         AI Usage & Cost Tracking
                     </h3>
                     <AIUsagePanel />
+                    {/* V4: Cache Status */}
+                    <div className="mt-6">
+                        <CacheStatusPanel />
+                    </div>
                 </div>
             )}
 
