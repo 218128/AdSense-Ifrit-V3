@@ -30,17 +30,30 @@ export const NICHE_AUTHORITY_REGISTRY: TemplateRegistry = {
     id: 'niche-authority',
     name: 'Niche Authority Blog',
     description: 'Professional blog template optimized for AdSense and authority building',
-    currentVersion: '1.2.0',
+    currentVersion: '1.3.0',
     versions: [
         {
-            version: '1.2.0',
+            version: '1.3.0',
             releasedAt: Date.now(),
             changelog: [
-                'Added E-E-A-T signal components',
-                'AI Overview optimization blocks',
-                'Content strategy support (TOFU/Tactical/Seasonal)',
-                'Enhanced author bio section',
-                'FAQ schema integration'
+                'Social share buttons (Twitter, Facebook, LinkedIn)',
+                'Article JSON-LD schema for rich search results',
+                'E-E-A-T trust badges (Expert Reviewed, Updated)',
+                'Featured image display on homepage',
+                'Shared component architecture',
+                'Newsletter signup form generator',
+                'Smart AdSense ad zone placements'
+            ],
+            breaking: false,
+            contentSchemaVersion: 2
+        },
+        {
+            version: '1.2.0',
+            releasedAt: Date.now() - 7 * 24 * 60 * 60 * 1000, // 7 days ago
+            changelog: [
+                'Date formatting fix for Vercel builds',
+                'Content preservation during upgrades',
+                'Image support in article frontmatter'
             ],
             breaking: false,
             contentSchemaVersion: 2
