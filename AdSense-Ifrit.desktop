@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=AdSense Ifrit
+Comment=AI-powered content factory for high-revenue monetization
+Exec=gnome-terminal --title="AdSense Ifrit Server" -- bash -c "cd '/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5' && echo '🚀 Starting AdSense Ifrit...' && echo '' && npm run production; read -p 'Press Enter to close...'"
+Icon=applications-internet
+Terminal=false
+Categories=Development;WebDevelopment;
+StartupNotify=true
