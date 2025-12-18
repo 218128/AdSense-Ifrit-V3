@@ -257,8 +257,8 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                 <div className="flex items-center gap-2">
                     {deployMessage && (
                         <span className={`text-sm font-medium ${deployMessage.startsWith('✅') ? 'text-green-600' :
-                                deployMessage.startsWith('⏳') ? 'text-amber-600' :
-                                    'text-red-600'
+                            deployMessage.startsWith('⏳') ? 'text-amber-600' :
+                                'text-red-600'
                             }`}>
                             {deployMessage}
                         </span>
@@ -996,6 +996,8 @@ function UpgradesTab({
     const [loading, setLoading] = useState(true);
     const [upgrading, setUpgrading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [deploying, setDeploying] = useState(false);
+    const [deployMessage, setDeployMessage] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchUpgrade = async () => {
@@ -1039,6 +1041,40 @@ function UpgradesTab({
         }
     };
 
+    const handleDeploy = async () => {
+        const githubToken = localStorage.getItem('ifrit_github_token');
+        if (!githubToken) {
+            setDeployMessage('❌ GitHub token required. Configure in Settings.');
+            return;
+        }
+
+        setDeploying(true);
+        setDeployMessage(null);
+
+        try {
+            const response = await fetch(`/api/websites/${website.domain}/deploy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ githubToken })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setDeployMessage(data.verified
+                    ? '✅ Deployed and verified! Site is live.'
+                    : '⏳ Deployed - verification pending...');
+                onRefresh();
+            } else {
+                setDeployMessage(`❌ ${data.error}`);
+            }
+        } catch {
+            setDeployMessage('❌ Deployment failed');
+        } finally {
+            setDeploying(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-32">
@@ -1062,7 +1098,48 @@ function UpgradesTab({
                 </div>
             )}
 
-            {upgradeInfo?.available ? (
+            {/* Step 2: Pending Deploy - Show after upgrade */}
+            {website.status === 'pending-deploy' && (
+                <div className="p-6 border-2 border-green-200 bg-green-50 rounded-xl">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                                <span className="font-semibold text-green-900">
+                                    Step 1: Upgrade Complete ✓
+                                </span>
+                            </div>
+                            <p className="text-sm text-green-700 mb-3">
+                                Template upgraded to v{website.template.version}.
+                                Now deploy to apply changes to your live site.
+                            </p>
+                            {deployMessage && (
+                                <div className={`text-sm font-medium ${deployMessage.startsWith('✅') ? 'text-green-700' :
+                                        deployMessage.startsWith('⏳') ? 'text-amber-700' :
+                                            'text-red-700'
+                                    }`}>
+                                    {deployMessage}
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            onClick={handleDeploy}
+                            disabled={deploying}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        >
+                            {deploying ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Rocket className="w-4 h-4" />
+                            )}
+                            {deploying ? 'Deploying...' : 'Step 2: Deploy Now'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Step 1: Upgrade Available */}
+            {upgradeInfo?.available && website.status !== 'pending-deploy' ? (
                 <div className="p-6 border-2 border-indigo-200 bg-indigo-50 rounded-xl">
                     <div className="flex items-start justify-between">
                         <div>
@@ -1102,11 +1179,11 @@ function UpgradesTab({
                             ) : (
                                 <ArrowUpCircle className="w-4 h-4" />
                             )}
-                            Upgrade Now
+                            Step 1: Upgrade Now
                         </button>
                     </div>
                 </div>
-            ) : (
+            ) : website.status !== 'pending-deploy' && (
                 <div className="p-8 text-center border border-neutral-200 rounded-xl">
                     <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-500" />
                     <h4 className="font-semibold text-neutral-900">You're Up to Date!</h4>
