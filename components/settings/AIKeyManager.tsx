@@ -49,6 +49,9 @@ export function AIKeyManager() {
     } | null>(null);
     const [newKeyInputs, setNewKeyInputs] = useState<Record<string, string>>({});
     const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+    // V4: Model selection state
+    const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({});
+    const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
 
     // Functions defined before useEffect to avoid access-before-declaration
 
@@ -126,6 +129,37 @@ export function AIKeyManager() {
         setEnabled(enabledState);
     };
 
+    // V4: Load saved model selections
+    const loadSelectedModels = () => {
+        const providerIds = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
+        const savedModels: Record<string, string> = {};
+        const savedAvailable: Record<string, string[]> = {};
+
+        for (const id of providerIds) {
+            const model = localStorage.getItem(`ifrit_${id}_model`);
+            if (model) savedModels[id] = model;
+
+            const available = localStorage.getItem(`ifrit_${id}_available_models`);
+            if (available) {
+                try {
+                    savedAvailable[id] = JSON.parse(available);
+                } catch {
+                    savedAvailable[id] = [];
+                }
+            }
+        }
+
+        setSelectedModels(savedModels);
+        setAvailableModels(savedAvailable);
+    };
+
+    // V4: Save model selection
+    const selectModel = (providerId: string, modelId: string) => {
+        localStorage.setItem(`ifrit_${providerId}_model`, modelId);
+        setSelectedModels(prev => ({ ...prev, [providerId]: modelId }));
+        setTimeout(() => backupToServer(), 100);
+    };
+
     const toggleEnabled = (providerId: string) => {
         const newValue = !enabled[providerId];
         localStorage.setItem(`ifrit_${providerId}_enabled`, String(newValue));
@@ -139,6 +173,7 @@ export function AIKeyManager() {
         loadProviders();
         loadKeys();
         loadEnabled();
+        loadSelectedModels(); // V4: Load saved model selections
         // Try to restore from server if localStorage is empty
         restoreFromServerIfNeeded();
     }, []);
@@ -366,6 +401,17 @@ export function AIKeyManager() {
                 );
                 saveKeys(providerId, updatedKeys);
 
+                // V4: Save available models
+                if (data.models?.length > 0) {
+                    localStorage.setItem(`ifrit_${providerId}_available_models`, JSON.stringify(data.models));
+                    setAvailableModels(prev => ({ ...prev, [providerId]: data.models }));
+
+                    // Auto-select first model if none selected
+                    if (!selectedModels[providerId]) {
+                        selectModel(providerId, data.models[0]);
+                    }
+                }
+
                 // Build models message
                 const modelsText = data.models?.length > 0
                     ? `Available: ${data.models.slice(0, 5).join(', ')}${data.models.length > 5 ? ` +${data.models.length - 5} more` : ''}`
@@ -564,6 +610,29 @@ export function AIKeyManager() {
                                         </span>
                                     ))}
                                 </div>
+
+                                {/* V4: Model Selection */}
+                                {availableModels[provider.id]?.length > 0 && (
+                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <label className="block text-xs font-medium text-blue-800 mb-1">
+                                            Default Model for Generation
+                                        </label>
+                                        <select
+                                            value={selectedModels[provider.id] || ''}
+                                            onChange={(e) => selectModel(provider.id, e.target.value)}
+                                            className="w-full px-3 py-2 bg-white border border-blue-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            {availableModels[provider.id].map(model => (
+                                                <option key={model} value={model}>
+                                                    {model}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="text-xs text-blue-600 mt-1">
+                                            Selected model will be used for article generation
+                                        </p>
+                                    </div>
+                                )}
 
                                 {/* Existing Keys */}
                                 {providerKeys.length > 0 && (

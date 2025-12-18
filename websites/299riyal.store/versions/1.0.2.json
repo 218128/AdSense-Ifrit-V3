@@ -1,0 +1,27 @@
+{
+  "version": {
+    "version": "1.0.2",
+    "templateVersion": "1.2.0",
+    "deployedAt": 1766070247832,
+    "commitSha": "",
+    "changes": [
+      "Upgraded from v1.0.0 to v1.2.0"
+    ],
+    "canRollback": true
+  },
+  "template": {
+    "id": "niche-authority",
+    "version": "1.2.0",
+    "installedAt": 1766070247830
+  },
+  "fingerprint": {
+    "providers": [],
+    "providerHistory": [],
+    "contentStrategy": "unknown",
+    "eeatEnabled": false,
+    "aiOverviewOptimized": false,
+    "generatedAt": 1702504120000,
+    "articleTemplatesUsed": []
+  },
+  "savedAt": 1766070247833
+}

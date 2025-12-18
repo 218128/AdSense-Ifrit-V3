@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import fs from 'fs';
 import path from 'path';
 
@@ -54,6 +54,7 @@ export interface ArticleConfig {
     blogUrl?: string;
     templateType?: ArticleType;
     personaId?: string;
+    modelId?: string; // User-selected model from Settings
     adsenseConfig?: {
         publisherId?: string;
         leaderboardSlot?: string;
@@ -65,6 +66,7 @@ export interface ArticleConfig {
 export interface UserContentConfig {
     blogUrl?: string;
     templateType?: ArticleType;
+    modelId?: string; // User-selected model from Settings
     adsenseConfig?: {
         publisherId?: string;
         leaderboardSlot?: string;
@@ -72,6 +74,9 @@ export interface UserContentConfig {
         multiplexSlot?: string;
     };
 }
+
+// Default model if none selected
+const DEFAULT_MODEL = 'gemini-2.0-flash';
 
 export class ContentGenerator {
     private contentDir: string;
@@ -100,8 +105,9 @@ export class ContentGenerator {
         }
 
         try {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+            // Create GoogleGenAI client with the new SDK
+            const ai = new GoogleGenAI({ apiKey });
+            const modelId = userConfig?.modelId || DEFAULT_MODEL;
 
             const config: ArticleConfig = {
                 keyword,
@@ -111,10 +117,11 @@ export class ContentGenerator {
                 includeFAQ: true,
                 blogUrl: userConfig?.blogUrl,
                 templateType: userConfig?.templateType,
+                modelId,
                 adsenseConfig: userConfig?.adsenseConfig
             };
 
-            const generator = new EnhancedContentGenerator(model);
+            const generator = new EnhancedContentGenerator(ai, modelId);
             const article = await generator.generate(config);
 
             return {
@@ -139,18 +146,15 @@ export class ContentGenerator {
         providerKeys: { gemini?: string[]; deepseek?: string[]; openrouter?: string[]; vercel?: string[]; perplexity?: string[] },
         userConfig?: UserContentConfig
     ): Promise<Article> {
-        // For Gemini-based generation, we need to use the first available Gemini key
-        // The EnhancedContentGenerator is tightly coupled to Gemini's GenerativeModel
-        // So we rotate through Gemini keys first, then fall back to other providers
-
         const geminiKeys = providerKeys.gemini || [];
+        const modelId = userConfig?.modelId || DEFAULT_MODEL;
 
         if (geminiKeys.length > 0) {
             // Try each Gemini key until one works
             for (const key of geminiKeys) {
                 try {
-                    const genAI = new GoogleGenerativeAI(key);
-                    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                    // Create GoogleGenAI client with the new SDK
+                    const ai = new GoogleGenAI({ apiKey: key });
 
                     const config: ArticleConfig = {
                         keyword,
@@ -160,10 +164,11 @@ export class ContentGenerator {
                         includeFAQ: true,
                         blogUrl: userConfig?.blogUrl,
                         templateType: userConfig?.templateType,
+                        modelId,
                         adsenseConfig: userConfig?.adsenseConfig
                     };
 
-                    const generator = new EnhancedContentGenerator(model);
+                    const generator = new EnhancedContentGenerator(ai, modelId);
                     const article = await generator.generate(config);
 
                     contentLogger.success(`Generated with Gemini key rotation`);
@@ -181,7 +186,7 @@ export class ContentGenerator {
             }
         }
 
-        // If no Gemini keys worked, throw error (other providers would require refactoring EnhancedContentGenerator)
+        // If no Gemini keys worked, throw error
         throw new Error("All Gemini keys failed. Add more keys in Settings or check rate limits.");
     }
 
@@ -207,6 +212,8 @@ export class ContentGenerator {
 /**
  * Enhanced Content Generator with Humanization and Templates
  * 
+ * V4 Architecture: Uses @google/genai unified client pattern
+ * 
  * Generation Pipeline:
  * - Pass 0: Select persona and template
  * - Pass 1: Research phase (real products, statistics)
@@ -214,16 +221,31 @@ export class ContentGenerator {
  * - Pass 3: Full article generation (with persona voice)
  * - Pass 4: Quality enhancement (if needed)
  * - Pass 5: Post-processing (human touches)
+ * - Pass 6: Schema.org structured data
  */
 class EnhancedContentGenerator {
-    private model: GenerativeModel;
+    private ai: GoogleGenAI;
+    private modelId: string;
 
-    constructor(model: GenerativeModel) {
-        this.model = model;
+    constructor(ai: GoogleGenAI, modelId: string) {
+        this.ai = ai;
+        this.modelId = modelId;
+    }
+
+    /**
+     * Generate content using the new @google/genai SDK
+     */
+    private async generateContent(prompt: string): Promise<string> {
+        const response = await this.ai.models.generateContent({
+            model: this.modelId,
+            contents: prompt
+        });
+        return response.text || '';
     }
 
     async generate(config: ArticleConfig): Promise<EnhancedArticle> {
         contentLogger.info(`Starting enhanced generation for: ${config.keyword}`);
+        contentLogger.info(`Using model: ${this.modelId}`);
 
         // Pass 0: Select persona and template
         const persona = getBestPersonaForTopic(config.keyword);
@@ -260,7 +282,6 @@ class EnhancedContentGenerator {
         // Pass 6: Add Schema.org structured data for rich snippets
         const schemaScripts = this.generateSchemaMarkup(finalArticle, config, persona);
         if (schemaScripts) {
-            // Append schema scripts at the end of the article body
             finalArticle.body = finalArticle.body + '\n\n' + schemaScripts;
             contentLogger.progress(`Pass 6: Schema.org rich snippets added`);
         }
@@ -286,17 +307,15 @@ class EnhancedContentGenerator {
             ? `${config.blogUrl}/${article.slug}`
             : `https://example.com/${article.slug}`;
 
-        // Always add Article schema
         schemas.push(generateArticleSchema({
             title: article.title,
-            description: article.title, // Use title as fallback description
+            description: article.title,
             datePublished: today,
             authorName: persona.name,
             url: articleUrl,
             publisherName: config.blogUrl ? new URL(config.blogUrl).hostname : undefined
         }));
 
-        // Extract FAQs from article body if present
         const faqs = this.extractFAQsFromBody(article.body);
         if (faqs.length > 0) {
             schemas.push(generateFAQSchema(faqs));
@@ -310,21 +329,16 @@ class EnhancedContentGenerator {
      */
     private extractFAQsFromBody(body: string): FAQSchemaItem[] {
         const faqs: FAQSchemaItem[] = [];
-
-        // Look for FAQ section patterns
-        // Pattern 1: "## FAQ" or "## Frequently Asked Questions" followed by Q&A
         const faqSectionMatch = body.match(/##\s*(?:FAQ|Frequently Asked Questions)[\s\S]*?(?=##|$)/i);
 
         if (faqSectionMatch) {
             const faqSection = faqSectionMatch[0];
-
-            // Pattern: ### Question\nAnswer or **Question**\nAnswer
             const questionPattern = /(?:###\s*|\*\*)(.*?(?:\?|\*\*))\n+([^#\*][\s\S]*?)(?=(?:###|\*\*|$))/g;
             let match;
 
             while ((match = questionPattern.exec(faqSection)) !== null) {
                 const question = match[1].replace(/\*\*/g, '').trim();
-                const answer = match[2].trim().split('\n')[0]; // First paragraph as answer
+                const answer = match[2].trim().split('\n')[0];
 
                 if (question && answer && question.length > 10 && answer.length > 20) {
                     faqs.push({ question, answer });
@@ -332,7 +346,6 @@ class EnhancedContentGenerator {
             }
         }
 
-        // Limit to 10 FAQs for schema
         return faqs.slice(0, 10);
     }
 
@@ -376,8 +389,7 @@ List 7 frequently asked questions users have about this topic, focusing on:
 
 Be specific, factual, and use ONLY real product names. No placeholders.`;
 
-        const result = await this.model.generateContent(prompt);
-        return result.response.text();
+        return this.generateContent(prompt);
     }
 
     private async generateOutline(
@@ -387,7 +399,6 @@ Be specific, factual, and use ONLY real product names. No placeholders.`;
     ): Promise<string> {
         const humanKeyword = this.humanizeKeyword(config.keyword);
 
-        // Build section instructions from template
         const sectionInstructions = template.sections.map((section, i) =>
             `${i + 1}. **${section.heading}** (${section.type})\n   - Target: ~${section.targetWordCount} words\n   - Hint: ${section.promptHint}`
         ).join('\n\n');
@@ -416,8 +427,7 @@ For each section, provide:
 4. Which research data to include
 5. Estimated word count`;
 
-        const result = await this.model.generateContent(prompt);
-        return result.response.text();
+        return this.generateContent(prompt);
     }
 
     private async generateFullArticle(
@@ -431,7 +441,6 @@ For each section, provide:
         const humanTitle = this.humanizeTitle(config.keyword);
         const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-        // Generate voice and E-E-A-T instructions
         const voiceInstructions = generateVoiceInstructions(persona, DEFAULT_VOICE_CONFIG);
         const eeatInstructions = generateEEATInstructions(persona);
         const anecdotePrompt = generateAnecdotePrompt(persona, humanTitle, config.context);
@@ -494,10 +503,8 @@ ${template.schemaTypes.includes('Review') ? '   - Clear rating/score (e.g., 4.5/
 
 Start directly with --- (no preamble like "Here is the article").`;
 
-        const result = await this.model.generateContent(prompt);
-        const body = result.response.text();
+        const body = await this.generateContent(prompt);
 
-        // Extract title from frontmatter
         const titleMatch = body.match(/^title: "([^"]+)"/m);
         const title = titleMatch ? titleMatch[1] : humanTitle;
 
@@ -541,8 +548,7 @@ ${persona.voiceTraits.map(t => `- ${t}`).join('\n')}
 
 Keep the existing structure and frontmatter. Return the complete expanded article starting with ---.`;
 
-        const result = await this.model.generateContent(prompt);
-        const expandedBody = result.response.text();
+        const expandedBody = await this.generateContent(prompt);
 
         return {
             ...article,
@@ -557,7 +563,6 @@ Keep the existing structure and frontmatter. Return the complete expanded articl
             .split('-')
             .map(word => {
                 const upper = word.toUpperCase();
-                // Handle common acronyms
                 const acronyms = ['AI', 'SEO', 'API', 'CPC', 'ROI', 'SAAS', 'B2B', 'B2C', 'UI', 'UX', 'VPN', 'CRM', 'ERP', 'CMS', 'SSL', 'DNS', 'URL', 'HTML', 'CSS', 'JS'];
                 if (acronyms.includes(upper)) {
                     return upper;
@@ -573,7 +578,7 @@ Keep the existing structure and frontmatter. Return the complete expanded articl
 
     private countWords(text: string): number {
         return text
-            .replace(/---[\s\S]*?---/, '') // Remove frontmatter
+            .replace(/---[\s\S]*?---/, '')
             .split(/\s+/)
             .filter(word => word.length > 0)
             .length;

@@ -8,5 +8,6 @@ export {
     getAIProviderKeys,
     getEnabledProviderKeys,
     getEnabledProviders,
+    getSelectedModel, // V4: Get selected model per provider
     type UserSettings,
 } from './SettingsView';

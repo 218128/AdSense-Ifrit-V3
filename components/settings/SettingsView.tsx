@@ -118,6 +118,15 @@ export function getEnabledProviderKeys(): { gemini: string[]; deepseek: string[]
     };
 }
 
+/**
+ * V4: Get selected model for a provider (used by content generation)
+ */
+export function getSelectedModel(provider: string = 'gemini'): string | undefined {
+    if (typeof window === 'undefined') return undefined;
+    return localStorage.getItem(`ifrit_${provider}_model`) || undefined;
+}
+
+
 type SettingsTab = 'ai' | 'usage' | 'images' | 'templates' | 'blog' | 'adsense' | 'integrations' | 'backup';
 
 interface SettingsModalProps {

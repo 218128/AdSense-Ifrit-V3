@@ -5,8 +5,8 @@
   "niche": "Budget Tech & Gadgets",
   "template": {
     "id": "niche-authority",
-    "version": "1.0.0",
-    "installedAt": 1702504120000
+    "version": "1.2.0",
+    "installedAt": 1766070247830
   },
   "fingerprint": {
     "providers": [],
@@ -34,6 +34,16 @@
   },
   "versions": [
     {
+      "version": "1.0.2",
+      "templateVersion": "1.2.0",
+      "deployedAt": 1766070247832,
+      "commitSha": "",
+      "changes": [
+        "Upgraded from v1.0.0 to v1.2.0"
+      ],
+      "canRollback": true
+    },
+    {
       "version": "1.0.1",
       "templateVersion": "1.0.0",
       "deployedAt": 1734217746000,
@@ -48,7 +58,7 @@
     "name": "Ahmed Al-Rashid",
     "role": "Tech Reviewer"
   },
-  "status": "live",
+  "status": "pending-deploy",
   "createdAt": 1702504120000,
-  "updatedAt": 1765932934208
+  "updatedAt": 1766070247832
 }
