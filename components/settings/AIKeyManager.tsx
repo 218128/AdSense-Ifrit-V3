@@ -153,15 +153,25 @@ export function AIKeyManager() {
         setAvailableModels(savedAvailable);
     };
 
-    // V4: Save model selection
+    // V4: Save model selection AND auto-enable provider
     const selectModel = (providerId: string, modelId: string) => {
         localStorage.setItem(`ifrit_${providerId}_model`, modelId);
         setSelectedModels(prev => ({ ...prev, [providerId]: modelId }));
+        // Auto-enable provider when model is selected
+        localStorage.setItem(`ifrit_${providerId}_enabled`, 'true');
+        setEnabled(prev => ({ ...prev, [providerId]: true }));
         setTimeout(() => backupToServer(), 100);
     };
 
     const toggleEnabled = (providerId: string) => {
         const newValue = !enabled[providerId];
+
+        // V4 Hard Rule: Cannot enable provider without a model selected
+        if (newValue && !selectedModels[providerId]) {
+            alert(`⚠️ Cannot enable ${providerId.toUpperCase()}!\n\nModel not selected. Please select a model first.`);
+            return;
+        }
+
         localStorage.setItem(`ifrit_${providerId}_enabled`, String(newValue));
         setEnabled(prev => ({ ...prev, [providerId]: newValue }));
         // Auto-backup after change
@@ -401,18 +411,24 @@ export function AIKeyManager() {
                 );
                 saveKeys(providerId, updatedKeys);
 
-                // V4: Save available models
+                // V4: Save available models (user MUST select one manually)
                 if (data.models?.length > 0) {
                     localStorage.setItem(`ifrit_${providerId}_available_models`, JSON.stringify(data.models));
                     setAvailableModels(prev => ({ ...prev, [providerId]: data.models }));
 
-                    // Auto-select first model if none selected
+                    // NO AUTO-SELECT - user must explicitly choose a model
+                    // Provider stays disabled until model is selected
                     if (!selectedModels[providerId]) {
-                        selectModel(providerId, data.models[0]);
+                        // Force disable provider until model is selected
+                        localStorage.setItem(`ifrit_${providerId}_enabled`, 'false');
+                        setEnabled(prev => ({ ...prev, [providerId]: false }));
                     }
                 }
 
-                // Build models message
+                // Build models message with warning if no model selected
+                const noModelWarning = !selectedModels[providerId]
+                    ? '\n⚠️ AI Provider is disabled, Model not selected!'
+                    : '';
                 const modelsText = data.models?.length > 0
                     ? `Available: ${data.models.slice(0, 5).join(', ')}${data.models.length > 5 ? ` +${data.models.length - 5} more` : ''}`
                     : 'Models available';
@@ -421,7 +437,7 @@ export function AIKeyManager() {
                     providerId,
                     key,
                     success: true,
-                    message: `✅ Key valid! (${data.responseTime}ms)\n${modelsText}`
+                    message: `✅ Key valid! (${data.responseTime}ms)\n${modelsText}${noModelWarning}`
                 });
             } else {
                 setTestResult({
