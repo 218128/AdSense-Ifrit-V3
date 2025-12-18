@@ -84,6 +84,144 @@ export async function POST(
             });
         }
 
+        // Handle syncFromGitHub action
+        if (action === 'syncFromGitHub') {
+            const { githubToken } = body;
+
+            if (!githubToken) {
+                return NextResponse.json(
+                    { success: false, error: 'GitHub token required' },
+                    { status: 400 }
+                );
+            }
+
+            const { githubRepo, githubOwner } = website.deployment;
+            if (!githubRepo || !githubOwner) {
+                return NextResponse.json(
+                    { success: false, error: 'GitHub repo not configured' },
+                    { status: 400 }
+                );
+            }
+
+            const syncedPages: Article[] = [];
+            const errors: string[] = [];
+
+            // Page types to sync (maps to app/[slug]/page.tsx files)
+            const pageTypesToSync: { type: StructuralPageType; possiblePaths: string[] }[] = [
+                { type: 'about', possiblePaths: ['app/about/page.tsx', 'content/pages/about.md'] },
+                { type: 'contact', possiblePaths: ['app/contact/page.tsx', 'content/pages/contact.md'] },
+                { type: 'privacy', possiblePaths: ['app/privacy/page.tsx', 'content/pages/privacy.md'] },
+                { type: 'terms', possiblePaths: ['app/terms/page.tsx', 'content/pages/terms.md'] },
+            ];
+
+            for (const { type, possiblePaths } of pageTypesToSync) {
+                let content: string | null = null;
+                let foundPath: string | null = null;
+
+                // Try each possible path
+                for (const filePath of possiblePaths) {
+                    try {
+                        const fileRes = await fetch(
+                            `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+                            {
+                                headers: {
+                                    'Authorization': `Bearer ${githubToken}`,
+                                    'Accept': 'application/vnd.github.v3+json',
+                                    'User-Agent': 'AdSense-Ifrit'
+                                }
+                            }
+                        );
+
+                        if (fileRes.ok) {
+                            const fileData = await fileRes.json();
+                            content = Buffer.from(fileData.content, 'base64').toString('utf-8');
+                            foundPath = filePath;
+                            break;
+                        }
+                    } catch {
+                        // Continue to next path
+                    }
+                }
+
+                if (content && foundPath) {
+                    // Extract content from TSX or MD file
+                    let extractedContent = '';
+                    let title = type.charAt(0).toUpperCase() + type.slice(1);
+
+                    if (foundPath.endsWith('.tsx')) {
+                        // Extract content from TSX - look for markdown-like content
+                        const contentMatch = content.match(/\{`([^`]+)`\}/) ||
+                            content.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
+                            content.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+
+                        if (contentMatch) {
+                            extractedContent = contentMatch[1].trim();
+                        } else {
+                            // Just extract text content
+                            extractedContent = content
+                                .replace(/<[^>]+>/g, '\n')
+                                .replace(/\{[^}]+\}/g, '')
+                                .replace(/import.*\n/g, '')
+                                .replace(/export.*\n/g, '')
+                                .trim();
+                        }
+
+                        // Try to extract title
+                        const titleMatch = content.match(/<h1[^>]*>([^<]+)<\/h1>/i) ||
+                            content.match(/title[=:]\s*["']([^"']+)["']/i);
+                        if (titleMatch) {
+                            title = titleMatch[1];
+                        }
+                    } else if (foundPath.endsWith('.md')) {
+                        extractedContent = content;
+                        const titleMatch = content.match(/^#\s+(.+)$/m);
+                        if (titleMatch) {
+                            title = titleMatch[1];
+                        }
+                    }
+
+                    if (extractedContent) {
+                        const now = Date.now();
+                        const page: Article = {
+                            id: `page_${type}_${now}`,
+                            slug: type,
+                            title,
+                            description: `${title} page for ${website.name}`,
+                            content: extractedContent,
+                            category: 'Pages',
+                            tags: [],
+                            contentType: 'structural',
+                            pageType: 'structural',
+                            structuralType: type,
+                            wordCount: extractedContent.split(/\s+/).length,
+                            readingTime: Math.ceil(extractedContent.split(/\s+/).length / 200),
+                            eeatSignals: [],
+                            aiOverviewBlocks: [],
+                            isExternal: false,
+                            source: 'github-sync',
+                            status: 'published',
+                            lastModifiedAt: now,
+                            publishedAt: now,
+                        };
+
+                        savePage(domain, page);
+                        syncedPages.push(page);
+                    }
+                } else {
+                    errors.push(`${type}: not found in repo`);
+                }
+            }
+
+            const pages = listPages(domain);
+            return NextResponse.json({
+                success: true,
+                message: `Synced ${syncedPages.length} pages from GitHub`,
+                syncedCount: syncedPages.length,
+                errors: errors.length > 0 ? errors : undefined,
+                pages
+            });
+        }
+
         // Validate pageType
         if (!pageType || !VALID_PAGE_TYPES.includes(pageType)) {
             return NextResponse.json(

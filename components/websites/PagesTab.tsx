@@ -21,7 +21,8 @@ import {
     RefreshCw,
     Eye,
     Sparkles,
-    Save
+    Save,
+    Download
 } from 'lucide-react';
 
 // ============================================
@@ -65,6 +66,8 @@ export default function PagesTab({ domain, onRefresh }: PagesTabProps) {
     const [pages, setPages] = useState<StructuralPage[]>([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncMessage, setSyncMessage] = useState<string | null>(null);
     const [editingPage, setEditingPage] = useState<string | null>(null);
     const [editContent, setEditContent] = useState('');
     const [editTitle, setEditTitle] = useState('');
@@ -108,6 +111,42 @@ export default function PagesTab({ domain, onRefresh }: PagesTabProps) {
             console.error('Failed to create defaults:', err);
         } finally {
             setCreating(false);
+        }
+    };
+
+    // Sync pages from GitHub
+    const syncFromGitHub = async () => {
+        const githubToken = localStorage.getItem('ifrit_github_token');
+        if (!githubToken) {
+            setSyncMessage('❌ GitHub token required. Configure in Settings.');
+            return;
+        }
+
+        setSyncing(true);
+        setSyncMessage(null);
+
+        try {
+            const res = await fetch(`/api/websites/${domain}/pages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'syncFromGitHub',
+                    githubToken
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setPages(data.pages || []);
+                setSyncMessage(`✅ ${data.message}${data.errors ? ` (${data.errors.join(', ')})` : ''}`);
+                onRefresh?.();
+            } else {
+                setSyncMessage(`❌ ${data.error}`);
+            }
+        } catch (err) {
+            console.error('Failed to sync from GitHub:', err);
+            setSyncMessage('❌ Sync failed');
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -186,19 +225,39 @@ export default function PagesTab({ domain, onRefresh }: PagesTabProps) {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {syncMessage && (
+                        <span className={`text-sm ${syncMessage.startsWith('✅') ? 'text-green-600' : 'text-red-600'}`}>
+                            {syncMessage}
+                        </span>
+                    )}
                     {pages.length === 0 && (
-                        <button
-                            onClick={createDefaults}
-                            disabled={creating}
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50"
-                        >
-                            {creating ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Sparkles className="w-4 h-4" />
-                            )}
-                            Generate Default Pages
-                        </button>
+                        <>
+                            <button
+                                onClick={syncFromGitHub}
+                                disabled={syncing}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50"
+                                title="Import existing pages from GitHub repo"
+                            >
+                                {syncing ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Download className="w-4 h-4" />
+                                )}
+                                Sync from GitHub
+                            </button>
+                            <button
+                                onClick={createDefaults}
+                                disabled={creating}
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                            >
+                                {creating ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Sparkles className="w-4 h-4" />
+                                )}
+                                Generate New
+                            </button>
+                        </>
                     )}
                     <button
                         onClick={fetchPages}
