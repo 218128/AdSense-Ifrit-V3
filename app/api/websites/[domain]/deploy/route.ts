@@ -2,8 +2,8 @@
  * Deploy API
  * 
  * Handles verified deployment workflow:
- * 1. Push changes to GitHub repository
- * 2. Trigger Vercel deployment
+ * 1. Push template files to GitHub repository
+ * 2. Wait for Vercel auto-deploy
  * 3. Verify deployment success before updating status
  * 
  * POST /api/websites/[domain]/deploy
@@ -13,12 +13,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getWebsite, saveWebsite, updateVersionCommit } from '@/lib/websiteStore';
+import { pushTemplateFiles } from '@/lib/integrations/github';
 
 interface DeployResult {
     success: boolean;
     commitSha?: string;
     deploymentUrl?: string;
-    vercelDeploymentId?: string;
+    filesUpdated?: number;
     error?: string;
     verified: boolean;
 }
@@ -57,63 +58,87 @@ export async function POST(
             );
         }
 
-        // Step 1: Check if there are pending changes (or just re-deploy)
         console.log(`[Deploy] Starting deployment for ${domain}...`);
 
-        // Step 2: Get current deployment commit to compare
-        const currentCommit = await getLatestCommit(githubOwner, githubRepo, githubToken);
+        // Step 1: Push updated template files to GitHub
+        // This regenerates template files with current config and pushes to repo
+        console.log(`[Deploy] Pushing template files to ${githubOwner}/${githubRepo}...`);
 
-        if (!currentCommit.success) {
+        // Map template ID to the format expected by pushTemplateFiles
+        const templateMap: Record<string, 'niche' | 'magazine' | 'expert'> = {
+            'niche-authority': 'niche',
+            'topical-magazine': 'magazine',
+            'expert-hub': 'expert'
+        };
+        const templateType = templateMap[website.template.id] || 'niche';
+
+        const pushResult = await pushTemplateFiles(
+            githubToken,
+            githubRepo,
+            {
+                template: templateType,
+                siteName: website.name,
+                author: {
+                    name: website.author.name,
+                    role: website.author.role,
+                    bio: website.author.bio || ''
+                }
+            }
+        );
+
+        if (!pushResult.success) {
             return NextResponse.json({
                 success: false,
-                error: `Failed to get GitHub commit: ${currentCommit.error}`,
+                error: `Failed to push files: ${pushResult.error}`,
                 verified: false
             });
         }
 
-        // Step 3: Trigger Vercel deployment via webhook or wait for auto-deploy
-        // Vercel auto-deploys on push, so we just need to verify it completed
-        console.log(`[Deploy] Latest commit: ${currentCommit.sha}`);
+        const filesUpdated = pushResult.files?.filter(f => f.success).length || 0;
+        console.log(`[Deploy] Pushed ${filesUpdated} files to GitHub`);
 
-        // Step 4: Poll Vercel for deployment status (optional - requires Vercel token)
-        // For now, we verify via GitHub that the commit exists and update status
+        // Step 2: Get the new commit SHA
+        const commitResult = await getLatestCommit(githubOwner, githubRepo, githubToken);
 
-        // Step 5: Verify deployment by checking the live site (simple HTTP check)
-        const verificationResult = await verifyDeployment(website.deployment.liveUrl);
-
-        if (!verificationResult.success) {
-            // Deployment might still be in progress, set status but warn
-            console.log(`[Deploy] Verification pending: ${verificationResult.message}`);
+        if (!commitResult.success) {
+            console.log(`[Deploy] Warning: Could not get commit SHA: ${commitResult.error}`);
         }
 
-        // Step 6: Update website status only if verification passes or is pending
+        // Step 3: Wait a moment for Vercel to pick up the push
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Step 4: Verify deployment by checking the live site
+        const verificationResult = await verifyDeployment(website.deployment.liveUrl);
+
+        // Step 5: Update website status based on verification
         website.status = verificationResult.success ? 'live' : 'pending-deploy';
         website.deployment.lastDeployAt = Date.now();
-        website.deployment.lastDeployCommit = currentCommit.sha;
+        website.deployment.lastDeployCommit = commitResult.sha || '';
         website.deployment.pendingChanges = 0;
         website.updatedAt = Date.now();
 
         saveWebsite(website);
 
         // Update version record with commit SHA
-        if (website.versions.length > 0) {
-            updateVersionCommit(domain, website.versions[0].version, currentCommit.sha || '');
+        if (website.versions.length > 0 && commitResult.sha) {
+            updateVersionCommit(domain, website.versions[0].version, commitResult.sha);
         }
 
         const result: DeployResult = {
             success: true,
-            commitSha: currentCommit.sha,
+            commitSha: commitResult.sha,
             deploymentUrl: website.deployment.liveUrl,
+            filesUpdated,
             verified: verificationResult.success
         };
 
-        console.log(`[Deploy] Completed for ${domain}. Verified: ${verificationResult.success}`);
+        console.log(`[Deploy] Completed for ${domain}. Files: ${filesUpdated}, Verified: ${verificationResult.success}`);
 
         return NextResponse.json({
             ...result,
             message: verificationResult.success
-                ? 'Deployment verified successfully'
-                : 'Deployment initiated - verification pending',
+                ? `Deployed ${filesUpdated} files and verified!`
+                : `Deployed ${filesUpdated} files - Vercel building...`,
             status: website.status
         });
 
@@ -181,7 +206,7 @@ async function verifyDeployment(
             success: false,
             message: `Site returned ${response.status}`
         };
-    } catch (err) {
+    } catch {
         return {
             success: false,
             message: 'Site not accessible - may still be deploying'
