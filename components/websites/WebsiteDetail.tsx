@@ -32,7 +32,8 @@ import {
     Loader2,
     Cpu,
     Sparkles,
-    RotateCcw
+    RotateCcw,
+    Rocket
 } from 'lucide-react';
 import BuildingProgress from './BuildingProgress';
 import GenerateArticleModal from './GenerateArticleModal';
@@ -134,6 +135,8 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
     const [articles, setArticles] = useState<Article[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [deploying, setDeploying] = useState(false);
+    const [deployMessage, setDeployMessage] = useState<string | null>(null);
 
     // Fetch website data
     const fetchWebsite = useCallback(async () => {
@@ -157,6 +160,41 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
     useEffect(() => {
         fetchWebsite();
     }, [fetchWebsite]);
+
+    // Handle verified deployment
+    const handleDeploy = async () => {
+        const githubToken = localStorage.getItem('ifrit_github_token');
+        if (!githubToken) {
+            setDeployMessage('❌ GitHub token required. Configure in Settings.');
+            return;
+        }
+
+        setDeploying(true);
+        setDeployMessage(null);
+
+        try {
+            const response = await fetch(`/api/websites/${domain}/deploy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ githubToken })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setDeployMessage(data.verified
+                    ? '✅ Deployed and verified!'
+                    : '⏳ Deployed - verification pending');
+                fetchWebsite(); // Refresh to get new status
+            } else {
+                setDeployMessage(`❌ ${data.error}`);
+            }
+        } catch {
+            setDeployMessage('❌ Deployment failed');
+        } finally {
+            setDeploying(false);
+        }
+    };
 
     const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
         { id: 'overview', label: 'Overview', icon: <Globe className="w-4 h-4" /> },
@@ -217,6 +255,28 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {deployMessage && (
+                        <span className={`text-sm font-medium ${deployMessage.startsWith('✅') ? 'text-green-600' :
+                                deployMessage.startsWith('⏳') ? 'text-amber-600' :
+                                    'text-red-600'
+                            }`}>
+                            {deployMessage}
+                        </span>
+                    )}
+                    {website.status === 'pending-deploy' && (
+                        <button
+                            onClick={handleDeploy}
+                            disabled={deploying}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        >
+                            {deploying ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Rocket className="w-4 h-4" />
+                            )}
+                            {deploying ? 'Deploying...' : 'Deploy Now'}
+                        </button>
+                    )}
                     {website.deployment.pendingChanges > 0 && (
                         <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
                             {website.deployment.pendingChanges} pending changes

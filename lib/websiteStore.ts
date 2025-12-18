@@ -874,6 +874,27 @@ export function getVersionHistory(domain: string): WebsiteVersion[] {
 }
 
 /**
+ * Update commit SHA on a version record after deployment
+ */
+export function updateVersionCommit(
+    domain: string,
+    version: string,
+    commitSha: string
+): boolean {
+    const website = getWebsite(domain);
+    if (!website) return false;
+
+    const versionRecord = website.versions.find(v => v.version === version);
+    if (versionRecord) {
+        versionRecord.commitSha = commitSha;
+        versionRecord.deployedAt = Date.now();
+        saveWebsite(website);
+        return true;
+    }
+    return false;
+}
+
+/**
  * Check content compatibility before rollback
  */
 export function checkContentCompatibility(
