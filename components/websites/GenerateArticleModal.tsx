@@ -11,9 +11,10 @@
  */
 
 import { useState } from 'react';
-import { Loader2, Sparkles, X, Zap, BookOpen, FileText, Lightbulb, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Sparkles, X, Zap, BookOpen, FileText, Lightbulb, Image as ImageIcon, Play } from 'lucide-react';
 import { addToGenerationHistory } from './GenerationHistory';
 import StockPhotoSelector, { StockPhoto } from '../shared/StockPhotoSelector';
+import StreamingArticlePreview from '../shared/StreamingArticlePreview';
 
 interface GenerateArticleModalProps {
     domain: string;
@@ -61,6 +62,10 @@ export default function GenerateArticleModal({
     const [error, setError] = useState<string | null>(null);
     const [showPhotoSelector, setShowPhotoSelector] = useState(false);
     const [selectedCover, setSelectedCover] = useState<StockPhoto | null>(null);
+    // V4: Streaming preview mode
+    const [streamingMode, setStreamingMode] = useState(false);
+    const [showStreamingPreview, setShowStreamingPreview] = useState(false);
+    const [streamedContent, setStreamedContent] = useState<string | null>(null);
 
     const handleGenerate = async () => {
         if (!config.keyword.trim()) {
@@ -71,6 +76,12 @@ export default function GenerateArticleModal({
         setGenerating(true);
         setError(null);
         setStatus('Starting generation...');
+
+        // V4: If streaming mode is enabled, show the streaming preview
+        if (streamingMode) {
+            setShowStreamingPreview(true);
+            return; // The StreamingArticlePreview handles the generation
+        }
 
         try {
             // Get tokens
@@ -330,6 +341,18 @@ export default function GenerateArticleModal({
                             />
                             <span className="text-sm text-neutral-700">Optimize for AI Overview</span>
                         </label>
+                        {/* V4: Streaming Mode Toggle */}
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={streamingMode}
+                                onChange={e => setStreamingMode(e.target.checked)}
+                                className="w-4 h-4 text-indigo-600 rounded"
+                            />
+                            <span className="text-sm text-neutral-700 flex items-center gap-1">
+                                <Play className="w-3 h-3" /> Live Preview
+                            </span>
+                        </label>
                     </div>
 
                     {/* Error */}
@@ -344,6 +367,26 @@ export default function GenerateArticleModal({
                         <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-700 text-sm flex items-center gap-2">
                             {generating && <Loader2 className="w-4 h-4 animate-spin" />}
                             {status}
+                        </div>
+                    )}
+
+                    {/* V4: Streaming Preview Panel */}
+                    {streamingMode && showStreamingPreview && config.keyword.trim() && (
+                        <div className="border border-indigo-200 rounded-lg overflow-hidden">
+                            <StreamingArticlePreview
+                                keyword={config.keyword}
+                                context={niche}
+                                onComplete={(content) => {
+                                    setStreamedContent(content);
+                                    setStatus('Article generated! ✅');
+                                    setGenerating(false);
+                                }}
+                                onError={(err) => {
+                                    setError(err);
+                                    setGenerating(false);
+                                    setShowStreamingPreview(false);
+                                }}
+                            />
                         </div>
                     )}
                 </div>
