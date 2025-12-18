@@ -40,7 +40,7 @@ export async function POST(
         }
 
         const body = await request.json();
-        const { githubToken } = body;
+        const { githubToken, adsensePublisherId, umamiId } = body;
 
         if (!githubToken) {
             return NextResponse.json(
@@ -82,7 +82,10 @@ export async function POST(
                     name: website.author.name,
                     role: website.author.role,
                     bio: website.author.bio || ''
-                }
+                },
+                // Optional: AdSense and analytics config from client settings
+                ...(adsensePublisherId && { adsensePublisherId }),
+                ...(umamiId && { umamiId })
             },
             undefined,  // No extra files
             { preserveContent: true }  // Don't overwrite content/ folder (articles, images)

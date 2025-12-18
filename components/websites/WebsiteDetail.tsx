@@ -173,10 +173,18 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
         setDeployMessage(null);
 
         try {
+            // Get AdSense and analytics settings from localStorage
+            const adsensePublisherId = localStorage.getItem('ADSENSE_PUBLISHER_ID');
+            const umamiId = localStorage.getItem('UMAMI_WEBSITE_ID');
+
             const response = await fetch(`/api/websites/${domain}/deploy`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ githubToken })
+                body: JSON.stringify({
+                    githubToken,
+                    adsensePublisherId,
+                    umamiId
+                })
             });
 
             const data = await response.json();
@@ -1115,8 +1123,8 @@ function UpgradesTab({
                             </p>
                             {deployMessage && (
                                 <div className={`text-sm font-medium ${deployMessage.startsWith('✅') ? 'text-green-700' :
-                                        deployMessage.startsWith('⏳') ? 'text-amber-700' :
-                                            'text-red-700'
+                                    deployMessage.startsWith('⏳') ? 'text-amber-700' :
+                                        'text-red-700'
                                     }`}>
                                     {deployMessage}
                                 </div>
