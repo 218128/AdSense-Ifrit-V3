@@ -173,7 +173,6 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
         setDeployMessage(null);
 
         try {
-            // Get AdSense and analytics settings from localStorage
             const adsensePublisherId = localStorage.getItem('ADSENSE_PUBLISHER_ID');
             const umamiId = localStorage.getItem('UMAMI_WEBSITE_ID');
 
@@ -369,6 +368,9 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                     <UpgradesTab
                         website={website}
                         onRefresh={fetchWebsite}
+                        onDeploy={handleDeploy}
+                        deploying={deploying}
+                        deployMessage={deployMessage}
                     />
                 )}
                 {activeTab === 'settings' && (
@@ -995,17 +997,25 @@ function VersionsTab({
 
 function UpgradesTab({
     website,
-    onRefresh
+    onRefresh,
+    onDeploy,
+    deploying: deployingProp,
+    deployMessage: deployMessageProp
 }: {
     website: Website;
     onRefresh: () => void;
+    onDeploy: () => Promise<void>;
+    deploying: boolean;
+    deployMessage: string | null;
 }) {
     const [upgradeInfo, setUpgradeInfo] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [upgrading, setUpgrading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [deploying, setDeploying] = useState(false);
-    const [deployMessage, setDeployMessage] = useState<string | null>(null);
+
+    // Use props from parent for deploy state
+    const deploying = deployingProp;
+    const deployMessage = deployMessageProp;
 
     useEffect(() => {
         const fetchUpgrade = async () => {
@@ -1049,39 +1059,8 @@ function UpgradesTab({
         }
     };
 
-    const handleDeploy = async () => {
-        const githubToken = localStorage.getItem('ifrit_github_token');
-        if (!githubToken) {
-            setDeployMessage('❌ GitHub token required. Configure in Settings.');
-            return;
-        }
-
-        setDeploying(true);
-        setDeployMessage(null);
-
-        try {
-            const response = await fetch(`/api/websites/${website.domain}/deploy`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ githubToken })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                setDeployMessage(data.verified
-                    ? '✅ Deployed and verified! Site is live.'
-                    : '⏳ Deployed - verification pending...');
-                onRefresh();
-            } else {
-                setDeployMessage(`❌ ${data.error}`);
-            }
-        } catch {
-            setDeployMessage('❌ Deployment failed');
-        } finally {
-            setDeploying(false);
-        }
-    };
+    // Use shared deploy function from parent
+    const handleDeploy = onDeploy;
 
     if (loading) {
         return (
