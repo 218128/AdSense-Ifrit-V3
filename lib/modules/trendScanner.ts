@@ -2,6 +2,7 @@ import googleTrends from 'google-trends-api';
 import type { TrendingSearch } from 'google-trends-api';
 import { scoreTrend, TrendScore, DEFAULT_WEIGHTS, ScoringWeights } from './trendScoring';
 import { analyzeCPC, getHighCPCNiches } from './cpcIntelligence';
+import { trendLogger } from '@/lib/utils/logger';
 
 export interface Trend {
     topic: string;
@@ -95,7 +96,7 @@ export class TrendScanner {
         }
 
         this.csvTrends = trends;
-        console.log(`📥 Imported ${trends.length} trends from CSV`);
+        trendLogger.info(`Imported ${trends.length} trends from CSV`);
 
         return trends;
     }
@@ -151,7 +152,7 @@ export class TrendScanner {
      */
     async scan(options: ScanOptions = {}): Promise<ScanResult> {
         const opts = { ...DEFAULT_SCAN_OPTIONS, ...options };
-        console.log(`🔍 Scanning for trends (High CPC Mode: ${opts.highCPCMode ? 'ON' : 'OFF'})...`);
+        trendLogger.info(`Scanning for trends (High CPC Mode: ${opts.highCPCMode ? 'ON' : 'OFF'})...`);
 
         try {
             // Fetch daily trends
@@ -191,14 +192,14 @@ export class TrendScanner {
 
             // If high CPC mode and not enough high-CPC trends, supplement with fallbacks
             if (opts.highCPCMode && finalTrends.length < 3) {
-                console.log('⚡ Not enough high-CPC trends found, supplementing with evergreen topics...');
+                trendLogger.debug('Not enough high-CPC trends found, supplementing with evergreen topics...');
                 const fallbacks = this.getHighCPCFallbackTrends();
                 const fallbackEnhanced = this.enhanceTrends(fallbacks);
                 finalTrends = [...finalTrends, ...fallbackEnhanced].slice(0, opts.maxResults || 5);
             }
 
             const stats = this.calculateStats(enhancedTrends);
-            console.log(`✅ Found ${finalTrends.length} trends (${stats.highCPCCount} high-CPC). Avg score: ${stats.averageScore}`);
+            trendLogger.success(`Found ${finalTrends.length} trends (${stats.highCPCCount} high-CPC). Avg score: ${stats.averageScore}`);
 
             return {
                 trends: finalTrends,
@@ -209,7 +210,7 @@ export class TrendScanner {
 
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            console.warn(`⚠️  Failed to fetch Google Trends: ${errorMessage}`);
+            trendLogger.warn(`Failed to fetch Google Trends: ${errorMessage}`);
 
             // Check if error looks like captcha/rate limit
             const needsCaptcha = errorMessage.includes('429') ||
@@ -218,12 +219,12 @@ export class TrendScanner {
                 errorMessage.includes('blocked');
 
             if (needsCaptcha) {
-                console.warn(`🔒 Google may be blocking requests. Consider using CSV import.`);
+                trendLogger.warn(`Google may be blocking requests. Consider using CSV import.`);
             }
 
             // Try CSV trends first if available
             if (this.csvTrends.length > 0) {
-                console.log(`📥 Using ${this.csvTrends.length} imported CSV trends...`);
+                trendLogger.info(`Using ${this.csvTrends.length} imported CSV trends...`);
                 const enhancedTrends = this.enhanceTrends(this.csvTrends);
                 const stats = this.calculateStats(enhancedTrends);
 
@@ -237,7 +238,7 @@ export class TrendScanner {
             }
 
             // Fall back to high-CPC evergreen keywords
-            console.warn(`⚠️  Using high-CPC fallback trends...`);
+            trendLogger.warn(`Using high-CPC fallback trends...`);
             const fallbackTrends = opts.highCPCMode
                 ? this.getHighCPCFallbackTrends()
                 : this.getDynamicFallbackTrends();

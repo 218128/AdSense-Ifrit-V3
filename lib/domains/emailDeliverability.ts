@@ -43,7 +43,7 @@ export const EMAIL_PROVIDERS: EmailProvider[] = [
         tier: 'free',
         monthlyLimit: undefined,  // Unlimited forwarding
         features: ['Email forwarding', 'Multiple aliases', 'Catch-all', 'No inbox'],
-        records: (domain: string) => [
+        records: (_domain: string) => [
             {
                 type: 'MX',
                 name: '@',
@@ -76,7 +76,7 @@ export const EMAIL_PROVIDERS: EmailProvider[] = [
         tier: 'free',
         monthlyLimit: 3000,
         features: ['Transactional email', 'Templates', 'Analytics', 'API'],
-        records: (domain: string) => [
+        records: (_domain: string) => [
             {
                 type: 'CNAME',
                 name: 'em1234',  // Actual value from SendGrid
@@ -114,7 +114,7 @@ export const EMAIL_PROVIDERS: EmailProvider[] = [
         tier: 'free',
         monthlyLimit: 3000,
         features: ['Modern API', 'React templates', 'Analytics', 'Webhooks'],
-        records: (domain: string) => [
+        records: (_domain: string) => [
             {
                 type: 'TXT',
                 name: '@',
@@ -138,7 +138,7 @@ export const EMAIL_PROVIDERS: EmailProvider[] = [
         tier: 'free',
         monthlyLimit: 3000,
         features: ['Email API', 'Validation', 'Logs', 'Webhooks'],
-        records: (domain: string) => [
+        records: (_domain: string) => [
             {
                 type: 'TXT',
                 name: '@',
@@ -170,7 +170,7 @@ export const EMAIL_PROVIDERS: EmailProvider[] = [
         tier: 'free',
         monthlyLimit: undefined,
         features: ['Newsletter', 'Markdown', 'Archives', 'Analytics'],
-        records: (domain: string) => [
+        records: (_domain: string) => [
             {
                 type: 'TXT',
                 name: '@',

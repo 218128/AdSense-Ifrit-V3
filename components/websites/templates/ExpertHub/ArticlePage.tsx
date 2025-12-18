@@ -141,6 +141,7 @@ export default function ExpertArticlePage({
                                     <div className="text-xs text-slate-500 mb-2">Written by</div>
                                     <div className="flex items-center gap-3">
                                         {author.avatar ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
                                             <img src={author.avatar} alt={author.name} className="w-10 h-10 rounded-full" />
                                         ) : (
                                             <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
@@ -158,6 +159,7 @@ export default function ExpertArticlePage({
                                         <div className="text-xs text-slate-500 mb-2">Reviewed by</div>
                                         <div className="flex items-center gap-3">
                                             {reviewer.avatar ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
                                                 <img src={reviewer.avatar} alt={reviewer.name} className="w-10 h-10 rounded-full" />
                                             ) : (
                                                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">

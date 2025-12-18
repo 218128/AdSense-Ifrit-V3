@@ -7,6 +7,8 @@
  * and trending articles grid.
  */
 
+/* eslint-disable @next/next/no-html-link-for-pages */
+
 import React from 'react';
 import { ArticleCard, AdZone } from '../shared';
 import MagazineLayout from './Layout';
@@ -48,6 +50,7 @@ export default function MagazineHomePage({
                 <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-rose-600 to-pink-600 text-white">
                     <div className="absolute inset-0 bg-black/30"></div>
                     {featuredArticle.image && (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                             src={featuredArticle.image}
                             alt={featuredArticle.title}

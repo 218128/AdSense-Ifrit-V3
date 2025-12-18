@@ -300,7 +300,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 `;
 }
 
-function generateAboutPage(siteName: string, name: string, role: string, bio: string) {
+function generateAboutPage(_siteName: string, _name: string, _role: string, _bio: string) {
     return `export default function About() {
     return (
         <div className="container" style={{ padding: '4rem 1.5rem' }}>

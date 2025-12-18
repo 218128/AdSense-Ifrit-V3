@@ -2,6 +2,8 @@ import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import fs from 'fs';
 import path from 'path';
 
+import { contentLogger } from '@/lib/utils/logger';
+
 // Import humanization and template systems
 import {
     AuthorPersona,
@@ -20,6 +22,13 @@ import {
     getTemplateById,
     PRODUCT_REVIEW_TEMPLATE
 } from '@/lib/templates';
+
+import {
+    generateArticleSchema,
+    generateFAQSchema,
+    generateSchemaScripts,
+    FAQSchemaItem
+} from '@/lib/formatting/schemaOrg';
 
 export interface Article {
     title: string;
@@ -78,7 +87,7 @@ export class ContentGenerator {
         userConfig?: UserContentConfig,
         providerKeys?: { gemini?: string[]; deepseek?: string[]; openrouter?: string[]; vercel?: string[]; perplexity?: string[] }
     ): Promise<Article> {
-        console.log(`🚀 Generating content for: ${keyword}`);
+        contentLogger.info(`Generating content for: ${keyword}`);
 
         // If providerKeys provided, use multi-provider system
         if (providerKeys && Object.values(providerKeys).some(arr => arr && arr.length > 0)) {
@@ -116,7 +125,7 @@ export class ContentGenerator {
             };
 
         } catch (error) {
-            console.error("❌ Gemini generation failed:", error);
+            contentLogger.error("Gemini generation failed", error instanceof Error ? error : undefined);
             throw error;
         }
     }
@@ -157,7 +166,7 @@ export class ContentGenerator {
                     const generator = new EnhancedContentGenerator(model);
                     const article = await generator.generate(config);
 
-                    console.log(`✅ Generated with Gemini key rotation`);
+                    contentLogger.success(`Generated with Gemini key rotation`);
 
                     return {
                         title: article.title,
@@ -166,7 +175,7 @@ export class ContentGenerator {
                         slug: article.slug
                     };
                 } catch (error) {
-                    console.warn(`⚠️ Gemini key failed, trying next...`);
+                    contentLogger.warn(`Gemini key failed, trying next...`);
                     continue;
                 }
             }
@@ -185,7 +194,7 @@ export class ContentGenerator {
         const filepath = path.join(this.contentDir, filename);
 
         fs.writeFileSync(filepath, article.body, 'utf8');
-        console.log(`✅ Saved article to ${filepath}`);
+        contentLogger.success(`Saved article to ${filepath}`);
     }
 
     exists(keyword: string): boolean {
@@ -214,7 +223,7 @@ class EnhancedContentGenerator {
     }
 
     async generate(config: ArticleConfig): Promise<EnhancedArticle> {
-        console.log(`📝 Starting enhanced generation for: ${config.keyword}`);
+        contentLogger.info(`Starting enhanced generation for: ${config.keyword}`);
 
         // Pass 0: Select persona and template
         const persona = getBestPersonaForTopic(config.keyword);
@@ -222,37 +231,109 @@ class EnhancedContentGenerator {
             ? getTemplateById(config.templateType) || PRODUCT_REVIEW_TEMPLATE
             : getBestTemplateForNiche(config.context);
 
-        console.log(`   ✓ Pass 0: Selected persona "${persona.name}" and template "${template.name}"`);
+        contentLogger.progress(`Pass 0: Selected persona "${persona.name}" and template "${template.name}"`);
 
         // Pass 1: Research Phase
         const researchData = await this.researchPhase(config.keyword, template);
-        console.log(`   ✓ Pass 1: Research completed`);
+        contentLogger.progress(`Pass 1: Research completed`);
 
         // Pass 2: Outline Generation (template-guided)
         const outline = await this.generateOutline(config, template, researchData);
-        console.log(`   ✓ Pass 2: Outline created`);
+        contentLogger.progress(`Pass 2: Outline created`);
 
         // Pass 3: Full Article Generation (with persona voice)
         const article = await this.generateFullArticle(config, template, persona, outline, researchData);
-        console.log(`   ✓ Pass 3: Article generated (${article.wordCount} words)`);
+        contentLogger.progress(`Pass 3: Article generated (${article.wordCount} words)`);
 
         // Pass 4: Quality Enhancement (if needed)
         let finalArticle = article;
         if (article.wordCount < config.targetWordCount * 0.8) {
-            console.log(`   ⚠️ Article too short. Expanding...`);
+            contentLogger.warn(`Article too short. Expanding...`);
             finalArticle = await this.expandArticle(article, config, persona);
-            console.log(`   ✓ Pass 4: Article expanded (${finalArticle.wordCount} words)`);
+            contentLogger.progress(`Pass 4: Article expanded (${finalArticle.wordCount} words)`);
         }
 
         // Pass 5: Post-processing humanization
         finalArticle.body = addHumanTouches(finalArticle.body);
-        console.log(`   ✓ Pass 5: Human touches applied`);
+        contentLogger.progress(`Pass 5: Human touches applied`);
+
+        // Pass 6: Add Schema.org structured data for rich snippets
+        const schemaScripts = this.generateSchemaMarkup(finalArticle, config, persona);
+        if (schemaScripts) {
+            // Append schema scripts at the end of the article body
+            finalArticle.body = finalArticle.body + '\n\n' + schemaScripts;
+            contentLogger.progress(`Pass 6: Schema.org rich snippets added`);
+        }
 
         return {
             ...finalArticle,
             persona: persona.name,
             template: template.name
         };
+    }
+
+    /**
+     * Generate Schema.org markup for the article
+     */
+    private generateSchemaMarkup(
+        article: EnhancedArticle,
+        config: ArticleConfig,
+        persona: AuthorPersona
+    ): string {
+        const schemas: object[] = [];
+        const today = new Date().toISOString().split('T')[0];
+        const articleUrl = config.blogUrl
+            ? `${config.blogUrl}/${article.slug}`
+            : `https://example.com/${article.slug}`;
+
+        // Always add Article schema
+        schemas.push(generateArticleSchema({
+            title: article.title,
+            description: article.title, // Use title as fallback description
+            datePublished: today,
+            authorName: persona.name,
+            url: articleUrl,
+            publisherName: config.blogUrl ? new URL(config.blogUrl).hostname : undefined
+        }));
+
+        // Extract FAQs from article body if present
+        const faqs = this.extractFAQsFromBody(article.body);
+        if (faqs.length > 0) {
+            schemas.push(generateFAQSchema(faqs));
+        }
+
+        return generateSchemaScripts(schemas);
+    }
+
+    /**
+     * Extract FAQ items from article body for schema generation
+     */
+    private extractFAQsFromBody(body: string): FAQSchemaItem[] {
+        const faqs: FAQSchemaItem[] = [];
+
+        // Look for FAQ section patterns
+        // Pattern 1: "## FAQ" or "## Frequently Asked Questions" followed by Q&A
+        const faqSectionMatch = body.match(/##\s*(?:FAQ|Frequently Asked Questions)[\s\S]*?(?=##|$)/i);
+
+        if (faqSectionMatch) {
+            const faqSection = faqSectionMatch[0];
+
+            // Pattern: ### Question\nAnswer or **Question**\nAnswer
+            const questionPattern = /(?:###\s*|\*\*)(.*?(?:\?|\*\*))\n+([^#\*][\s\S]*?)(?=(?:###|\*\*|$))/g;
+            let match;
+
+            while ((match = questionPattern.exec(faqSection)) !== null) {
+                const question = match[1].replace(/\*\*/g, '').trim();
+                const answer = match[2].trim().split('\n')[0]; // First paragraph as answer
+
+                if (question && answer && question.length > 10 && answer.length > 20) {
+                    faqs.push({ question, answer });
+                }
+            }
+        }
+
+        // Limit to 10 FAQs for schema
+        return faqs.slice(0, 10);
     }
 
     private async researchPhase(keyword: string, template: ArticleTemplate): Promise<string> {

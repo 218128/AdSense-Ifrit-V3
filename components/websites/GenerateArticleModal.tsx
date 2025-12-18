@@ -11,8 +11,9 @@
  */
 
 import { useState } from 'react';
-import { Loader2, Sparkles, X, Zap, BookOpen, FileText, Lightbulb } from 'lucide-react';
+import { Loader2, Sparkles, X, Zap, BookOpen, FileText, Lightbulb, Image as ImageIcon } from 'lucide-react';
 import { addToGenerationHistory } from './GenerationHistory';
+import StockPhotoSelector, { StockPhoto } from '../shared/StockPhotoSelector';
 
 interface GenerateArticleModalProps {
     domain: string;
@@ -58,6 +59,8 @@ export default function GenerateArticleModal({
     const [generating, setGenerating] = useState(false);
     const [status, setStatus] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [showPhotoSelector, setShowPhotoSelector] = useState(false);
+    const [selectedCover, setSelectedCover] = useState<StockPhoto | null>(null);
 
     const handleGenerate = async () => {
         if (!config.keyword.trim()) {
@@ -262,6 +265,51 @@ export default function GenerateArticleModal({
                         </div>
                     </div>
 
+                    {/* Cover Image */}
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">
+                            Cover Image (Optional)
+                        </label>
+                        {selectedCover ? (
+                            <div className="relative">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={selectedCover.thumbUrl}
+                                    alt={selectedCover.alt}
+                                    className="w-full h-32 object-cover rounded-lg border"
+                                />
+                                <div className="absolute top-2 right-2 flex gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPhotoSelector(true)}
+                                        className="px-2 py-1 bg-white/90 rounded text-xs hover:bg-white"
+                                    >
+                                        Change
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedCover(null)}
+                                        className="px-2 py-1 bg-white/90 rounded text-xs hover:bg-white text-red-600"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                                <p className="text-xs text-neutral-500 mt-1">
+                                    {selectedCover.attribution}
+                                </p>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setShowPhotoSelector(true)}
+                                className="w-full p-4 border-2 border-dashed border-neutral-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center gap-2 text-neutral-500"
+                            >
+                                <ImageIcon className="w-5 h-5" />
+                                <span>Select Cover Image</span>
+                            </button>
+                        )}
+                    </div>
+
                     {/* Toggles */}
                     <div className="flex flex-wrap gap-4">
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -328,6 +376,18 @@ export default function GenerateArticleModal({
                     </button>
                 </div>
             </div>
+
+            {/* Stock Photo Selector Modal */}
+            {showPhotoSelector && (
+                <StockPhotoSelector
+                    initialQuery={config.keyword}
+                    onSelect={(photo) => {
+                        setSelectedCover(photo);
+                        setShowPhotoSelector(false);
+                    }}
+                    onClose={() => setShowPhotoSelector(false)}
+                />
+            )}
         </div>
     );
 }

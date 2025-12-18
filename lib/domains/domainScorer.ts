@@ -101,7 +101,7 @@ export function scoreDomain(
     metrics: DomainMetrics,
     targetNiche?: string,
     waybbackData?: WaybackData,
-    additionalChecks?: AdditionalChecks
+    _additionalChecks?: AdditionalChecks
 ): DomainScore {
     const risks: DomainRisk[] = [];
     const reasons: string[] = [];
@@ -447,7 +447,7 @@ function estimateDomainValue(metrics: DomainMetrics, overallScore: number, nameQ
 /**
  * Estimate monthly revenue potential
  */
-function estimateMonthlyRevenue(metrics: DomainMetrics, overallScore: number): number {
+function estimateMonthlyRevenue(metrics: DomainMetrics, _overallScore: number): number {
     // Very rough estimate based on authority and score
     const authority = metrics.domainRating || metrics.domainAuthority || 10;
 

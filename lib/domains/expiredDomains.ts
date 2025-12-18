@@ -74,6 +74,28 @@ export interface ExpiredDomainsConfig {
 }
 
 /**
+ * Spamzilla API Response Types
+ * Based on https://spamzilla.io/api documentation
+ */
+interface SpamzillaDomainResponse {
+    domain: string;
+    tld?: string;
+    dr?: number;
+    domain_rating?: number;
+    tf?: number;
+    trust_flow?: number;
+    cf?: number;
+    citation_flow?: number;
+    backlinks?: number;
+    bl?: number;
+    referring_domains?: number;
+    rd?: number;
+    age?: number;
+    status?: 'available' | 'pending-delete' | 'auction' | 'unknown';
+    drop_date?: string;
+}
+
+/**
  * Get API configuration from localStorage
  */
 function getApiConfig(): ExpiredDomainsConfig {
@@ -208,7 +230,7 @@ async function searchSpamzilla(
         throw new Error(data.error || 'Unknown API error');
     }
 
-    const domains: ExpiredDomain[] = (data.domains || []).map((d: any) => ({
+    const domains: ExpiredDomain[] = (data.domains || []).map((d: SpamzillaDomainResponse) => ({
         domain: d.domain,
         tld: d.tld || parseDomain(d.domain).tld,
         domainRating: d.dr || d.domain_rating,
@@ -239,11 +261,11 @@ async function searchSpamzilla(
  * Note: This requires web scraping as they don't have an official API
  */
 async function searchExpiredDomainsNet(
-    username: string,
-    password: string,
-    filters: SearchFilters,
-    page: number,
-    limit: number
+    _username: string,
+    _password: string,
+    _filters: SearchFilters,
+    _page: number,
+    _limit: number
 ): Promise<SearchResult> {
     // ExpiredDomains.net requires authentication and has no official API
     // This would need server-side implementation with session handling

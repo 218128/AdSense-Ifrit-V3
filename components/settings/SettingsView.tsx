@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Lock, Globe, DollarSign, Key, Zap, Link2 } from 'lucide-react';
+import { Settings, Lock, Globe, DollarSign, Key, Zap, Link2, BarChart3, Image, Layout } from 'lucide-react';
 import { AIKeyManager } from './AIKeyManager';
+import { AIUsagePanel } from './AIUsagePanel';
+import TemplatesPanel from './TemplatesPanel';
 
 /**
  * Safe localStorage getter that works with SSR
@@ -116,7 +118,7 @@ export function getEnabledProviderKeys(): { gemini: string[]; deepseek: string[]
     };
 }
 
-type SettingsTab = 'ai' | 'blog' | 'adsense' | 'integrations' | 'backup';
+type SettingsTab = 'ai' | 'usage' | 'images' | 'templates' | 'blog' | 'adsense' | 'integrations' | 'backup';
 
 interface SettingsModalProps {
     inline?: boolean;
@@ -147,6 +149,10 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
     const [vercelUser, setVercelUser] = useState(() => getStorageItem('ifrit_vercel_user'));
     const [testingGithub, setTestingGithub] = useState(false);
     const [testingVercel, setTestingVercel] = useState(false);
+
+    // Stock image API settings
+    const [unsplashKey, setUnsplashKey] = useState(() => getStorageItem('ifrit_unsplash_key'));
+    const [pexelsKey, setPexelsKey] = useState(() => getStorageItem('ifrit_pexels_key'));
 
     // Load settings from server backup on mount (if localStorage is empty)
     useEffect(() => {
@@ -238,6 +244,9 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
 
     const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
         { id: 'ai', label: 'AI Providers', icon: <Zap className="w-4 h-4" /> },
+        { id: 'usage', label: 'AI Usage', icon: <BarChart3 className="w-4 h-4" /> },
+        { id: 'images', label: 'Images', icon: <Image className="w-4 h-4" /> },
+        { id: 'templates', label: 'Templates', icon: <Layout className="w-4 h-4" /> },
         { id: 'integrations', label: 'Integrations', icon: <Link2 className="w-4 h-4" /> },
         { id: 'blog', label: 'Blog', icon: <Globe className="w-4 h-4" /> },
         { id: 'adsense', label: 'AdSense', icon: <DollarSign className="w-4 h-4" /> },
@@ -257,6 +266,7 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
             'ifrit_namecheap_user', 'ifrit_namecheap_key', 'ifrit_spamzilla_key', 'ifrit_cloudflare_token',
             'ifrit_expireddomains_user', 'ifrit_expireddomains_pass',
             'ifrit_devto_api_key', 'devto_api_key',
+            'ifrit_unsplash_key', 'ifrit_pexels_key',
         ];
 
         const settings: Record<string, string> = {};
@@ -343,6 +353,87 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                     </p>
                     <AIKeyManager />
                 </div>
+            )}
+
+            {/* AI Usage Tab */}
+            {activeTab === 'usage' && (
+                <div>
+                    <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4" />
+                        AI Usage & Cost Tracking
+                    </h3>
+                    <AIUsagePanel />
+                </div>
+            )}
+
+            {/* Images Tab */}
+            {activeTab === 'images' && (
+                <div className="space-y-6">
+                    <p className="text-sm text-neutral-500">
+                        Configure stock photo APIs for auto-fetching article cover images.
+                    </p>
+
+                    {/* Unsplash */}
+                    <div className="p-4 bg-gradient-to-br from-neutral-800 to-neutral-850 rounded-xl">
+                        <h4 className="font-semibold mb-3 flex items-center gap-2 text-white">
+                            📷 Unsplash API
+                        </h4>
+                        <p className="text-xs text-neutral-400 mb-3">
+                            Free tier: 50 requests/hour. Get your key at{' '}
+                            <a href="https://unsplash.com/developers" target="_blank" rel="noopener noreferrer"
+                                className="text-blue-400 hover:underline">unsplash.com/developers</a>
+                        </p>
+                        <div>
+                            <label className="block text-xs text-neutral-400 mb-1">Access Key</label>
+                            <input
+                                type="password"
+                                value={unsplashKey}
+                                onChange={(e) => setUnsplashKey(e.target.value)}
+                                placeholder="Enter Unsplash Access Key"
+                                className="w-full p-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-white"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Pexels */}
+                    <div className="p-4 bg-gradient-to-br from-neutral-800 to-neutral-850 rounded-xl">
+                        <h4 className="font-semibold mb-3 flex items-center gap-2 text-white">
+                            🖼️ Pexels API (Backup)
+                        </h4>
+                        <p className="text-xs text-neutral-400 mb-3">
+                            More generous limits. Get your key at{' '}
+                            <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer"
+                                className="text-blue-400 hover:underline">pexels.com/api</a>
+                        </p>
+                        <div>
+                            <label className="block text-xs text-neutral-400 mb-1">API Key</label>
+                            <input
+                                type="password"
+                                value={pexelsKey}
+                                onChange={(e) => setPexelsKey(e.target.value)}
+                                placeholder="Enter Pexels API Key"
+                                className="w-full p-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-white"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Save Button */}
+                    <button
+                        onClick={() => {
+                            if (unsplashKey) localStorage.setItem('ifrit_unsplash_key', unsplashKey);
+                            if (pexelsKey) localStorage.setItem('ifrit_pexels_key', pexelsKey);
+                            alert('Image API settings saved!');
+                        }}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
+                    >
+                        Save Image Settings
+                    </button>
+                </div>
+            )}
+
+            {/* Templates Tab */}
+            {activeTab === 'templates' && (
+                <TemplatesPanel />
             )}
 
             {/* Integrations Tab */}

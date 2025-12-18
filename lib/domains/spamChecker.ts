@@ -5,6 +5,10 @@
  * Uses free DNS and basic checks, with hooks for Spamzilla integration.
  */
 
+import { createLogger } from '@/lib/utils/logger';
+
+const spamLogger = createLogger('SpamChecker');
+
 // Spam blacklist DNS zones (free to query)
 const DNS_BLACKLISTS = [
     'zen.spamhaus.org',
@@ -154,8 +158,7 @@ export async function checkDomainSpam(domain: string): Promise<SpamCheckResult> 
             }
         }
     } catch (error) {
-        // Blacklist check failed, continue without it
-        console.error('Blacklist check failed:', error);
+        spamLogger.warn(`Blacklist check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     passed.push({ check: 'DNS blacklist check', passed: !blacklisted });
@@ -322,7 +325,7 @@ export async function fetchSpamzillaData(domain: string, apiKey?: string): Promi
 
         return null;  // Not implemented yet
     } catch (error) {
-        console.error('Spamzilla API error:', error);
+        spamLogger.warn(`Spamzilla API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         return null;
     }
 }

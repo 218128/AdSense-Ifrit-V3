@@ -1,28 +1,41 @@
 /**
  * SEO Audit API
  * 
- * Performs real SEO analysis on articles.
- * No mock data - returns actual analysis or error.
+ * Performs comprehensive SEO analysis on articles.
+ * Merges best logic from lib/seo/trafficAcquisition.ts with article metadata.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getWebsite, listArticles, getArticle } from '@/lib/websiteStore';
-
-interface SEOIssue {
-    type: 'error' | 'warning' | 'info';
-    message: string;
-    fix: string;
-}
+import { getArticle } from '@/lib/websiteStore';
+import {
+    auditArticleSEO,
+    suggestInternalLinks,
+    suggestBacklinkOpportunities,
+    SEOIssue
+} from '@/lib/seo/trafficAcquisition';
 
 interface SEOAuditResult {
     score: number;
     issues: SEOIssue[];
+    internalLinkSuggestions?: Array<{
+        targetSlug: string;
+        anchorText: string;
+        relevanceScore: number;
+    }>;
+    backlinkStrategies?: string[];
+}
+
+interface ArticleMeta {
+    title?: string;
+    description?: string;
+    content: string;
+    keyword?: string;
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { articleSlug, domain } = body;
+        const { articleSlug, domain, keyword } = body;
 
         if (!articleSlug) {
             return NextResponse.json({
@@ -31,19 +44,16 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // Find the article across all websites if domain not specified
         let articleContent: string | null = null;
-        let articleMeta: any = null;
+        let articleMeta: ArticleMeta | null = null;
 
         if (domain) {
             const article = getArticle(domain, articleSlug);
             if (article) {
                 articleContent = article.content;
-                articleMeta = article;
+                articleMeta = article as ArticleMeta;
             }
         } else {
-            // Search across all websites
-            // For now, return error - domain should be provided
             return NextResponse.json({
                 success: false,
                 error: 'Domain is required to locate the article'
@@ -57,128 +67,62 @@ export async function POST(request: NextRequest) {
             }, { status: 404 });
         }
 
-        // Perform real SEO analysis
-        const issues: SEOIssue[] = [];
-        let score = 100;
+        // Use the enhanced audit from trafficAcquisition module
+        // This includes: keyword checks, FAQ detection, strict H2 requirements
+        const targetKeyword = keyword || articleMeta?.title?.split(' ').slice(0, 3).join(' ') || articleSlug;
 
-        // 1. Check title length
-        if (articleMeta?.title) {
-            const titleLength = articleMeta.title.length;
-            if (titleLength < 30) {
-                issues.push({
-                    type: 'warning',
-                    message: `Title too short (${titleLength} chars)`,
-                    fix: 'Expand title to 50-60 characters for better SEO'
-                });
-                score -= 10;
-            } else if (titleLength > 60) {
-                issues.push({
-                    type: 'warning',
-                    message: `Title too long (${titleLength} chars)`,
-                    fix: 'Shorten title to under 60 characters to avoid truncation in search results'
-                });
-                score -= 5;
-            }
-        } else {
-            issues.push({
-                type: 'error',
-                message: 'Missing title',
-                fix: 'Add a descriptive title to the article'
-            });
-            score -= 20;
-        }
+        // Build content string with frontmatter for the lib function
+        const fullContent = `---
+title: "${articleMeta?.title || ''}"
+description: "${articleMeta?.description || ''}"
+---
+${articleContent}`;
 
-        // 2. Check meta description
-        if (articleMeta?.description) {
-            const descLength = articleMeta.description.length;
-            if (descLength < 120) {
-                issues.push({
-                    type: 'warning',
-                    message: `Meta description too short (${descLength} chars)`,
-                    fix: 'Expand description to 150-160 characters'
-                });
-                score -= 10;
-            } else if (descLength > 160) {
-                issues.push({
-                    type: 'info',
-                    message: `Meta description slightly long (${descLength} chars)`,
-                    fix: 'Consider shortening to 160 characters'
-                });
-                score -= 3;
-            }
-        } else {
-            issues.push({
-                type: 'error',
-                message: 'Missing meta description',
-                fix: 'Add a compelling meta description for better click-through rates'
-            });
-            score -= 15;
-        }
+        // Get enhanced audit from lib module
+        const libAudit = auditArticleSEO(fullContent, targetKeyword);
 
-        // 3. Check content length  
-        const wordCount = articleContent.split(/\s+/).length;
-        if (wordCount < 300) {
-            issues.push({
-                type: 'error',
-                message: `Content too short (${wordCount} words)`,
-                fix: 'Aim for at least 1000 words for comprehensive coverage'
-            });
-            score -= 20;
-        } else if (wordCount < 1000) {
-            issues.push({
-                type: 'warning',
-                message: `Content could be longer (${wordCount} words)`,
-                fix: 'Consider expanding to 1500+ words for competitive topics'
-            });
-            score -= 10;
-        }
+        // Additional API-level checks not in lib module
+        const additionalIssues: SEOIssue[] = [];
+        let additionalDeduction = 0;
 
-        // 4. Check for headings
-        const h2Count = (articleContent.match(/## /g) || []).length;
-        const h3Count = (articleContent.match(/### /g) || []).length;
-
-        if (h2Count === 0) {
-            issues.push({
-                type: 'warning',
-                message: 'No H2 headings found',
-                fix: 'Add H2 headings to structure your content'
-            });
-            score -= 10;
-        }
-
-        // 5. Check for images
+        // Check for images (not in lib audit)
         const imageCount = (articleContent.match(/!\[/g) || []).length;
         if (imageCount === 0) {
-            issues.push({
+            additionalIssues.push({
                 type: 'info',
                 message: 'No images found',
                 fix: 'Add relevant images with descriptive alt text'
             });
-            score -= 5;
+            additionalDeduction += 5;
         }
 
-        // 6. Check for internal links
-        const linkCount = (articleContent.match(/\]\(/g) || []).length;
-        if (linkCount < 2) {
-            issues.push({
+        // Check title is too long (lib only checks 70, we want 60)
+        if (articleMeta?.title && articleMeta.title.length > 60 && articleMeta.title.length <= 70) {
+            additionalIssues.push({
                 type: 'info',
-                message: 'Few internal/external links',
-                fix: 'Add 2-3 relevant links to related content'
+                message: `Title slightly long (${articleMeta.title.length} chars)`,
+                fix: 'Optimal title length is 50-60 characters'
             });
-            score -= 5;
+            additionalDeduction += 3;
         }
 
-        // Ensure score doesn't go below 0
-        score = Math.max(0, score);
+        // Merge issues and calculate final score
+        const allIssues = [...libAudit.issues, ...additionalIssues];
+        const finalScore = Math.max(0, libAudit.score - additionalDeduction);
 
+        // Build result with optional enhancements
         const result: SEOAuditResult = {
-            score,
-            issues
+            score: finalScore,
+            issues: allIssues
         };
+
+        // Get backlink strategies based on niche (extracted from domain or content)
+        const niche = detectNiche(articleContent);
+        result.backlinkStrategies = suggestBacklinkOpportunities(niche);
 
         return NextResponse.json({
             success: true,
-            result
+            audit: result
         });
 
     } catch (error) {
@@ -188,4 +132,23 @@ export async function POST(request: NextRequest) {
             error: `SEO Audit failed: ${error instanceof Error ? error.message : 'Unknown error'}`
         }, { status: 500 });
     }
+}
+
+/**
+ * Detect niche from content for backlink suggestions
+ */
+function detectNiche(content: string): string {
+    const lowerContent = content.toLowerCase();
+
+    if (lowerContent.includes('security') || lowerContent.includes('cyber') || lowerContent.includes('vpn')) {
+        return 'Cybersecurity';
+    }
+    if (lowerContent.includes('invest') || lowerContent.includes('finance') || lowerContent.includes('money')) {
+        return 'Personal Finance';
+    }
+    if (lowerContent.includes('programming') || lowerContent.includes('code') || lowerContent.includes('developer')) {
+        return 'Technology';
+    }
+
+    return 'General';
 }

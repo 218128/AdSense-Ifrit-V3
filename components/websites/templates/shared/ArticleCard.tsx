@@ -94,6 +94,7 @@ export default function ArticleCard(props: ArticleCardProps) {
                 className={`group block relative overflow-hidden rounded-2xl aspect-[16/9] bg-gray-900 ${className}`}
             >
                 {thumbnail && (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                         src={thumbnail}
                         alt={title}
@@ -121,6 +122,7 @@ export default function ArticleCard(props: ArticleCardProps) {
                             <>
                                 <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs">
                                     {author.avatar ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
                                         <img src={author.avatar} alt={author.name} className="w-full h-full rounded-full" />
                                     ) : authorInitials}
                                 </div>
@@ -150,6 +152,7 @@ export default function ArticleCard(props: ArticleCardProps) {
             >
                 <div className="w-1/3 aspect-[4/3] rounded-lg overflow-hidden bg-gray-100 shrink-0">
                     {thumbnail ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                             src={thumbnail}
                             alt={title}
@@ -193,6 +196,7 @@ export default function ArticleCard(props: ArticleCardProps) {
             >
                 <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                     {thumbnail ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={thumbnail} alt={title} className="w-full h-full object-cover" />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl">
@@ -218,6 +222,7 @@ export default function ArticleCard(props: ArticleCardProps) {
         >
             <div className="aspect-[16/10] overflow-hidden bg-gray-100">
                 {thumbnail ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                         src={thumbnail}
                         alt={title}
@@ -249,6 +254,7 @@ export default function ArticleCard(props: ArticleCardProps) {
                         <>
                             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs">
                                 {author.avatar ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
                                     <img src={author.avatar} alt={author.name} className="w-full h-full rounded-full" />
                                 ) : authorInitials[0]}
                             </div>

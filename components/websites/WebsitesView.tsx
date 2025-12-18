@@ -461,15 +461,58 @@ function SetupWizard({
     const [isProcessing, setIsProcessing] = useState(false);
     const [creationStatus, setCreationStatus] = useState('');
 
+    // Domain Profile integration
+    const [loadedProfile, setLoadedProfile] = useState<{
+        primaryKeywords: string[];
+        secondaryKeywords: string[];
+        questionKeywords: string[];
+        suggestedTopics: string[];
+        niche: string;
+    } | null>(null);
+    const [profileLoading, setProfileLoading] = useState(false);
+
     const NICHES = [
-        { value: 'technology', label: '💻 Technology' },
-        { value: 'finance', label: '💰 Finance' },
-        { value: 'health', label: '🏥 Health' },
-        { value: 'marketing', label: '📈 Marketing' },
-        { value: 'gaming', label: '🎮 Gaming' },
-        { value: 'travel', label: '✈️ Travel' },
-        { value: 'lifestyle', label: '🌟 Lifestyle' },
+        { value: 'technology', label: 'Technology' },
+        { value: 'finance', label: 'Finance' },
+        { value: 'health', label: 'Health' },
+        { value: 'marketing', label: 'Marketing' },
+        { value: 'gaming', label: 'Gaming' },
+        { value: 'travel', label: 'Travel' },
+        { value: 'lifestyle', label: 'Lifestyle' },
     ];
+
+    // Check for saved profile when domain changes
+    useEffect(() => {
+        const checkProfile = async () => {
+            if (!domain || domain.length < 4) {
+                setLoadedProfile(null);
+                return;
+            }
+
+            setProfileLoading(true);
+            try {
+                const response = await fetch(`/api/domain-profiles?domain=${encodeURIComponent(domain)}`);
+                const data = await response.json();
+
+                if (data.success && data.profile) {
+                    setLoadedProfile(data.profile);
+                    // Auto-fill niche if not already set
+                    if (!niche && data.profile.niche) {
+                        setNiche(data.profile.niche);
+                    }
+                } else {
+                    setLoadedProfile(null);
+                }
+            } catch {
+                setLoadedProfile(null);
+            } finally {
+                setProfileLoading(false);
+            }
+        };
+
+        const debounce = setTimeout(checkProfile, 500);
+        return () => clearTimeout(debounce);
+    }, [domain, niche]);
 
 
     const handleSubmit = async () => {
@@ -543,6 +586,14 @@ function SetupWizard({
             const hasAnyKeys = Object.values(providerKeys).some(keys => keys.length > 0);
 
             if (hasAnyKeys) {
+                // Build pillars from profile keywords if available
+                const pillars = loadedProfile?.primaryKeywords?.slice(0, 4).map(kw => `${kw} Guide`) || [
+                    `Best ${niche} Guide`,
+                    `Top ${niche} Tips`,
+                    `${niche} For Beginners`,
+                    `Advanced ${niche} Strategies`
+                ];
+
                 // Start site builder job (this runs async in the background)
                 const builderResponse = await fetch('/api/site-builder', {
                     method: 'POST',
@@ -560,16 +611,17 @@ function SetupWizard({
                                 role: 'Content Team',
                                 experience: 'Expert writers in this field'
                             },
-                            // Initial content: 4 pillars with 3 clusters each = 16 articles
-                            pillars: [
-                                `Best ${niche} Guide`,
-                                `Top ${niche} Tips`,
-                                `${niche} For Beginners`,
-                                `Advanced ${niche} Strategies`
-                            ],
+                            // Use keywords from profile or fallback
+                            pillars,
                             clustersPerPillar: 3,
                             includeAbout: true,
-                            includeEssentialPages: true
+                            includeEssentialPages: true,
+                            // Pass all keywords for AI context
+                            targetKeywords: loadedProfile ? {
+                                primary: loadedProfile.primaryKeywords,
+                                secondary: loadedProfile.secondaryKeywords,
+                                questions: loadedProfile.questionKeywords
+                            } : undefined
                         },
                         providerKeys,
                         githubConfig: {
@@ -641,6 +693,37 @@ function SetupWizard({
                                 placeholder="yourdomain.com"
                                 className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             />
+
+                            {/* Profile Detected Banner */}
+                            {profileLoading && (
+                                <div className="p-3 bg-neutral-100 rounded-lg text-sm text-neutral-500 flex items-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Checking for saved research...
+                                </div>
+                            )}
+                            {!profileLoading && loadedProfile && (
+                                <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Sparkles className="w-5 h-5 text-purple-600" />
+                                        <span className="font-semibold text-purple-800">Research Profile Found!</span>
+                                    </div>
+                                    <p className="text-sm text-purple-700 mb-2">
+                                        Your saved keywords will be used to generate targeted content.
+                                    </p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {loadedProfile.primaryKeywords.slice(0, 5).map((kw, i) => (
+                                            <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                                                {kw}
+                                            </span>
+                                        ))}
+                                        {loadedProfile.primaryKeywords.length > 5 && (
+                                            <span className="text-xs text-purple-500">
+                                                +{loadedProfile.primaryKeywords.length - 5} more
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

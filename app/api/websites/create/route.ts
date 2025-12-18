@@ -4,6 +4,7 @@ import { createVercelProject, addVercelDomain } from '@/lib/integrations/vercel'
 import { SiteConfig } from '@/lib/templates/nicheAuthorityBlog';
 import { saveWebsite, Website } from '@/lib/websiteStore';
 import { getCurrentVersion } from '@/lib/templateVersions';
+import { generateEssentialPages, SiteInfo } from '@/lib/essentialPages';
 
 export const maxDuration = 60; // Allow longer timeout for multiple API calls
 
@@ -13,12 +14,13 @@ interface CreateWebsiteRequest {
     siteConfig: Partial<SiteConfig>;
     githubToken: string;
     vercelToken: string;
+    generateEssentialPages?: boolean;  // Include Privacy, Terms, About, Contact pages
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body: CreateWebsiteRequest = await request.json();
-        const { domain, niche, siteConfig, githubToken, vercelToken } = body;
+        const { domain, niche, siteConfig, githubToken, vercelToken, generateEssentialPages: includeEssentialPages = true } = body;
 
         if (!domain || !githubToken || !vercelToken) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
@@ -40,7 +42,34 @@ export async function POST(request: NextRequest) {
 
         // 2. Push Template
         steps.push({ name: 'Pushing Template Files', status: 'pending' });
-        const pushRes = await pushTemplateFiles(githubToken, repoName, siteConfig);
+
+        // Generate essential pages if requested
+        let essentialPagesContent: Record<string, string> = {};
+        if (includeEssentialPages) {
+            const siteInfo: SiteInfo = {
+                siteName: siteConfig.siteName || domain.split('.')[0],
+                domain,
+                niche: niche || 'general',
+                siteTagline: siteConfig.tagline,
+                email: `contact@${domain}`,
+                author: {
+                    name: siteConfig.author?.name || 'Site Author',
+                    role: siteConfig.author?.role || 'Editor',
+                    bio: siteConfig.author?.bio || ''
+                }
+            };
+
+            const pages = generateEssentialPages(siteInfo, niche === 'health' || niche === 'finance');
+            essentialPagesContent = {
+                'content/pages/about.md': pages.about,
+                'content/pages/contact.md': pages.contact,
+                'content/pages/privacy.md': pages.privacy,
+                'content/pages/terms.md': pages.terms,
+                ...(pages.disclaimer ? { 'content/pages/disclaimer.md': pages.disclaimer } : {})
+            };
+        }
+
+        const pushRes = await pushTemplateFiles(githubToken, repoName, siteConfig, essentialPagesContent);
         if (!pushRes.success) {
             throw new Error(pushRes.error || 'Failed to push template files');
         }

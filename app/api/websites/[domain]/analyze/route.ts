@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getWebsite, saveWebsite } from '@/lib/websiteStore';
+import { getWebsite, saveWebsite, Website } from '@/lib/websiteStore';
 
 interface TemplateAnalysis {
     // Feature detection
@@ -40,6 +40,13 @@ interface TemplateAnalysis {
     analyzedAt: number;
     source: 'in-app' | 'external-ai' | 'manual';
 }
+
+interface GitHubFile {
+    name: string;
+    download_url: string;
+}
+
+type AnalysisKey = keyof TemplateAnalysis;
 
 // In-app rule-based analyzer
 async function analyzeTemplate(
@@ -85,7 +92,7 @@ async function analyzeTemplate(
                 { headers }
             );
             if (res.ok) {
-                (analysis as any)[file.feature] = true;
+                analysis[file.feature as AnalysisKey] = true as never;
                 analysis.detectedFeatures.push(file.name);
             }
         } catch {
@@ -127,7 +134,7 @@ async function analyzeTemplate(
         );
         if (contentRes.ok) {
             const files = await contentRes.json();
-            const mdFiles = files.filter((f: any) =>
+            const mdFiles = (files as GitHubFile[]).filter((f) =>
                 f.name.endsWith('.md') &&
                 !['about.md', 'privacy.md', 'terms.md'].includes(f.name)
             );
@@ -203,7 +210,7 @@ async function analyzeTemplate(
     ];
 
     for (const feat of allFeatures) {
-        if (!(analysis as any)[feat.key]) {
+        if (!analysis[feat.key as AnalysisKey]) {
             analysis.missingFeatures.push(feat.name);
         }
     }
@@ -212,7 +219,7 @@ async function analyzeTemplate(
 }
 
 // Generate prompt for external AI evaluation
-function generateExternalPrompt(website: any, sampleContent?: string): string {
+function generateExternalPrompt(website: Website, sampleContent?: string): string {
     return `# Website Template Analysis Request
 
 ## Website Information

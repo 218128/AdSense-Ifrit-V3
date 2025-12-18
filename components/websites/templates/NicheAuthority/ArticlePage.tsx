@@ -40,6 +40,7 @@ export default function ArticlePage({
             {/* Thumbnail */}
             {thumbnail && (
                 <div className="aspect-[21/9] overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={thumbnail}
                         alt={title}
@@ -111,6 +112,7 @@ export default function ArticlePage({
                     <div className="flex items-start gap-4">
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
                             {author.avatar ? (
+                                // eslint-disable-next-line @next/next/no-img-element
                                 <img src={author.avatar} alt={author.name} className="w-full h-full rounded-full object-cover" />
                             ) : author.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                         </div>

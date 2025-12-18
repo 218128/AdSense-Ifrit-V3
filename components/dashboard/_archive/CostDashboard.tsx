@@ -1,5 +1,8 @@
 'use client';
 
+/* eslint-disable */
+// This file is archived and not actively maintained
+
 /**
  * AI Cost Dashboard
  * 

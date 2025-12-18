@@ -39,6 +39,9 @@ import {
     PurchaseQueue
 } from './DomainDomination';
 
+import SaveResearchButton from './SaveResearchButton';
+import TrendScanner from './TrendScanner';
+
 type HuntSubTab = 'keywords' | 'domains' | 'flip';
 type DomainStep = 'find' | 'analyze' | 'purchase';
 
@@ -113,9 +116,14 @@ export default function HuntDashboard() {
         <div className="space-y-6">
             {/* Hunt Mode Header */}
             <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-6 text-white">
-                <div className="flex items-center gap-3 mb-2">
-                    <Search className="w-8 h-8" />
-                    <h2 className="text-2xl font-bold">🔍 Hunt Mode</h2>
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                        <Search className="w-8 h-8" />
+                        <h2 className="text-2xl font-bold">Hunt Mode</h2>
+                    </div>
+                    <SaveResearchButton
+                        keywords={domainSearchKeywords}
+                    />
                 </div>
                 <p className="text-amber-100">
                     Power-user discovery. Find HIGH-CPC keywords, acquire valuable domains, track flips.
@@ -185,6 +193,18 @@ export default function HuntDashboard() {
                             </div>
                         </div>
                         <div className="p-6">
+                            {/* Trend Scanner Section */}
+                            <div className="mb-6 pb-6 border-b border-neutral-200">
+                                <TrendScanner
+                                    onSelectTrend={(trend) => {
+                                        // When user clicks "Write" on a trend, log it and could open article modal
+                                        console.log('Selected trend for article:', trend);
+                                        // Future: Open GenerateArticleModal with trend.topic pre-filled
+                                    }}
+                                />
+                            </div>
+
+                            {/* Keyword Hunter */}
                             <KeywordHunter
                                 onNavigateToDomains={handleNavigateToDomains}
                                 onSelect={(topic) => {

@@ -5,7 +5,7 @@
  * Stores data in localStorage for persistence across sessions.
  */
 
-import { calculateCost, PROVIDER_PRICING } from './providerPricing';
+import { calculateCost } from './providerPricing';
 
 export interface UsageRecord {
     id: string;

@@ -143,7 +143,8 @@ export async function createGitHubRepo(
 export async function pushTemplateFiles(
     token: string,
     repoName: string,
-    siteConfig?: Partial<SiteConfig>
+    siteConfig?: Partial<SiteConfig>,
+    extraFiles?: Record<string, string>  // Additional files like essential pages
 ): Promise<{ success: boolean; files?: Array<{ path: string; success: boolean; error?: string }>; repoFullName?: string; error?: string }> {
     try {
         const userRes = await validateGitHubToken(token);
@@ -167,6 +168,14 @@ export async function pushTemplateFiles(
                 templateFiles = generateNiche(repoName, siteConfig);
                 break;
         }
+
+        // Add extra files (like essential pages)
+        if (extraFiles) {
+            for (const [filePath, content] of Object.entries(extraFiles)) {
+                templateFiles.push({ path: filePath, content });
+            }
+        }
+
         const results = [];
 
         for (const file of templateFiles) {

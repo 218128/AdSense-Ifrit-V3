@@ -5,6 +5,8 @@
  * Used across all template types.
  */
 
+/* eslint-disable @next/next/no-html-link-for-pages */
+
 'use client';
 
 import React, { useState } from 'react';
@@ -56,6 +58,7 @@ export default function Header({
                     {/* Logo / Site Name */}
                     <a href="/" className="flex items-center gap-3">
                         {logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={logo} alt={siteName} className="h-10 w-auto" />
                         ) : (
                             <div

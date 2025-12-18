@@ -82,6 +82,7 @@ export default function AuthorCard(props: AuthorCardProps) {
             <div className={`flex items-center gap-2 ${className}`}>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
                     {author.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={author.avatar} alt={author.name} className="w-full h-full rounded-full object-cover" />
                     ) : initials}
                 </div>
@@ -99,6 +100,7 @@ export default function AuthorCard(props: AuthorCardProps) {
             <div className={`flex items-start gap-3 p-3 bg-gray-50 rounded-lg ${className}`}>
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shrink-0">
                     {author.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={author.avatar} alt={author.name} className="w-full h-full rounded-full object-cover" />
                     ) : initials}
                 </div>
@@ -121,6 +123,7 @@ export default function AuthorCard(props: AuthorCardProps) {
                 <div className="flex items-end gap-4 -mt-10">
                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold border-4 border-white shadow-lg">
                         {author.avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={author.avatar} alt={author.name} className="w-full h-full rounded-full object-cover" />
                         ) : initials}
                     </div>
@@ -206,6 +209,7 @@ export function AuthorByline({
         <div className="flex items-center gap-3 py-4 border-y border-gray-100">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">
                 {author.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={author.avatar} alt={author.name} className="w-full h-full rounded-full object-cover" />
                 ) : initials}
             </div>

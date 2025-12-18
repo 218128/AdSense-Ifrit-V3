@@ -20,8 +20,10 @@ import {
     ChevronRight,
     AlertCircle,
     CheckCircle,
-    Clock
+    Clock,
+    BarChart3
 } from 'lucide-react';
+import { AnalyticsPanel } from './AnalyticsPanel';
 
 interface Website {
     id: string;
@@ -161,8 +163,8 @@ export default function OverviewDashboard() {
                                 <div key={website.id} className="p-3 flex items-center justify-between hover:bg-neutral-50">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-2 h-2 rounded-full ${website.status === 'live' ? 'bg-green-500' :
-                                                website.status === 'building' ? 'bg-amber-500' :
-                                                    'bg-neutral-300'
+                                            website.status === 'building' ? 'bg-amber-500' :
+                                                'bg-neutral-300'
                                             }`} />
                                         <span className="font-medium text-sm">{website.domain}</span>
                                     </div>
@@ -196,6 +198,11 @@ export default function OverviewDashboard() {
                         />
                     </div>
                 </div>
+            </div>
+
+            {/* Content Strategy Analytics */}
+            <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden p-6">
+                <AnalyticsPanel />
             </div>
         </div>
     );

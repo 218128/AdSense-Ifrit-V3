@@ -105,6 +105,26 @@ export interface Website {
     updatedAt: number;
 }
 
+export interface CoverImage {
+    url: string;               // Local path: /images/[slug]/cover/cover.webp
+    alt: string;
+    width?: number;
+    height?: number;
+    source: 'unsplash' | 'pexels' | 'manual';
+    attribution?: string;      // "Photo by X on Unsplash"
+    originalUrl?: string;      // Original URL before download
+}
+
+export interface ContentImage {
+    id: string;
+    url: string;               // /images/[slug]/images/img-001.webp
+    alt: string;
+    caption?: string;
+    width?: number;
+    height?: number;
+    source: 'unsplash' | 'pexels' | 'manual';
+}
+
 export interface Article {
     id: string;
     slug: string;
@@ -114,6 +134,10 @@ export interface Article {
 
     category: string;
     tags: string[];
+
+    // Images
+    coverImage?: CoverImage;
+    contentImages?: ContentImage[];
 
     // Metadata
     contentType: string;       // 'tofu', 'tactical', 'seasonal', etc.
@@ -156,10 +180,43 @@ export interface Article {
 export type StructuralPageType = 'about' | 'contact' | 'privacy' | 'terms' | 'disclaimer';
 
 // ============================================
+// DOMAIN PROFILE (Hunt → Website Transfer)
+// ============================================
+
+export interface DomainProfile {
+    domain: string;
+    niche: string;
+
+    // Keywords from research
+    primaryKeywords: string[];      // Main target keywords
+    secondaryKeywords: string[];    // Long-tail variations
+    questionKeywords: string[];     // "How to...", "What is..."
+
+    // Analysis results
+    competitorUrls: string[];
+    contentGaps: string[];          // Topics competitors miss
+    trafficPotential: number;       // 1-100 score
+    difficultyScore: number;        // 1-100 score
+
+    // Suggested content strategy
+    suggestedTopics: string[];
+    suggestedCategories: string[];
+
+    // Metadata
+    researchedAt: number;
+    notes: string;
+
+    // Status
+    transferredToWebsite: boolean;
+    websiteCreatedAt?: number;
+}
+
+// ============================================
 // STORAGE PATHS
 // ============================================
 
 const WEBSITES_DIR = path.join(process.cwd(), 'websites');
+const PROFILES_DIR = path.join(WEBSITES_DIR, 'profiles');
 
 function getWebsiteDir(domain: string): string {
     return path.join(WEBSITES_DIR, domain.replace(/[^a-zA-Z0-9.-]/g, '_'));
@@ -183,6 +240,38 @@ function getArticlesDir(domain: string): string {
 
 function getImagesDir(domain: string): string {
     return path.join(getContentDir(domain), 'images');
+}
+
+/**
+ * Get article-specific images directory for folder-per-article structure
+ * Structure: content/images/[article-slug]/cover/ and content/images/[article-slug]/images/
+ */
+export function getArticleImagesDir(domain: string, articleSlug: string): string {
+    return path.join(getImagesDir(domain), articleSlug);
+}
+
+export function getArticleCoverDir(domain: string, articleSlug: string): string {
+    return path.join(getArticleImagesDir(domain, articleSlug), 'cover');
+}
+
+export function getArticleContentImagesDir(domain: string, articleSlug: string): string {
+    return path.join(getArticleImagesDir(domain, articleSlug), 'images');
+}
+
+/**
+ * Ensure article image directories exist
+ */
+export function ensureArticleImageDirs(domain: string, articleSlug: string): void {
+    const dirs = [
+        getArticleImagesDir(domain, articleSlug),
+        getArticleCoverDir(domain, articleSlug),
+        getArticleContentImagesDir(domain, articleSlug)
+    ];
+    for (const dir of dirs) {
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+    }
 }
 
 function getPagesDir(domain: string): string {
@@ -902,6 +991,8 @@ export function importExternalContent(
         content: string;
         category?: string;
         tags?: string[];
+        coverImage?: CoverImage;
+        contentImages?: ContentImage[];
     }
 ): Article {
     const slug = content.slug || generateSlug(content.title);
@@ -915,6 +1006,8 @@ export function importExternalContent(
         content: content.content,
         category: content.category || 'general',
         tags: content.tags || [],
+        coverImage: content.coverImage,
+        contentImages: content.contentImages,
         contentType: 'external',
         pageType: 'article',
         wordCount,
@@ -1120,4 +1213,91 @@ function createWebsiteFromJob(job: Record<string, any>): Website | null {
         createdAt: job.createdAt || Date.now(),
         updatedAt: job.updatedAt || Date.now()
     };
+}
+
+// ============================================
+// DOMAIN PROFILE STORAGE
+// ============================================
+
+function ensureProfilesDir(): void {
+    if (!fs.existsSync(PROFILES_DIR)) {
+        fs.mkdirSync(PROFILES_DIR, { recursive: true });
+    }
+}
+
+function getProfilePath(domain: string): string {
+    return path.join(PROFILES_DIR, `${domain.replace(/[^a-zA-Z0-9.-]/g, '_')}.json`);
+}
+
+/**
+ * Save domain research profile
+ */
+export function saveDomainProfile(profile: DomainProfile): void {
+    ensureProfilesDir();
+    const profilePath = getProfilePath(profile.domain);
+    fs.writeFileSync(profilePath, JSON.stringify(profile, null, 2));
+}
+
+/**
+ * Get domain profile by domain name
+ */
+export function getDomainProfile(domain: string): DomainProfile | null {
+    const profilePath = getProfilePath(domain);
+
+    if (!fs.existsSync(profilePath)) {
+        return null;
+    }
+
+    try {
+        const data = fs.readFileSync(profilePath, 'utf-8');
+        return JSON.parse(data);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * List all saved domain profiles
+ */
+export function listDomainProfiles(): DomainProfile[] {
+    ensureProfilesDir();
+
+    const profiles: DomainProfile[] = [];
+    const files = fs.readdirSync(PROFILES_DIR).filter(f => f.endsWith('.json'));
+
+    for (const file of files) {
+        try {
+            const data = fs.readFileSync(path.join(PROFILES_DIR, file), 'utf-8');
+            profiles.push(JSON.parse(data));
+        } catch {
+            // Skip invalid files
+        }
+    }
+
+    return profiles.sort((a, b) => b.researchedAt - a.researchedAt);
+}
+
+/**
+ * Delete a domain profile
+ */
+export function deleteDomainProfile(domain: string): boolean {
+    const profilePath = getProfilePath(domain);
+
+    if (fs.existsSync(profilePath)) {
+        fs.unlinkSync(profilePath);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Mark profile as transferred to website
+ */
+export function markProfileTransferred(domain: string): void {
+    const profile = getDomainProfile(domain);
+    if (profile) {
+        profile.transferredToWebsite = true;
+        profile.websiteCreatedAt = Date.now();
+        saveDomainProfile(profile);
+    }
 }

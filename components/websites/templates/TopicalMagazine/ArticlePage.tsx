@@ -86,6 +86,7 @@ export default function MagazineArticlePage({
                     {/* Author Info */}
                     <div className="flex items-center justify-center gap-4">
                         {author.avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={author.avatar}
                                 alt={author.name}
@@ -109,6 +110,7 @@ export default function MagazineArticlePage({
                 {/* Featured Image */}
                 {featuredImage && (
                     <figure className="mb-10 -mx-4 md:mx-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={featuredImage}
                             alt={title}

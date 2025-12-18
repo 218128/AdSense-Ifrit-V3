@@ -25,6 +25,15 @@ import {
 import { saveJob, loadJob } from './jobStore';
 import { validateContent, getContentType } from './contentValidator';
 import { verifyGitHubPublish, checkPageDeployment } from './deploymentChecker';
+import { siteBuilderLogger } from '@/lib/utils/logger';
+import {
+    generatePrivacyPage,
+    generateTermsPage,
+    generateContactPage,
+    SiteInfo
+} from '@/lib/essentialPages';
+import { fetchCoverImage, hasStockPhotoApi } from '@/lib/images/stockPhotos';
+import { getArticleImagesDir, ensureArticleImageDirs } from '@/lib/websiteStore';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -146,6 +155,46 @@ async function generateContent(
     provider: AIProvider
 ): Promise<{ success: boolean; content?: string; error?: string }> {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    // Use lib/essentialPages templates for legal pages (no AI needed)
+    if (item.type === 'privacy' || item.type === 'terms' || item.type === 'contact') {
+        try {
+            const siteInfo: SiteInfo = {
+                siteName: job.config.siteName || 'Our Website',
+                domain: job.githubConfig?.repo?.replace(/-/g, '.') || 'example.com',
+                niche: job.config.niche || 'General',
+                siteTagline: job.config.siteTagline,
+                email: `contact@${job.githubConfig?.repo?.replace(/-/g, '.') || 'example.com'}`,
+                author: job.config.author ? {
+                    name: job.config.author.name,
+                    role: job.config.author.role,
+                    experience: job.config.author.experience,
+                    bio: job.config.author.bio || `Expert in ${job.config.niche || 'this field'}`
+                } : { name: 'Editorial Team', role: 'Content Team', experience: '5+ years', bio: 'Our team of experts brings years of experience to every article.' }
+            };
+
+            let content: string;
+            switch (item.type) {
+                case 'privacy':
+                    content = generatePrivacyPage(siteInfo);
+                    break;
+                case 'terms':
+                    content = generateTermsPage(siteInfo);
+                    break;
+                case 'contact':
+                    content = generateContactPage(siteInfo);
+                    break;
+                default:
+                    content = '';
+            }
+
+            siteBuilderLogger.info(`Generated ${item.type} page using template`);
+            return { success: true, content };
+        } catch (error) {
+            siteBuilderLogger.warn(`Template generation failed for ${item.type}, falling back to AI`);
+            // Fall through to AI generation
+        }
+    }
 
     try {
         const response = await fetch(`${baseUrl}/api/generate-site-content`, {
@@ -276,7 +325,7 @@ async function processItem(job: SiteBuilderJob, item: ContentQueueItem): Promise
         const contentType = getContentType(item.type);
         const validation = validateContent(result.content, contentType);
 
-        console.log(`[SiteBuilder] Content validation for "${item.topic}": score=${validation.score}, valid=${validation.valid}`);
+        siteBuilderLogger.debug(`Content validation for "${item.topic}": score=${validation.score}, valid=${validation.valid}`);
 
         // If content has errors (not just warnings), treat as generation failure
         if (!validation.valid) {
@@ -285,7 +334,7 @@ async function processItem(job: SiteBuilderJob, item: ContentQueueItem): Promise
                 .map(i => i.message)
                 .join('; ');
 
-            console.log(`[SiteBuilder] Content validation failed: ${errorMessages}`);
+            siteBuilderLogger.warn(`Content validation failed: ${errorMessages}`);
 
             // Treat as generation failure - will retry
             item.retries++;
@@ -334,12 +383,32 @@ async function processItem(job: SiteBuilderJob, item: ContentQueueItem): Promise
             const warnings = validation.issues
                 .filter(i => i.type === 'warning')
                 .map(i => i.message);
-            console.log(`[SiteBuilder] Content warnings: ${warnings.join('; ')}`);
+            siteBuilderLogger.debug(`Content warnings: ${warnings.join('; ')}`);
         }
 
         // Save content to file
         const slug = saveContent(job, item, result.content);
         item.articleSlug = slug;
+
+        // ========================================
+        // AUTO-FETCH COVER IMAGE
+        // ========================================
+        if (hasStockPhotoApi() && item.type !== 'privacy' && item.type !== 'terms' && item.type !== 'contact') {
+            try {
+                const domain = job.githubConfig?.repo || 'default';
+                const imagesDir = path.join(process.cwd(), 'websites', domain, 'content', 'images');
+                ensureArticleImageDirs(domain, slug);
+
+                const coverImage = await fetchCoverImage(item.topic, slug, imagesDir);
+                if (coverImage) {
+                    siteBuilderLogger.info(`Fetched cover image for ${slug}`);
+                    // TODO: Update article with coverImage data
+                }
+            } catch (imgError) {
+                siteBuilderLogger.warn(`Cover image fetch failed for ${slug}: ${imgError}`);
+                // Continue without image - not critical
+            }
+        }
 
         // Publish to GitHub
         const publishResult = await publishContent(job, item);
@@ -357,7 +426,7 @@ async function processItem(job: SiteBuilderJob, item: ContentQueueItem): Promise
             );
 
             if (!verifyResult.success) {
-                console.log(`[SiteBuilder] GitHub verification warning: ${verifyResult.error}`);
+                siteBuilderLogger.warn(`GitHub verification warning: ${verifyResult.error}`);
                 // Continue anyway, the API said success
             }
 
@@ -462,7 +531,7 @@ async function processItem(job: SiteBuilderJob, item: ContentQueueItem): Promise
  */
 export async function runJob(jobId: string): Promise<void> {
     if (isProcessing) {
-        console.log('[SiteBuilder] Already processing a job');
+        siteBuilderLogger.debug('Already processing a job');
         return;
     }
 
@@ -470,18 +539,18 @@ export async function runJob(jobId: string): Promise<void> {
     currentJobId = jobId;
     shouldStop = false;
 
-    console.log(`[SiteBuilder] Starting job ${jobId}`);
+    siteBuilderLogger.info(`Starting job ${jobId}`);
 
     try {
         while (!shouldStop) {
             const job = loadJob(jobId);
             if (!job) {
-                console.log('[SiteBuilder] Job not found');
+                siteBuilderLogger.warn('Job not found');
                 break;
             }
 
             if (job.status === 'cancelled' || job.status === 'paused') {
-                console.log(`[SiteBuilder] Job ${job.status}`);
+                siteBuilderLogger.info(`Job ${job.status}`);
                 break;
             }
 
@@ -500,13 +569,13 @@ export async function runJob(jobId: string): Promise<void> {
                     job.status = 'complete';
                     job.completedAt = Date.now();
                     saveJob(job);
-                    console.log('[SiteBuilder] Job complete!');
+                    siteBuilderLogger.success('Job complete!');
                     break;
                 }
 
                 // Some items are scheduled, wait
                 const delay = getProviderDelay(job);
-                console.log(`[SiteBuilder] Waiting ${delay}ms for rate limits...`);
+                siteBuilderLogger.debug(`Waiting ${delay}ms for rate limits...`);
                 await sleep(Math.min(delay, 5000));
                 continue;
             }
@@ -518,7 +587,7 @@ export async function runJob(jobId: string): Promise<void> {
             await sleep(1000);
         }
     } catch (error) {
-        console.error('[SiteBuilder] Job error:', error);
+        siteBuilderLogger.error('Job error:', error instanceof Error ? error : undefined);
         const job = loadJob(jobId);
         if (job) {
             job.status = 'failed';

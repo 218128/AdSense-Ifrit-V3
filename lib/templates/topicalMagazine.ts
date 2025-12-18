@@ -274,7 +274,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 `;
 }
 
-function generateHomepage(siteName: string, tagline: string): string {
+function generateHomepage(_siteName: string, _tagline: string): string {
     return `import { getAllArticles } from '../lib/content';
 import Link from 'next/link';
 
@@ -330,7 +330,7 @@ export default function Home() {
 }
 
 // Re-use standard generators for pages
-function generateArticlePage(name: string, role: string, bio: string) {
+function generateArticlePage(name: string, _role: string, _bio: string) {
     return `import { getArticleBySlug, getAllArticles } from '../../lib/content';
 import ReactMarkdown from 'react-markdown';
 

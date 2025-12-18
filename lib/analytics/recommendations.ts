@@ -5,7 +5,7 @@
  * for maximizing monetization.
  */
 
-import { analyzeCPC, getHighCPCNiches } from '@/lib/modules/cpcIntelligence';
+import { getHighCPCNiches } from '@/lib/modules/cpcIntelligence';
 
 export interface ContentRecord {
     id: string;

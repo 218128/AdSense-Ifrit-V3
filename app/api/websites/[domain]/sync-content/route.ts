@@ -32,7 +32,9 @@ interface SyncResult {
 }
 
 // Parse frontmatter from markdown
-function parseFrontmatter(content: string): { frontmatter: Record<string, any>; body: string } {
+type FrontmatterValue = string | number | boolean;
+
+function parseFrontmatter(content: string): { frontmatter: Record<string, FrontmatterValue>; body: string } {
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 
     if (!frontmatterMatch) {
@@ -43,13 +45,13 @@ function parseFrontmatter(content: string): { frontmatter: Record<string, any>; 
     const body = frontmatterMatch[2];
 
     // Simple YAML parsing
-    const frontmatter: Record<string, any> = {};
+    const frontmatter: Record<string, FrontmatterValue> = {};
     const lines = frontmatterStr.split('\n');
 
     for (const line of lines) {
         const match = line.match(/^(\w+):\s*(.+)$/);
         if (match) {
-            let value: any = match[2].trim();
+            let value: FrontmatterValue = match[2].trim();
             // Remove quotes
             if ((value.startsWith('"') && value.endsWith('"')) ||
                 (value.startsWith("'") && value.endsWith("'"))) {
@@ -168,12 +170,12 @@ export async function POST(
                 const article: Article = {
                     id: existingArticle?.id || generateArticleId(),
                     slug,
-                    title: frontmatter.title || slug.replace(/-/g, ' '),
-                    description: frontmatter.description || body.substring(0, 160) + '...',
+                    title: String(frontmatter.title || slug.replace(/-/g, ' ')),
+                    description: String(frontmatter.description || body.substring(0, 160) + '...'),
                     content: body,
-                    category: frontmatter.category || 'general',
+                    category: String(frontmatter.category || 'general'),
                     tags: frontmatter.tags ? String(frontmatter.tags).split(',').map(t => t.trim()) : [],
-                    contentType: frontmatter.contentType || 'article',
+                    contentType: String(frontmatter.contentType || 'article'),
                     pageType: 'article',
                     wordCount,
                     readingTime: Math.ceil(wordCount / 200),
@@ -187,11 +189,11 @@ export async function POST(
                     source: 'github-sync',
                     // Publishing
                     status: 'published',
-                    publishedAt: frontmatter.date ? new Date(frontmatter.date).getTime() : Date.now(),
+                    publishedAt: frontmatter.date ? new Date(String(frontmatter.date)).getTime() : Date.now(),
                     lastModifiedAt: Date.now(),
                     // SEO
-                    metaTitle: frontmatter.metaTitle,
-                    metaDescription: frontmatter.metaDescription
+                    metaTitle: frontmatter.metaTitle ? String(frontmatter.metaTitle) : undefined,
+                    metaDescription: frontmatter.metaDescription ? String(frontmatter.metaDescription) : undefined
                 };
 
                 saveArticle(domain, article);

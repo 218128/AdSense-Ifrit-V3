@@ -13,8 +13,10 @@
 import { useState, useMemo } from 'react';
 import {
     FileText, Eye, Code, Save, Send, X, Info,
-    Loader2, Check, AlertTriangle, ChevronDown
+    Loader2, Check, AlertTriangle, ChevronDown, ExternalLink, Share2
 } from 'lucide-react';
+import DevToPublishModal from '../shared/DevToPublishModal';
+import SocialShareModal from '../shared/SocialShareModal';
 
 interface ArticleEditorProps {
     domain: string;
@@ -56,6 +58,8 @@ export default function ArticleEditor({
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showFrontmatterHelper, setShowFrontmatterHelper] = useState(!initialContent);
+    const [showDevToModal, setShowDevToModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
 
     // Parse frontmatter from content
     const parsedMeta = useMemo(() => {
@@ -194,8 +198,8 @@ export default function ArticleEditor({
                             {articleId ? 'Edit Article' : 'Create Article'}
                         </h2>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${seoAnalysis.score >= 80 ? 'bg-green-100 text-green-700' :
-                                seoAnalysis.score >= 50 ? 'bg-amber-100 text-amber-700' :
-                                    'bg-red-100 text-red-700'
+                            seoAnalysis.score >= 50 ? 'bg-amber-100 text-amber-700' :
+                                'bg-red-100 text-red-700'
                             }`}>
                             SEO: {seoAnalysis.score}%
                         </span>
@@ -317,6 +321,21 @@ export default function ArticleEditor({
                     </div>
                     <div className="flex gap-2">
                         <button
+                            onClick={() => setShowShareModal(true)}
+                            disabled={!parsedMeta?.title}
+                            className="flex items-center gap-2 px-3 py-2 border border-neutral-200 rounded-lg hover:bg-neutral-50 disabled:opacity-50"
+                        >
+                            <Share2 className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setShowDevToModal(true)}
+                            disabled={!parsedMeta?.title}
+                            className="flex items-center gap-2 px-4 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-900 disabled:opacity-50"
+                        >
+                            <ExternalLink className="w-4 h-4" />
+                            Dev.to
+                        </button>
+                        <button
                             onClick={() => handleSave(false)}
                             disabled={saving}
                             className="flex items-center gap-2 px-4 py-2 border border-neutral-200 rounded-lg hover:bg-neutral-50 disabled:opacity-50"
@@ -335,6 +354,30 @@ export default function ArticleEditor({
                     </div>
                 </div>
             </div>
+
+            {/* Dev.to Publish Modal */}
+            {showDevToModal && parsedMeta?.title && (
+                <DevToPublishModal
+                    articleTitle={parsedMeta.title}
+                    articleContent={content}
+                    canonicalUrl={`https://${domain}/${parsedMeta.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                    niche={niche}
+                    onClose={() => setShowDevToModal(false)}
+                    onPublished={(url) => {
+                        console.log('Published to Dev.to:', url);
+                    }}
+                />
+            )}
+
+            {/* Social Share Modal */}
+            {showShareModal && parsedMeta?.title && (
+                <SocialShareModal
+                    articleTitle={parsedMeta.title}
+                    articleUrl={`https://${domain}/${parsedMeta.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                    articleExcerpt={parsedMeta.description}
+                    onClose={() => setShowShareModal(false)}
+                />
+            )}
         </div>
     );
 }
