@@ -138,14 +138,15 @@ export async function createGitHubRepo(
 }
 
 /**
- * Push blog template files to repository
+ * Push blog template files to repository using a SINGLE COMMIT
+ * Uses GitHub Trees API to batch all files together
  */
 export async function pushTemplateFiles(
     token: string,
     repoName: string,
     siteConfig?: Partial<SiteConfig>,
     extraFiles?: Record<string, string>  // Additional files like essential pages
-): Promise<{ success: boolean; files?: Array<{ path: string; success: boolean; error?: string }>; repoFullName?: string; error?: string }> {
+): Promise<{ success: boolean; files?: Array<{ path: string; success: boolean; error?: string }>; repoFullName?: string; commitSha?: string; error?: string }> {
     try {
         const userRes = await validateGitHubToken(token);
         if (!userRes.success || !userRes.user) {
@@ -153,6 +154,12 @@ export async function pushTemplateFiles(
         }
 
         const repoFullName = `${userRes.user.username}/${repoName}`;
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'AdSense-Ifrit'
+        };
 
         // Select template generator
         let templateFiles;
@@ -176,52 +183,125 @@ export async function pushTemplateFiles(
             }
         }
 
+        // Step 1: Get the current commit SHA (HEAD of main branch)
+        const refResponse = await fetch(
+            `https://api.github.com/repos/${repoFullName}/git/ref/heads/main`,
+            { headers }
+        );
+
+        if (!refResponse.ok) {
+            return { success: false, error: 'Failed to get branch ref' };
+        }
+        const refData = await refResponse.json();
+        const latestCommitSha = refData.object.sha;
+
+        // Step 2: Get the tree SHA of the current commit
+        const commitResponse = await fetch(
+            `https://api.github.com/repos/${repoFullName}/git/commits/${latestCommitSha}`,
+            { headers }
+        );
+        if (!commitResponse.ok) {
+            return { success: false, error: 'Failed to get commit' };
+        }
+        const commitData = await commitResponse.json();
+        const baseTreeSha = commitData.tree.sha;
+
+        // Step 3: Create blobs for each file and build tree
+        const treeItems = [];
         const results = [];
 
         for (const file of templateFiles) {
             try {
-                // Check sha if file exists
-                const checkUrl = `https://api.github.com/repos/${repoFullName}/contents/${file.path}`;
-                const checkResponse = await fetch(checkUrl, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'User-Agent': 'AdSense-Ifrit'
+                // Create blob for file content
+                const blobResponse = await fetch(
+                    `https://api.github.com/repos/${repoFullName}/git/blobs`,
+                    {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            content: Buffer.from(file.content).toString('base64'),
+                            encoding: 'base64'
+                        })
                     }
-                });
+                );
 
-                let sha: string | undefined;
-                if (checkResponse.ok) {
-                    const existing = await checkResponse.json();
-                    sha = existing.sha;
+                if (!blobResponse.ok) {
+                    results.push({ path: file.path, success: false, error: 'Failed to create blob' });
+                    continue;
                 }
 
-                // Create/Update
-                const createResponse = await fetch(checkUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json',
-                        'User-Agent': 'AdSense-Ifrit'
-                    },
-                    body: JSON.stringify({
-                        message: `Add ${file.path} - AdSense Ifrit setup`,
-                        content: Buffer.from(file.content).toString('base64'),
-                        ...(sha ? { sha } : {})
-                    })
+                const blobData = await blobResponse.json();
+                treeItems.push({
+                    path: file.path,
+                    mode: '100644',
+                    type: 'blob',
+                    sha: blobData.sha
                 });
-
-                results.push({ path: file.path, success: createResponse.ok });
+                results.push({ path: file.path, success: true });
             } catch (err) {
                 results.push({ path: file.path, success: false, error: String(err) });
             }
         }
 
+        // Step 4: Create new tree with all files
+        const treeResponse = await fetch(
+            `https://api.github.com/repos/${repoFullName}/git/trees`,
+            {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    base_tree: baseTreeSha,
+                    tree: treeItems
+                })
+            }
+        );
+
+        if (!treeResponse.ok) {
+            return { success: false, error: 'Failed to create tree', files: results };
+        }
+        const treeData = await treeResponse.json();
+
+        // Step 5: Create commit with the new tree
+        const newCommitResponse = await fetch(
+            `https://api.github.com/repos/${repoFullName}/git/commits`,
+            {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    message: `Template upgrade - ${results.filter(r => r.success).length} files updated via AdSense Ifrit`,
+                    tree: treeData.sha,
+                    parents: [latestCommitSha]
+                })
+            }
+        );
+
+        if (!newCommitResponse.ok) {
+            return { success: false, error: 'Failed to create commit', files: results };
+        }
+        const newCommitData = await newCommitResponse.json();
+
+        // Step 6: Update ref to point to new commit
+        const updateRefResponse = await fetch(
+            `https://api.github.com/repos/${repoFullName}/git/refs/heads/main`,
+            {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({
+                    sha: newCommitData.sha,
+                    force: false
+                })
+            }
+        );
+
+        if (!updateRefResponse.ok) {
+            return { success: false, error: 'Failed to update branch ref', files: results };
+        }
+
         return {
             success: results.every(r => r.success),
             files: results,
-            repoFullName
+            repoFullName,
+            commitSha: newCommitData.sha
         };
 
     } catch (error) {
