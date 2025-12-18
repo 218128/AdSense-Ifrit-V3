@@ -544,6 +544,14 @@ export interface Article {
     content: string;
 }
 
+// gray-matter parses YAML dates as Date objects, convert to string
+function formatDate(date: unknown): string {
+    if (!date) return new Date().toISOString().split('T')[0];
+    if (date instanceof Date) return date.toISOString().split('T')[0];
+    if (typeof date === 'string') return date;
+    return new Date().toISOString().split('T')[0];
+}
+
 export function getAllArticles(): Article[] {
     if (!fs.existsSync(contentDir)) return [];
     
@@ -559,7 +567,7 @@ export function getAllArticles(): Article[] {
         return {
             slug,
             title: data.title || slug,
-            date: data.date || new Date().toISOString().split('T')[0],
+            date: formatDate(data.date),
             description: data.description || '',
             author: data.author,
             category: data.category,
@@ -577,7 +585,7 @@ export function getArticleBySlug(slug: string): Article | null {
         return {
             slug,
             title: data.title || slug,
-            date: data.date || new Date().toISOString().split('T')[0],
+            date: formatDate(data.date),
             description: data.description || '',
             author: data.author,
             category: data.category,
