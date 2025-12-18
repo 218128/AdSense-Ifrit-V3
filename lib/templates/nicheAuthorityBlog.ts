@@ -460,6 +460,24 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     
     return (
         <article className="article">
+            {/* Article Schema for Rich Results */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                    __html: JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@type": "Article",
+                        "headline": article.title,
+                        "description": article.description,
+                        "image": article.image || article.featuredImage,
+                        "datePublished": article.date,
+                        "author": {
+                            "@type": "Person",
+                            "name": "${authorName}"
+                        }
+                    })
+                }}
+            />
             <header className="article-header">
                 <h1>{article.title}</h1>
                 <div className="article-meta">
