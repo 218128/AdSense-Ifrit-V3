@@ -3,6 +3,8 @@
  * Pillar-focused layout for high-authority niches
  */
 
+import { AISiteDecisions, generateAIDecisionCSS } from '@/lib/aiSiteBuilder';
+
 export interface SiteConfig {
     siteName: string;
     tagline: string;
@@ -18,6 +20,7 @@ export interface SiteConfig {
         secondary: string;
     };
     umamiId?: string;
+    aiDecisions?: AISiteDecisions; // AI-generated configuration decisions
 }
 
 export function generateTemplateFiles(repoName: string, config?: Partial<SiteConfig>) {
@@ -30,6 +33,7 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
     const secondaryColor = config?.colors?.secondary || '#0ea5e9'; // Sky-500
     const adsensePublisherId = config?.adsensePublisherId || '';
     const umamiId = config?.umamiId;
+    const aiDecisions = config?.aiDecisions;
 
     return [
         {
@@ -77,10 +81,10 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
             }, null, 2)
         },
 
-        // Global CSS
+        // Global CSS + AI Decision CSS
         {
             path: 'app/globals.css',
-            content: generateGlobalStyles(primaryColor, secondaryColor)
+            content: generateGlobalStyles(primaryColor, secondaryColor) + (aiDecisions ? '\n\n' + generateAIDecisionCSS(aiDecisions) : '')
         },
 
         // Layout

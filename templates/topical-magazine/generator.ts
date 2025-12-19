@@ -3,6 +3,8 @@
  * Multi-category layout for broader niches
  */
 
+import { AISiteDecisions, generateAIDecisionCSS } from '@/lib/aiSiteBuilder';
+
 export interface SiteConfig {
     siteName: string;
     tagline: string;
@@ -18,6 +20,7 @@ export interface SiteConfig {
         secondary: string;
     };
     umamiId?: string; // Optional Umami Website ID
+    aiDecisions?: AISiteDecisions; // AI-generated configuration decisions
 }
 
 export function generateTemplateFiles(repoName: string, config?: Partial<SiteConfig>) {
@@ -30,6 +33,7 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
     const secondaryColor = config?.colors?.secondary || '#8b5cf6'; // Violet-500
     const adsensePublisherId = config?.adsensePublisherId || '';
     const umamiId = config?.umamiId;
+    const aiDecisions = config?.aiDecisions;
 
     return [
         // Package.json
@@ -105,10 +109,10 @@ module.exports = nextConfig;
             }, null, 2)
         },
 
-        // Global CSS
+        // Global CSS + AI Decision CSS
         {
             path: 'app/globals.css',
-            content: generateGlobalStyles(primaryColor, secondaryColor)
+            content: generateGlobalStyles(primaryColor, secondaryColor) + (aiDecisions ? '\n\n' + generateAIDecisionCSS(aiDecisions) : '')
         },
 
         // Layout
