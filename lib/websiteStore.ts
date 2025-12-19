@@ -174,6 +174,18 @@ export interface Article {
     metaTitle?: string;
     metaDescription?: string;
     canonicalUrl?: string;
+
+    // Version history (last 10 versions kept)
+    versions?: ArticleVersion[];
+}
+
+export interface ArticleVersion {
+    id: string;                 // ver_timestamp
+    content: string;            // Snapshot of content at this version
+    title: string;              // Title at this version
+    savedAt: number;            // Timestamp
+    reason: 'auto' | 'manual' | 'before-ai-refine' | 'before-edit';
+    wordCount: number;
 }
 
 // Structural page type helper
@@ -588,6 +600,82 @@ export function updateArticle(domain: string, articleId: string, updates: Partia
     const updated = {
         ...article,
         ...updates,
+        lastModifiedAt: Date.now()
+    };
+    saveArticle(domain, updated);
+    incrementPendingChanges(domain);
+
+    return updated;
+}
+
+/**
+ * Save a version snapshot of an article
+ */
+export function saveArticleVersion(
+    domain: string,
+    articleId: string,
+    reason: ArticleVersion['reason'] = 'auto'
+): ArticleVersion | null {
+    const article = getArticle(domain, articleId);
+    if (!article) return null;
+
+    const version: ArticleVersion = {
+        id: `ver_${Date.now()}`,
+        content: article.content,
+        title: article.title,
+        savedAt: Date.now(),
+        reason,
+        wordCount: article.wordCount
+    };
+
+    // Keep only last 10 versions
+    const versions = [version, ...(article.versions || [])].slice(0, 10);
+
+    const updated = {
+        ...article,
+        versions,
+        lastModifiedAt: Date.now()
+    };
+    saveArticle(domain, updated);
+
+    return version;
+}
+
+/**
+ * List versions of an article
+ */
+export function listArticleVersions(domain: string, articleId: string): ArticleVersion[] {
+    const article = getArticle(domain, articleId);
+    return article?.versions || [];
+}
+
+/**
+ * Get a specific version
+ */
+export function getArticleVersion(domain: string, articleId: string, versionId: string): ArticleVersion | null {
+    const versions = listArticleVersions(domain, articleId);
+    return versions.find(v => v.id === versionId) || null;
+}
+
+/**
+ * Restore article to a previous version
+ */
+export function restoreArticleVersion(domain: string, articleId: string, versionId: string): Article | null {
+    const article = getArticle(domain, articleId);
+    if (!article) return null;
+
+    const version = getArticleVersion(domain, articleId, versionId);
+    if (!version) return null;
+
+    // Save current state as a version before restoring
+    saveArticleVersion(domain, articleId, 'auto');
+
+    // Restore content from version
+    const updated = {
+        ...article,
+        content: version.content,
+        title: version.title,
+        wordCount: version.wordCount,
         lastModifiedAt: Date.now()
     };
     saveArticle(domain, updated);

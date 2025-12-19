@@ -18,6 +18,7 @@ export { default as SmartDropZone } from './SmartDropZone';
 export { default as BulkArticleQueue } from './BulkArticleQueue';
 export { default as ArticleEditor } from './ArticleEditor';
 export { default as ImageGallery } from './ImageGallery';
+export { default as ArticleVersionHistory } from './ArticleVersionHistory';
 
 // Domain setup components (moved from Hunt tab)
 export { default as DomainSetup } from './DomainSetup';
