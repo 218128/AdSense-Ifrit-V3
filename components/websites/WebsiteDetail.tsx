@@ -270,20 +270,18 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                             {deployMessage}
                         </span>
                     )}
-                    {website.status === 'pending-deploy' && (
-                        <button
-                            onClick={handleDeploy}
-                            disabled={deploying}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                        >
-                            {deploying ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Rocket className="w-4 h-4" />
-                            )}
-                            {deploying ? 'Deploying...' : 'Deploy Now'}
-                        </button>
-                    )}
+                    <button
+                        onClick={handleDeploy}
+                        disabled={deploying}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    >
+                        {deploying ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Rocket className="w-4 h-4" />
+                        )}
+                        {deploying ? 'Deploying...' : 'Deploy'}
+                    </button>
                     {website.deployment.pendingChanges > 0 && (
                         <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
                             {website.deployment.pendingChanges} pending changes
