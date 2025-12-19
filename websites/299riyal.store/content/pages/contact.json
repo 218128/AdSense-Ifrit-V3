@@ -1,0 +1,21 @@
+{
+  "id": "page_contact_1766104831126",
+  "slug": "contact",
+  "title": "Contact Us",
+  "description": "Contact Us page for 299Riyal",
+  "content": "Contact Us\n\nGet in Touch\n\nBusiness Inquiries\n\nContent Feedback\n\nFollow Us",
+  "category": "Pages",
+  "tags": [],
+  "contentType": "structural",
+  "pageType": "structural",
+  "structuralType": "contact",
+  "wordCount": 11,
+  "readingTime": 1,
+  "eeatSignals": [],
+  "aiOverviewBlocks": [],
+  "isExternal": false,
+  "source": "github-sync",
+  "status": "published",
+  "lastModifiedAt": 1766104831126,
+  "publishedAt": 1766104831126
+}
