@@ -584,6 +584,8 @@ function ContentTab({
     const [deleting, setDeleting] = useState<string | null>(null);
     const [syncing, setSyncing] = useState(false);
     const [syncMessage, setSyncMessage] = useState<string | null>(null);
+    const [publishing, setPublishing] = useState(false);
+    const [publishMessage, setPublishMessage] = useState<string | null>(null);
 
     const filteredArticles = articles.filter(a => {
         if (filter !== 'all' && a.status !== filter) return false;
@@ -643,6 +645,48 @@ function ContentTab({
         }
     };
 
+    // Publish articles to GitHub
+    const handlePublish = async (articleIds: string[]) => {
+        const githubToken = localStorage.getItem('ifrit_github_token');
+
+        if (!githubToken) {
+            setPublishMessage('⚠️ GitHub token required. Configure in Settings → Integrations.');
+            return;
+        }
+
+        if (articleIds.length === 0) {
+            setPublishMessage('⚠️ No articles selected.');
+            return;
+        }
+
+        setPublishing(true);
+        setPublishMessage(null);
+
+        try {
+            const response = await fetch(`/api/websites/${domain}/publish`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ articleIds, githubToken })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setPublishMessage(`✅ ${data.message}`);
+                setSelectedIds(new Set());
+                onRefresh();
+            } else {
+                setPublishMessage(`❌ ${data.error || data.message}`);
+            }
+        } catch {
+            setPublishMessage('❌ Publish failed');
+        } finally {
+            setPublishing(false);
+        }
+    };
+
+    const readyArticleIds = articles.filter(a => a.status === 'ready' || a.status === 'draft').map(a => a.id);
+
     return (
         <div className="space-y-4">
             {/* Sync Message */}
@@ -652,6 +696,16 @@ function ContentTab({
                         'bg-red-50 text-red-700'
                     }`}>
                     {syncMessage}
+                </div>
+            )}
+
+            {/* Publish Message */}
+            {publishMessage && (
+                <div className={`p-3 rounded-lg text-sm ${publishMessage.startsWith('✅') ? 'bg-green-50 text-green-700' :
+                    publishMessage.startsWith('⚠️') ? 'bg-amber-50 text-amber-700' :
+                        'bg-red-50 text-red-700'
+                    }`}>
+                    {publishMessage}
                 </div>
             )}
 
@@ -734,6 +788,24 @@ function ContentTab({
                     >
                         <Sparkles className="w-4 h-4" />
                         Generate
+                    </button>
+                    {/* Publish Buttons */}
+                    <button
+                        onClick={() => handlePublish(Array.from(selectedIds))}
+                        disabled={publishing || selectedIds.size === 0}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Publish selected articles to website"
+                    >
+                        {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                        Publish ({selectedIds.size})
+                    </button>
+                    <button
+                        onClick={() => handlePublish(readyArticleIds)}
+                        disabled={publishing || readyArticleIds.length === 0}
+                        className="flex items-center gap-2 px-4 py-2 border border-green-600 text-green-700 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Publish all draft/ready articles"
+                    >
+                        Publish All ({readyArticleIds.length})
                     </button>
                 </div>
             </div>
