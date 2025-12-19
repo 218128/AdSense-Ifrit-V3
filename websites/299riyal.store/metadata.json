@@ -5,8 +5,8 @@
   "niche": "Budget Tech & Gadgets",
   "template": {
     "id": "niche-authority",
-    "version": "1.3.0",
-    "installedAt": 1766097724457
+    "version": "1.3.1",
+    "installedAt": 1766103774162
   },
   "fingerprint": {
     "providers": [],
@@ -22,9 +22,9 @@
     "githubOwner": "218128",
     "vercelProject": "299riyal-store-blog",
     "liveUrl": "https://299riyal.store",
-    "lastDeployAt": 1766101162138,
-    "lastDeployCommit": "d23192388e34edfb1c4d864887818f568a5f6fb3",
-    "pendingChanges": 1
+    "lastDeployAt": 1766103787440,
+    "lastDeployCommit": "400cc806da959028c7d87deb9c86f6fb7161424d",
+    "pendingChanges": 0
   },
   "stats": {
     "articlesCount": 13,
@@ -34,10 +34,20 @@
   },
   "versions": [
     {
+      "version": "1.0.4",
+      "templateVersion": "1.3.1",
+      "deployedAt": 1766103787441,
+      "commitSha": "400cc806da959028c7d87deb9c86f6fb7161424d",
+      "changes": [
+        "Upgraded from v1.3.0 to v1.3.1"
+      ],
+      "canRollback": true
+    },
+    {
       "version": "1.0.3",
       "templateVersion": "1.3.0",
-      "deployedAt": 1766101162140,
-      "commitSha": "d23192388e34edfb1c4d864887818f568a5f6fb3",
+      "deployedAt": 1766103765895,
+      "commitSha": "3f778e1a9f62bed5bb3044bd71aa4287458c0dcf",
       "changes": [
         "Upgraded from v1.2.0 to v1.3.0"
       ],
@@ -70,5 +80,5 @@
   },
   "status": "live",
   "createdAt": 1702504120000,
-  "updatedAt": 1766102547620
+  "updatedAt": 1766103787440
 }

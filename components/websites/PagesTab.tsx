@@ -230,35 +230,31 @@ export default function PagesTab({ domain, onRefresh }: PagesTabProps) {
                             {syncMessage}
                         </span>
                     )}
-                    {pages.length === 0 && (
-                        <>
-                            <button
-                                onClick={syncFromGitHub}
-                                disabled={syncing}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50"
-                                title="Import existing pages from GitHub repo"
-                            >
-                                {syncing ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <Download className="w-4 h-4" />
-                                )}
-                                Sync from GitHub
-                            </button>
-                            <button
-                                onClick={createDefaults}
-                                disabled={creating}
-                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50"
-                            >
-                                {creating ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <Sparkles className="w-4 h-4" />
-                                )}
-                                Generate New
-                            </button>
-                        </>
-                    )}
+                    <button
+                        onClick={syncFromGitHub}
+                        disabled={syncing}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50"
+                        title="Import pages from GitHub repo"
+                    >
+                        {syncing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Download className="w-4 h-4" />
+                        )}
+                        Sync GitHub
+                    </button>
+                    <button
+                        onClick={createDefaults}
+                        disabled={creating}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                    >
+                        {creating ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Sparkles className="w-4 h-4" />
+                        )}
+                        Generate All
+                    </button>
                     <button
                         onClick={fetchPages}
                         className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
