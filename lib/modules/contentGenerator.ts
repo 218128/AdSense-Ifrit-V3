@@ -21,7 +21,7 @@ import {
     getBestTemplateForNiche,
     getTemplateById,
     PRODUCT_REVIEW_TEMPLATE
-} from '@/lib/templates';
+} from '@/templates/shared/articleTemplates';
 
 import {
     generateArticleSchema,

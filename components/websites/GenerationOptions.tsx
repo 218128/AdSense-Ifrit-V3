@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { User, FileText, TrendingUp, Sparkles } from 'lucide-react';
 import { DEFAULT_PERSONAS } from '@/lib/humanization/personas';
-import { ALL_TEMPLATES } from '@/lib/templates/articleTemplates';
+import { ALL_TEMPLATES } from '@/templates/shared/articleTemplates';
 
 export interface GenerationOptions {
     persona: string;  // 'auto' or persona id

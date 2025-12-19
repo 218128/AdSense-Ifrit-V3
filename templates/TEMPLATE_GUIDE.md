@@ -4,54 +4,57 @@ This guide helps AI assistants (ChatGPT, Claude, Gemini, etc.) understand and up
 
 ---
 
-## 📁 Directory Structure Overview
+## 📁 Unified Directory Structure
 
-Ifrit uses **two template directories** with different purposes:
-
-### 1. `lib/templates/` - TypeScript Generators (DYNAMIC)
-
-These are **code generators** that create Next.js files programmatically.
-
-```
-lib/templates/
-├── index.ts                  ← Exports all template functions
-├── nicheAuthorityBlog.ts     ← Niche Authority Blog generator (870 lines)
-├── topicalMagazine.ts        ← Topical Magazine generator
-├── expertHub.ts              ← Expert Hub generator
-├── articleTemplates.ts       ← Article page templates
-├── mockData.ts               ← Sample data for testing
-└── shared/                   ← Reusable component generators
-    ├── header.ts
-    ├── footer.ts
-    ├── articleCard.ts
-    ├── adZone.ts             ← AdSense ad units
-    ├── newsletter.ts
-    ├── socialShare.ts
-    ├── tableOfContents.ts
-    ├── readingProgress.ts
-    ├── trustBadges.ts
-    ├── authorCard.ts
-    ├── authorCredentials.ts
-    ├── dateBadges.ts
-    ├── relatedArticles.ts
-    ├── seoHead.ts
-    └── schema/               ← JSON-LD structured data
-        ├── articleSchema.ts
-        ├── authorSchema.ts
-        ├── breadcrumbSchema.ts
-        └── faqSchema.ts
-```
-
-### 2. `templates/` - Static Assets (STATIC)
-
-These are **pre-configured files** that can be copied directly.
+All templates are now in a **single `templates/` folder** — self-contained and isolated from core app code.
 
 ```
 templates/
-└── niche-authority-blog/
-    ├── site-config.yaml      ← Site configuration (colors, author, SEO)
-    └── styles.css            ← Global CSS styles
+├── TEMPLATE_GUIDE.md        ← This file (AI instruction guide)
+├── index.ts                 ← Main exports
+│
+├── niche-authority-blog/    ← Template 1
+│   ├── generator.ts         ← Main generator (870 lines)
+│   ├── config.yaml          ← Default site config
+│   └── styles.css           ← Base styles
+│
+├── topical-magazine/        ← Template 2
+│   └── generator.ts
+│
+├── expert-hub/              ← Template 3
+│   └── generator.ts
+│
+└── shared/                  ← Reusable components (all templates use)
+    ├── index.ts             ← Component exports
+    ├── articleTemplates.ts  ← Article type templates
+    ├── mockData.ts          ← Test data
+    │
+    ├── components/          ← UI component generators
+    │   ├── header.ts
+    │   ├── footer.ts
+    │   ├── articleCard.ts
+    │   ├── adZone.ts        ← AdSense ad units
+    │   ├── newsletter.ts
+    │   ├── socialShare.ts
+    │   ├── tableOfContents.ts
+    │   ├── readingProgress.ts
+    │   ├── trustBadges.ts
+    │   ├── authorCard.ts
+    │   ├── authorCredentials.ts
+    │   ├── dateBadges.ts
+    │   ├── relatedArticles.ts
+    │   └── seoHead.ts
+    │
+    └── schema/              ← JSON-LD structured data
+        ├── articleSchema.ts
+        ├── breadcrumbs.ts
+        └── faqSchema.ts
 ```
+
+### Benefits of Unified Structure:
+- ✅ **AI-Safe**: External AI can modify templates without touching core Ifrit code
+- ✅ **Self-Contained**: Each template folder has everything it needs
+- ✅ **Clear Separation**: `shared/` for reusable, `{template}/` for specific
 
 ---
 
@@ -59,11 +62,11 @@ templates/
 
 Ifrit currently has **3 template types**:
 
-| Template | File | Purpose | Best For |
-|----------|------|---------|----------|
-| **Niche Authority Blog** | `nicheAuthorityBlog.ts` | Clean, focused niche site | Affiliate/AdSense sites |
-| **Topical Magazine** | `topicalMagazine.ts` | News/magazine style | Content-heavy sites |
-| **Expert Hub** | `expertHub.ts` | Expert-focused with credentials | Professional/consulting |
+| Template | Folder | Purpose | Best For |
+|----------|--------|---------|----------|
+| **Niche Authority Blog** | `niche-authority-blog/` | Clean, focused niche site | Affiliate/AdSense sites |
+| **Topical Magazine** | `topical-magazine/` | News/magazine style | Content-heavy sites |
+| **Expert Hub** | `expert-hub/` | Expert-focused with credentials | Professional/consulting |
 
 ---
 
@@ -75,15 +78,16 @@ When a website is created:
 1. User clicks "Create Website" in Ifrit
                     ↓
 2. API calls: generateTemplateFiles(repoName, siteConfig)
+   Location: templates/{template}/generator.ts
                     ↓
-3. Template generator returns: { path: string, content: string }[]
+3. Generator returns: { path: string, content: string }[]
                     ↓
 4. Files pushed to GitHub repository
                     ↓
 5. Vercel deploys the Next.js site
 ```
 
-### Key Generator Functions (nicheAuthorityBlog.ts)
+### Key Generator Functions (generator.ts)
 
 | Function | Purpose | Output |
 |----------|---------|--------|
@@ -104,46 +108,36 @@ Templates use CSS custom properties for easy theming. Located in `generateGlobal
 ```css
 :root {
   /* Primary Colors */
-  --primary: #2563eb;
-  --primary-light: #3b82f6;
-  --primary-dark: #1d4ed8;
-  
-  /* Secondary Colors */
-  --secondary: #10b981;
-  --secondary-light: #34d399;
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-secondary: #10b981;
   
   /* Neutrals */
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --border: #e5e5e5;
-  
-  /* Semantic */
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --error: #ef4444;
+  --color-bg: #ffffff;
+  --color-bg-alt: #f8fafc;
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
   
   /* Typography */
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-serif: 'Merriweather', Georgia, serif;
+  --font-sans: 'Inter', -apple-system, sans-serif;
   
-  /* Spacing */
-  --content-width: 800px;
-  --container-width: 1200px;
+  /* Layout */
+  --max-width: 1200px;
+  --content-width: 720px;
 }
 ```
 
 ### To Change Colors:
 
-1. Modify `generateGlobalStyles()` in the template file
-2. Or update `site-config.yaml` and regenerate
+1. Modify `generateGlobalStyles()` in the generator file
+2. Or update the config and regenerate
 
 ---
 
 ## 📦 Shared Components
 
-All templates can use these shared component generators from `lib/templates/shared/`:
+All templates use these shared component generators from `templates/shared/components/`:
 
 ### Layout Components
 | Component | File | Purpose |
@@ -179,8 +173,7 @@ All templates can use these shared component generators from `lib/templates/shar
 | Component | File | Purpose |
 |-----------|------|---------|
 | ArticleSchema | `schema/articleSchema.ts` | Article JSON-LD |
-| AuthorSchema | `schema/authorSchema.ts` | Person JSON-LD |
-| BreadcrumbSchema | `schema/breadcrumbSchema.ts` | Breadcrumb JSON-LD |
+| BreadcrumbSchema | `schema/breadcrumbs.ts` | Breadcrumb JSON-LD |
 | FaqSchema | `schema/faqSchema.ts` | FAQ JSON-LD |
 
 ---
@@ -189,9 +182,9 @@ All templates can use these shared component generators from `lib/templates/shar
 
 ### Step 1: Locate the Template File
 ```
-lib/templates/nicheAuthorityBlog.ts   ← For Niche Authority Blog
-lib/templates/topicalMagazine.ts      ← For Topical Magazine
-lib/templates/expertHub.ts            ← For Expert Hub
+templates/niche-authority-blog/generator.ts   ← Niche Authority Blog
+templates/topical-magazine/generator.ts       ← Topical Magazine
+templates/expert-hub/generator.ts             ← Expert Hub
 ```
 
 ### Step 2: Find the Function to Modify
@@ -226,7 +219,7 @@ Changes apply to **newly created** websites only.
 ## ➕ How to Add a New Component
 
 ### Step 1: Create Component File
-Create `lib/templates/shared/myComponent.ts`:
+Create `templates/shared/components/myComponent.ts`:
 
 ```typescript
 export function generateMyComponent(): string {
@@ -245,17 +238,17 @@ export function generateMyComponent(): string {
 ```
 
 ### Step 2: Export from Index
-Add to `lib/templates/shared/index.ts`:
+Add to `templates/shared/index.ts`:
 
 ```typescript
-export { generateMyComponent } from './myComponent';
+export { generateMyComponent } from './components/myComponent';
 ```
 
-### Step 3: Import in Template
-In `nicheAuthorityBlog.ts`:
+### Step 3: Import in Template Generator
+In `templates/niche-authority-blog/generator.ts`:
 
 ```typescript
-import { generateMyComponent } from './shared';
+import { generateMyComponent } from '../shared';
 
 function generateTemplateFiles(...) {
   return [
@@ -272,11 +265,19 @@ function generateTemplateFiles(...) {
 
 ## 🆕 How to Create a New Template
 
-### Step 1: Create Template File
-Create `lib/templates/myNewTemplate.ts`:
+### Step 1: Create Template Folder
+```
+templates/my-new-template/
+├── generator.ts
+├── config.yaml
+└── styles.css
+```
+
+### Step 2: Create Generator File
+`templates/my-new-template/generator.ts`:
 
 ```typescript
-interface SiteConfig {
+export interface SiteConfig {
   siteName: string;
   domain: string;
   author: { name: string; role: string };
@@ -312,14 +313,13 @@ export function generateTemplateFiles(
 }
 ```
 
-### Step 2: Export from Index
-Add to `lib/templates/index.ts`:
+### Step 3: Export from templates/index.ts
 
 ```typescript
-export * from './myNewTemplate';
+export { generateTemplateFiles as generateMyNewTemplate } from './my-new-template/generator';
 ```
 
-### Step 3: Register in Website Creation API
+### Step 4: Register in Website Creation API
 Update `app/api/websites/create/route.ts` to include the new template option.
 
 ---
@@ -332,6 +332,7 @@ Update `app/api/websites/create/route.ts` to include the new template option.
 - Hardcode domain-specific content
 - Break Next.js App Router conventions
 - Use deprecated React patterns
+- Modify files outside `templates/` folder
 
 ### ✅ DO:
 - Use `'use client'` directive for interactive components
@@ -378,18 +379,18 @@ When asked to upgrade templates:
 
 1. **Read this guide** to understand the architecture
 2. **Identify the target template** (niche, magazine, or expert)
-3. **Find the relevant function** in the template file
+3. **Find the relevant function** in `templates/{template}/generator.ts`
 4. **Make modifications** following the rules above
 5. **Provide the complete updated function** (not just snippets)
 6. **Test instructions** for the user to verify
 
 ### Example Prompt for AI:
 ```
-"Look at lib/templates/nicheAuthorityBlog.ts and upgrade the 
+"Look at templates/niche-authority-blog/generator.ts and upgrade the 
 generateHomepage() function to add a featured articles carousel.
 Follow the TEMPLATE_GUIDE.md rules."
 ```
 
 ---
 
-*This guide is maintained by Ifrit. Last updated: ${new Date().toISOString().split('T')[0]}*
+*This guide is maintained by Ifrit. Last updated: 2025-12-19*

@@ -1,6 +1,6 @@
-import { generateTemplateFiles as generateNiche, SiteConfig } from '@/lib/templates/nicheAuthorityBlog';
-import { generateTemplateFiles as generateMagazine } from '@/lib/templates/topicalMagazine';
-import { generateTemplateFiles as generateExpert } from '@/lib/templates/expertHub';
+import { generateTemplateFiles as generateNiche, SiteConfig } from '@/templates/niche-authority-blog/generator';
+import { generateTemplateFiles as generateMagazine } from '@/templates/topical-magazine/generator';
+import { generateTemplateFiles as generateExpert } from '@/templates/expert-hub/generator';
 
 export interface GitHubUser {
     login: string;

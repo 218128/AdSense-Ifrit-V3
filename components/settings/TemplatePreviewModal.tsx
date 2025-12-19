@@ -24,7 +24,7 @@ import {
     DollarSign
 } from 'lucide-react';
 import { TemplateRegistry } from '@/lib/templateVersions';
-import { MOCK_ARTICLES, MOCK_SITE_INFO, MOCK_AUTHORS, getFeaturedArticle, getRecentArticles } from '@/lib/templates/mockData';
+import { MOCK_ARTICLES, MOCK_SITE_INFO, MOCK_AUTHORS, getFeaturedArticle, getRecentArticles } from '@/templates/shared/mockData';
 
 type DeviceType = 'desktop' | 'tablet' | 'mobile';
 type PreviewTab = 'preview' | 'components' | 'features';

@@ -5,7 +5,7 @@ import { ContentGenerator, Article } from '@/lib/modules/contentGenerator';
 import { validateUserConfig, devFallbacks } from '@/lib/config/env';
 import { analyzeCPC } from '@/lib/modules/cpcIntelligence';
 import { getBestPersonaForTopic, getPersonaById } from '@/lib/humanization/personas';
-import { getBestTemplateForNiche, getTemplateById, ArticleType } from '@/lib/templates/articleTemplates';
+import { getBestTemplateForNiche, getTemplateById, ArticleType } from '@/templates/shared/articleTemplates';
 
 export const dynamic = 'force-dynamic';
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateGitHubToken, createGitHubRepo, pushTemplateFiles } from '@/lib/integrations/github';
-import { SiteConfig } from '@/lib/templates/nicheAuthorityBlog';
+import { SiteConfig } from '@/templates/niche-authority-blog/generator';
 
 interface GitHubSetupRequest {
     action: 'validate' | 'create-repo' | 'push-template';

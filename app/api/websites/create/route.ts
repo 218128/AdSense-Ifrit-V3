@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createGitHubRepo, pushTemplateFiles } from '@/lib/integrations/github';
 import { createVercelProject, addVercelDomain } from '@/lib/integrations/vercel';
-import { SiteConfig } from '@/lib/templates/nicheAuthorityBlog';
+import { SiteConfig } from '@/templates/niche-authority-blog/generator';
 import { saveWebsite, Website } from '@/lib/websiteStore';
 import { getCurrentVersion } from '@/lib/templateVersions';
 import { generateEssentialPages, SiteInfo } from '@/lib/essentialPages';
