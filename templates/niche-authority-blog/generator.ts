@@ -161,6 +161,16 @@ module.exports = nextConfig;
                     headerStyle: theme.components.header.style,
                     cardStyle: theme.components.cards.style,
                     buttonStyle: theme.components.buttons.style
+                },
+                layoutVariant: {
+                    homepage: theme.layoutVariant.homepage,
+                    articleGrid: theme.layoutVariant.articleGrid.style,
+                    newsletter: theme.layoutVariant.newsletter.placement,
+                    headerLayout: theme.layoutVariant.headerLayout.style,
+                    footerLayout: theme.layoutVariant.footerLayout.style,
+                    sidebarPosition: theme.layoutVariant.sidebarConfig.position,
+                    articleLayout: theme.layoutVariant.articleLayout.style,
+                    adZones: theme.layoutVariant.adZones
                 }
             }, null, 2)
         },
