@@ -5,6 +5,9 @@ import { SiteConfig } from '@/templates/niche-authority-blog/generator';
 import { saveWebsite, Website, getDomainProfile } from '@/lib/websiteStore';
 import { getCurrentVersion } from '@/lib/templateVersions';
 import { generateEssentialPages, SiteInfo } from '@/lib/essentialPages';
+import { AISiteBuilderOutput } from '@/lib/aiSiteBuilder';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export const maxDuration = 60; // Allow longer timeout for multiple API calls
 
@@ -15,12 +18,13 @@ interface CreateWebsiteRequest {
     githubToken: string;
     vercelToken: string;
     generateEssentialPages?: boolean;  // Include Privacy, Terms, About, Contact pages
+    useAIDecisions?: boolean; // Use decisions.json from AI config
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body: CreateWebsiteRequest = await request.json();
-        const { domain, niche, siteConfig, githubToken, vercelToken, generateEssentialPages: includeEssentialPages = true } = body;
+        const { domain, niche, siteConfig, githubToken, vercelToken, generateEssentialPages: includeEssentialPages = true, useAIDecisions = true } = body;
 
         if (!domain || !githubToken || !vercelToken) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
@@ -33,13 +37,29 @@ export async function POST(request: NextRequest) {
         // Load rich profile data from Hunt tab (if exists)
         const profile = getDomainProfile(domain);
 
-        // Enrich siteConfig with profile data for unique theme generation
-        const enrichedSiteConfig: Partial<SiteConfig> = {
+        // Load AI decisions if available
+        let aiDecisions: AISiteBuilderOutput | null = null;
+        if (useAIDecisions) {
+            const decisionsPath = path.join(process.cwd(), 'websites', domain, 'decisions.json');
+            if (fs.existsSync(decisionsPath)) {
+                try {
+                    aiDecisions = JSON.parse(fs.readFileSync(decisionsPath, 'utf-8'));
+                    steps.push({ name: 'Loaded AI decisions', status: 'success', details: aiDecisions?.decisions.overallStrategy });
+                } catch {
+                    console.warn('Failed to parse decisions.json');
+                }
+            }
+        }
+
+        // Enrich siteConfig with profile data and AI decisions
+        const enrichedSiteConfig: Partial<SiteConfig> & { aiDecisions?: AISiteBuilderOutput['decisions'] } = {
             ...siteConfig,
             // Use profile niche if available, fallback to request niche
             niche: profile?.niche || niche || 'general',
             // Generate unique theme seed from domain + timestamp
             themeSeed: `${domain}-${Date.now()}`,
+            // Attach AI decisions for template generator to use
+            ...(aiDecisions && { aiDecisions: aiDecisions.decisions }),
         };
 
         // 1. Create GitHub Repo
