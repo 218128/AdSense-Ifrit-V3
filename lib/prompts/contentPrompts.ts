@@ -186,6 +186,16 @@ For each main topic section:
 - Use bullet points, tables, and formatting for scannability
 - Write for humans first, SEO second
 
+## CRITICAL FORMATTING RULES
+- **NO CITATIONS**: Do NOT include citation markers like [1], [2], [3] - this is for direct publication
+- **NO WORD COUNTS**: Do NOT include "(Word count: X)" anywhere
+- **PROPER TABLES**: Markdown tables MUST have each row on its own line:
+  | Header1 | Header2 |
+  |---------|---------|  
+  | Data1   | Data2   |
+- **NO PLACEHOLDERS**: No [INSERT X] or [YOUR X] placeholders
+- **NO AI REFERENCES**: Never mention being an AI or training data
+
 ## Author
 Written by ${siteContext.author.name}, ${siteContext.author.role} with ${siteContext.author.experience} of experience.
 
@@ -252,6 +262,13 @@ This cluster article should:
 - Use "you" to address the reader directly
 - Include internal link placeholders: [INTERNAL_LINK: related-topic]
 - Aim for featured snippet potential with clear answers
+
+## CRITICAL FORMATTING RULES
+- **NO CITATIONS**: Do NOT include citation markers like [1], [2], [3] - this is for direct publication
+- **NO WORD COUNTS**: Do NOT include "(Word count: X)" anywhere
+- **PROPER TABLES**: Markdown tables MUST have each row on its own line
+- **NO PLACEHOLDERS**: No [INSERT X] or [YOUR X] placeholders
+- **NO AI REFERENCES**: Never mention being an AI or training data
 
 ## Author
 ${siteContext.author.name}, ${siteContext.author.role}

@@ -86,14 +86,17 @@ const FORBIDDEN_PATTERNS = [
     { pattern: /i cannot browse the internet/gi, message: 'Contains AI limitation statement' },
     { pattern: /my training data/gi, message: 'Contains AI training reference' },
     { pattern: /\*\*\[.*?\]\*\*/g, message: 'Contains bracketed placeholder in bold' },
-    { pattern: /XXX|FIXME/g, message: 'Contains development placeholder' }
+    { pattern: /XXX|FIXME/g, message: 'Contains development placeholder' },
+    { pattern: /\[\d+\]/g, message: 'Contains citation markers like [1], [2]' }
 ];
 
 // Patterns that indicate low-quality content
 const WARNING_PATTERNS = [
     { pattern: /(.{10,})\1{2,}/g, message: 'Contains excessive repetition' },
     { pattern: /^#{1,6}\s*$/gm, message: 'Contains empty headings' },
-    { pattern: /https?:\/\/example\.com/gi, message: 'Contains example.com placeholder URL' }
+    { pattern: /https?:\/\/example\.com/gi, message: 'Contains example.com placeholder URL' },
+    { pattern: /\(Word count:\s*\d+\)/gi, message: 'Contains word count marker' },
+    { pattern: /\| \|---/g, message: 'Contains broken markdown table (all on one line)' }
 ];
 
 /**
@@ -376,4 +379,119 @@ export function getContentType(itemType: string): keyof typeof QUALITY_RULES {
         case 'disclaimer': return 'disclaimer';
         default: return 'cluster';
     }
+}
+
+/**
+ * Content cleanup result
+ */
+export interface CleanupResult {
+    content: string;
+    changes: string[];
+    wasModified: boolean;
+}
+
+/**
+ * Clean AI-generated content by removing artifacts and fixing formatting
+ * 
+ * Removes:
+ * - Citation markers like [1], [2], [3]
+ * - Word count markers like (Word count: 348)
+ * - AI self-references
+ * 
+ * Fixes:
+ * - Broken markdown tables (all on one line)
+ */
+export function cleanContent(content: string): CleanupResult {
+    const changes: string[] = [];
+    let cleaned = content;
+
+    // Remove citation markers [1], [2], [3], etc.
+    const citationPattern = /\[\d+\]/g;
+    if (citationPattern.test(cleaned)) {
+        const citationCount = (cleaned.match(citationPattern) || []).length;
+        cleaned = cleaned.replace(citationPattern, '');
+        changes.push(`Removed ${citationCount} citation markers`);
+    }
+
+    // Remove combined citation markers like [1][2][3]
+    const combinedCitationPattern = /(?:\[\d+\])+/g;
+    cleaned = cleaned.replace(combinedCitationPattern, '');
+
+    // Remove word count markers like (Word count: 348)
+    const wordCountPattern = /\s*\(Word count:\s*\d+\)\s*/gi;
+    if (wordCountPattern.test(cleaned)) {
+        cleaned = cleaned.replace(wordCountPattern, ' ');
+        changes.push('Removed word count markers');
+    }
+
+    // Fix broken markdown tables (table all on one line)
+    // Pattern: | Header1 | Header2 | |---|---| | Data1 | Data2 |
+    const brokenTablePattern = /\|([^|\n]+\|)+\s*\|[-\s|]+\|\s*(\|[^|\n]+)+\|/g;
+    const brokenTableMatches = cleaned.match(brokenTablePattern);
+    if (brokenTableMatches) {
+        brokenTableMatches.forEach(match => {
+            const fixed = fixBrokenTable(match);
+            cleaned = cleaned.replace(match, fixed);
+        });
+        changes.push(`Fixed ${brokenTableMatches.length} broken table(s)`);
+    }
+
+    // Clean up extra whitespace
+    cleaned = cleaned.replace(/  +/g, ' '); // Multiple spaces to single
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n'); // Max 2 newlines
+
+    return {
+        content: cleaned.trim(),
+        changes,
+        wasModified: changes.length > 0
+    };
+}
+
+/**
+ * Fix a broken markdown table that's all on one line
+ */
+function fixBrokenTable(tableStr: string): string {
+    // Split by pipe, filter empties, reconstruct
+    const parts = tableStr.split('|').map(p => p.trim()).filter(p => p.length > 0);
+
+    // Find separator row (contains only dashes)
+    const separatorIndex = parts.findIndex(p => /^-+$/.test(p));
+
+    if (separatorIndex === -1) {
+        // Can't identify structure, return original
+        return tableStr;
+    }
+
+    // Count columns from separator
+    let colCount = 0;
+    let i = separatorIndex;
+    while (i < parts.length && /^-+$/.test(parts[i])) {
+        colCount++;
+        i++;
+    }
+
+    if (colCount === 0) return tableStr;
+
+    // Build table
+    const headers = parts.slice(0, colCount);
+    const separators = parts.slice(separatorIndex, separatorIndex + colCount);
+    const dataParts = parts.slice(separatorIndex + colCount);
+
+    // Build rows
+    const rows: string[][] = [];
+    for (let j = 0; j < dataParts.length; j += colCount) {
+        const row = dataParts.slice(j, j + colCount);
+        if (row.length === colCount) {
+            rows.push(row);
+        }
+    }
+
+    // Construct properly formatted table
+    let table = '| ' + headers.join(' | ') + ' |\n';
+    table += '| ' + separators.join(' | ') + ' |\n';
+    rows.forEach(row => {
+        table += '| ' + row.join(' | ') + ' |\n';
+    });
+
+    return table;
 }
