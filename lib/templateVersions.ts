@@ -30,11 +30,22 @@ export const NICHE_AUTHORITY_REGISTRY: TemplateRegistry = {
     id: 'niche-authority',
     name: 'Niche Authority Blog',
     description: 'Professional blog template optimized for AdSense and authority building',
-    currentVersion: '1.3.0',
+    currentVersion: '1.3.1',
     versions: [
         {
-            version: '1.3.0',
+            version: '1.3.1',
             releasedAt: Date.now(),
+            changelog: [
+                'Dedicated Privacy, Terms, Contact pages (no longer treated as articles)',
+                'Structural pages excluded from article listings',
+                'Improved page organization and SEO structure'
+            ],
+            breaking: false,
+            contentSchemaVersion: 2
+        },
+        {
+            version: '1.3.0',
+            releasedAt: Date.now() - 24 * 60 * 60 * 1000, // 1 day ago
             changelog: [
                 'Social share buttons (Twitter, Facebook, LinkedIn)',
                 'Article JSON-LD schema for rich search results',

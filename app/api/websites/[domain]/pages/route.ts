@@ -149,28 +149,50 @@ export async function POST(
                     let title = type.charAt(0).toUpperCase() + type.slice(1);
 
                     if (foundPath.endsWith('.tsx')) {
-                        // Extract content from TSX - look for markdown-like content
-                        const contentMatch = content.match(/\{`([^`]+)`\}/) ||
-                            content.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
-                            content.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+                        // Try multiple extraction patterns for TSX content
 
-                        if (contentMatch) {
-                            extractedContent = contentMatch[1].trim();
-                        } else {
-                            // Just extract text content
-                            extractedContent = content
-                                .replace(/<[^>]+>/g, '\n')
-                                .replace(/\{[^}]+\}/g, '')
-                                .replace(/import.*\n/g, '')
-                                .replace(/export.*\n/g, '')
-                                .trim();
+                        // Pattern 1: Content in template literal {`...`}
+                        const templateLiteral = content.match(/\{`([\s\S]+?)`\}/);
+                        if (templateLiteral) {
+                            extractedContent = templateLiteral[1].trim();
                         }
 
-                        // Try to extract title
+                        // Pattern 2: Content in <article> or <main> tags
+                        if (!extractedContent) {
+                            const articleMatch = content.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
+                                content.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+                            if (articleMatch) {
+                                extractedContent = articleMatch[1]
+                                    .replace(/<[^>]+>/g, '\n')
+                                    .replace(/\{[^}]+\}/g, '')
+                                    .trim();
+                            }
+                        }
+
+                        // Pattern 3: Extract visible text from JSX (fallback)
+                        if (!extractedContent) {
+                            // Remove imports and exports
+                            let cleanContent = content
+                                .replace(/import[\s\S]*?from\s*['"][^'"]+['"];?\n?/g, '')
+                                .replace(/export\s+default\s+function[\s\S]*?\{/g, '')
+                                .replace(/export\s+function[\s\S]*?\{/g, '');
+
+                            // Extract text between > and < (JSX content)
+                            const textMatches = cleanContent.match(/>([^<{>\n][^<{]*)</g);
+                            if (textMatches) {
+                                extractedContent = textMatches
+                                    .map(m => m.slice(1, -1).trim())
+                                    .filter(t => t.length > 2)
+                                    .join('\n\n');
+                            }
+                        }
+
+                        // Try to extract title from h1 or metadata
                         const titleMatch = content.match(/<h1[^>]*>([^<]+)<\/h1>/i) ||
-                            content.match(/title[=:]\s*["']([^"']+)["']/i);
+                            content.match(/title[=:]\s*["']([^"']+)["']/i) ||
+                            content.match(/#\s+([^\n]+)/);
                         if (titleMatch) {
-                            title = titleMatch[1];
+                            title = titleMatch[1].trim();
                         }
                     } else if (foundPath.endsWith('.md')) {
                         extractedContent = content;

@@ -136,6 +136,24 @@ module.exports = nextConfig;
             content: generateAboutPage(siteName, authorName, authorRole, authorBio)
         },
 
+        // Privacy page
+        {
+            path: 'app/privacy/page.tsx',
+            content: generatePrivacyPage(siteName)
+        },
+
+        // Terms page
+        {
+            path: 'app/terms/page.tsx',
+            content: generateTermsPage(siteName)
+        },
+
+        // Contact page
+        {
+            path: 'app/contact/page.tsx',
+            content: generateContactPage(siteName)
+        },
+
         // Content library
         {
             path: 'lib/content.ts',
@@ -626,6 +644,172 @@ function generateAboutPage(siteName: string, authorName: string, authorRole: str
     `;
 }
 
+function generatePrivacyPage(siteName: string): string {
+    return `export const metadata = {
+    title: 'Privacy Policy',
+    description: 'Privacy policy for ${siteName}. Learn how we collect, use, and protect your data.',
+};
+
+export default function PrivacyPage() {
+    return (
+        <div className="legal-page">
+            <h1>Privacy Policy</h1>
+            <p className="legal-updated">Last updated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            
+            <section className="legal-section">
+                <h2>Information We Collect</h2>
+                <p>
+                    We collect information you provide directly, such as when you subscribe 
+                    to our newsletter or contact us. We also collect anonymous usage data 
+                    through cookies and analytics tools.
+                </p>
+            </section>
+
+            <section className="legal-section">
+                <h2>How We Use Your Information</h2>
+                <p>
+                    We use the information we collect to improve our content, personalize 
+                    your experience, and communicate with you about updates and offers.
+                </p>
+            </section>
+
+            <section className="legal-section">
+                <h2>Cookies and Tracking</h2>
+                <p>
+                    Our site uses cookies to enhance your browsing experience. Third-party 
+                    services like Google Analytics and advertising partners may also set cookies.
+                </p>
+            </section>
+
+            <section className="legal-section">
+                <h2>Your Rights</h2>
+                <p>
+                    You have the right to access, correct, or delete your personal data. 
+                    Contact us if you have any questions or requests regarding your data.
+                </p>
+            </section>
+
+            <section className="legal-section">
+                <h2>Contact Us</h2>
+                <p>
+                    If you have questions about this privacy policy, please contact us 
+                    through our contact page.
+                </p>
+            </section>
+        </div>
+    );
+}
+`;
+}
+
+function generateTermsPage(siteName: string): string {
+    return `export const metadata = {
+    title: 'Terms of Service',
+    description: 'Terms of service for ${siteName}. Read our terms and conditions.',
+};
+
+export default function TermsPage() {
+    return (
+        <div className="legal-page">
+            <h1>Terms of Service</h1>
+            <p className="legal-updated">Last updated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            
+            <section className="legal-section">
+                <h2>Acceptance of Terms</h2>
+                <p>
+                    By accessing and using ${siteName}, you accept and agree to be bound 
+                    by these Terms of Service. If you do not agree, please do not use our site.
+                </p>
+            </section>
+
+            <section className="legal-section">
+                <h2>Use of Content</h2>
+                <p>
+                    All content on this site is for informational purposes only. We make no 
+                    warranties about the accuracy or completeness of the information provided.
+                </p>
+            </section>
+
+            <section className="legal-section">
+                <h2>Intellectual Property</h2>
+                <p>
+                    All content, including text, images, and graphics, is the property of 
+                    ${siteName} and is protected by copyright laws.
+                </p>
+            </section>
+
+            <section className="legal-section">
+                <h2>Affiliate Disclosure</h2>
+                <p>
+                    Some links on our site are affiliate links. We may earn a commission 
+                    if you make a purchase through these links, at no additional cost to you.
+                </p>
+            </section>
+
+            <section className="legal-section">
+                <h2>Limitation of Liability</h2>
+                <p>
+                    ${siteName} shall not be liable for any damages arising from your 
+                    use of this site or reliance on the information provided.
+                </p>
+            </section>
+        </div>
+    );
+}
+`;
+}
+
+function generateContactPage(siteName: string): string {
+    return `export const metadata = {
+    title: 'Contact Us',
+    description: 'Get in touch with ${siteName}. We would love to hear from you.',
+};
+
+export default function ContactPage() {
+    return (
+        <div className="contact-page">
+            <h1>Contact Us</h1>
+            <p className="contact-intro">
+                Have questions, feedback, or suggestions? We'd love to hear from you!
+            </p>
+            
+            <section className="contact-section">
+                <h2>Get in Touch</h2>
+                <p>
+                    The best way to reach us is through email. We aim to respond to all 
+                    inquiries within 24-48 hours.
+                </p>
+            </section>
+
+            <section className="contact-section">
+                <h2>Business Inquiries</h2>
+                <p>
+                    For advertising, partnerships, or business opportunities, please 
+                    include "Business Inquiry" in your message subject.
+                </p>
+            </section>
+
+            <section className="contact-section">
+                <h2>Content Feedback</h2>
+                <p>
+                    Found an error or have a suggestion for our content? We appreciate 
+                    your feedback and are always looking to improve.
+                </p>
+            </section>
+
+            <section className="contact-section">
+                <h2>Follow Us</h2>
+                <p>
+                    Stay updated with our latest content by following us on social media 
+                    or subscribing to our newsletter.
+                </p>
+            </section>
+        </div>
+    );
+}
+`
+}
+
 function generateContentLib(): string {
     return `import fs from 'fs';
     import path from 'path';
@@ -653,10 +837,15 @@ function generateContentLib(): string {
         return new Date().toISOString().split('T')[0];
     }
 
+    // Structural page slugs to exclude from article listings
+    const STRUCTURAL_SLUGS = ['about', 'privacy', 'terms', 'contact', 'disclaimer'];
+
     export function getAllArticles(): Article[] {
         if (!fs.existsSync(contentDir)) return [];
 
-        const files = fs.readdirSync(contentDir).filter(f => f.endsWith('.md'));
+        const files = fs.readdirSync(contentDir)
+            .filter(f => f.endsWith('.md'))
+            .filter(f => !STRUCTURAL_SLUGS.includes(f.replace(/\\.md$/, '')));
         if (files.length === 0) return [];
 
         return files.map((file) => {
