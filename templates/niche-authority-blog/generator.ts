@@ -16,7 +16,8 @@ import {
     generateAdsTxt,
     generateRobotsTxt,
     generateSitemapXml,
-    generateManifest
+    generateManifest,
+    generateGraphicsFiles
 } from '../shared';
 
 export interface SiteConfig {
@@ -255,7 +256,12 @@ module.exports = nextConfig;
         {
             path: 'public/manifest.json',
             content: generateManifest(siteName, theme.colors.primary, theme.colors.background)
-        }
+        },
+
+        // ============================================
+        // SITE GRAPHICS (logos, favicons, OG images)
+        // ============================================
+        ...generateGraphicsFiles(siteName, tagline, theme)
     ];
 }
 

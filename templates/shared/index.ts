@@ -40,5 +40,17 @@ export {
     generateManifest
 } from './components/seoFiles';
 
+// Site Graphics (logos, favicons, OG images)
+export {
+    generateSiteGraphics,
+    generateGraphicsFiles,
+    generateTextLogo,
+    generateIconLogo,
+    generateOgImage,
+    generateArticleOgImage,
+    svgToDataUrl,
+    svgToBase64
+} from './graphics';
+
 // Article Templates
 export * from './articleTemplates';
