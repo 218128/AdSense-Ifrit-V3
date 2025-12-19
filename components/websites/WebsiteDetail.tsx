@@ -833,77 +833,78 @@ function ContentTab({
                                     }
                                 </td>
                             </tr>
+                        ) : (
                             filteredArticles.map(article => (
-                        <tr key={article.id} className={`hover:bg-neutral-50 ${selectedIds.has(article.id) ? 'bg-indigo-50' : ''}`}>
-                            <td className="px-4 py-3">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedIds.has(article.id)}
-                                    onChange={(e) => {
-                                        const newSelected = new Set(selectedIds);
-                                        if (e.target.checked) {
-                                            newSelected.add(article.id);
-                                        } else {
-                                            newSelected.delete(article.id);
-                                        }
-                                        setSelectedIds(newSelected);
-                                    }}
-                                    className="rounded border-neutral-300"
-                                />
-                            </td>
-                            <td className="px-4 py-3">
-                                <div className="font-medium text-neutral-900">{article.title}</div>
-                                <div className="text-sm text-neutral-500">/{article.slug}</div>
-                            </td>
-                            <td className="px-4 py-3">
-                                <span className="px-2 py-0.5 bg-neutral-100 rounded text-xs">
-                                    {article.contentType}
-                                </span>
-                                {article.isExternal && (
-                                    <span className="ml-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">
-                                        external
-                                    </span>
-                                )}
-                            </td>
-                            <td className="px-4 py-3">
-                                <span className={`px-2 py-0.5 rounded text-xs ${article.status === 'published' ? 'bg-green-100 text-green-700' :
-                                    article.status === 'ready' ? 'bg-blue-100 text-blue-700' :
-                                        'bg-neutral-100 text-neutral-600'
-                                    }`}>
-                                    {article.status}
-                                </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">
-                                {article.wordCount.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">
-                                {new Date(article.lastModifiedAt).toLocaleDateString()}
-                            </td>
-                            <td className="px-4 py-3">
-                                <div className="flex items-center gap-1">
-                                    <button className="p-1 hover:bg-neutral-100 rounded" title="Edit">
-                                        <Edit className="w-4 h-4 text-neutral-500" />
-                                    </button>
-                                    <a
-                                        href={`https://${domain}/${article.slug}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="p-1 hover:bg-neutral-100 rounded"
-                                        title="Preview"
-                                    >
-                                        <Eye className="w-4 h-4 text-neutral-500" />
-                                    </a>
-                                    <ArticleActionsMenu
-                                        domain={domain}
-                                        articleSlug={article.slug}
-                                        articleTitle={article.title}
-                                        canonicalUrl={`https://${domain}/${article.slug}`}
-                                        onDelete={() => handleDelete(article.id)}
-                                    />
-                                </div>
-                            </td>
-                        </tr>
-                        ))
+                                <tr key={article.id} className={`hover:bg-neutral-50 ${selectedIds.has(article.id) ? 'bg-indigo-50' : ''}`}>
+                                    <td className="px-4 py-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(article.id)}
+                                            onChange={(e) => {
+                                                const newSelected = new Set(selectedIds);
+                                                if (e.target.checked) {
+                                                    newSelected.add(article.id);
+                                                } else {
+                                                    newSelected.delete(article.id);
+                                                }
+                                                setSelectedIds(newSelected);
+                                            }}
+                                            className="rounded border-neutral-300"
+                                        />
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="font-medium text-neutral-900">{article.title}</div>
+                                        <div className="text-sm text-neutral-500">/{article.slug}</div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <span className="px-2 py-0.5 bg-neutral-100 rounded text-xs">
+                                            {article.contentType}
+                                        </span>
+                                        {article.isExternal && (
+                                            <span className="ml-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">
+                                                external
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <span className={`px-2 py-0.5 rounded text-xs ${article.status === 'published' ? 'bg-green-100 text-green-700' :
+                                            article.status === 'ready' ? 'bg-blue-100 text-blue-700' :
+                                                'bg-neutral-100 text-neutral-600'
+                                            }`}>
+                                            {article.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-neutral-600">
+                                        {article.wordCount.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-neutral-600">
+                                        {new Date(article.lastModifiedAt).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-1">
+                                            <button className="p-1 hover:bg-neutral-100 rounded" title="Edit">
+                                                <Edit className="w-4 h-4 text-neutral-500" />
+                                            </button>
+                                            <a
+                                                href={`https://${domain}/${article.slug}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-1 hover:bg-neutral-100 rounded"
+                                                title="Preview"
+                                            >
+                                                <Eye className="w-4 h-4 text-neutral-500" />
+                                            </a>
+                                            <ArticleActionsMenu
+                                                domain={domain}
+                                                articleSlug={article.slug}
+                                                articleTitle={article.title}
+                                                canonicalUrl={`https://${domain}/${article.slug}`}
+                                                onDelete={() => handleDelete(article.id)}
+                                            />
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
                         )}
                     </tbody>
                 </table>
