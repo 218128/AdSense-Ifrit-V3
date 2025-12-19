@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createGitHubRepo, pushTemplateFiles } from '@/lib/integrations/github';
 import { createVercelProject, addVercelDomain } from '@/lib/integrations/vercel';
 import { SiteConfig } from '@/templates/niche-authority-blog/generator';
-import { saveWebsite, Website } from '@/lib/websiteStore';
+import { saveWebsite, Website, getDomainProfile } from '@/lib/websiteStore';
 import { getCurrentVersion } from '@/lib/templateVersions';
 import { generateEssentialPages, SiteInfo } from '@/lib/essentialPages';
 
@@ -29,6 +29,18 @@ export async function POST(request: NextRequest) {
         const steps = [];
         const repoName = domain.replace(/\./g, '-');
         const projectName = repoName;
+
+        // Load rich profile data from Hunt tab (if exists)
+        const profile = getDomainProfile(domain);
+
+        // Enrich siteConfig with profile data for unique theme generation
+        const enrichedSiteConfig: Partial<SiteConfig> = {
+            ...siteConfig,
+            // Use profile niche if available, fallback to request niche
+            niche: profile?.niche || niche || 'general',
+            // Generate unique theme seed from domain + timestamp
+            themeSeed: `${domain}-${Date.now()}`,
+        };
 
         // 1. Create GitHub Repo
         steps.push({ name: 'Creating GitHub Repository', status: 'pending' });
@@ -69,7 +81,7 @@ export async function POST(request: NextRequest) {
             };
         }
 
-        const pushRes = await pushTemplateFiles(githubToken, repoName, siteConfig, essentialPagesContent);
+        const pushRes = await pushTemplateFiles(githubToken, repoName, enrichedSiteConfig, essentialPagesContent);
         if (!pushRes.success) {
             throw new Error(pushRes.error || 'Failed to push template files');
         }
