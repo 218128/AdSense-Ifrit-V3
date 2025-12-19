@@ -46,6 +46,8 @@ import BulkArticleQueue from './BulkArticleQueue';
 import ArticleEditor from './ArticleEditor';
 import PendingImports from './PendingImports';
 import PagesTab from './PagesTab';
+import BatchOperationsPanel from './BatchOperationsPanel';
+import ImageGallery from './ImageGallery';
 
 // Types from websiteStore
 interface Website {
@@ -571,6 +573,8 @@ function ContentTab({
     const [showBulkQueue, setShowBulkQueue] = useState(false);
     const [showEditor, setShowEditor] = useState(false);
     const [showPrompts, setShowPrompts] = useState(false);
+    const [showImages, setShowImages] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [deleting, setDeleting] = useState<string | null>(null);
     const [syncing, setSyncing] = useState(false);
     const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -698,6 +702,13 @@ function ContentTab({
                         Prompts
                     </button>
                     <button
+                        onClick={() => setShowImages(!showImages)}
+                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg ${showImages ? 'border-green-500 bg-green-50 text-green-700' : 'border-neutral-200 hover:bg-neutral-50'}`}
+                    >
+                        <Eye className="w-4 h-4" />
+                        Images
+                    </button>
+                    <button
                         onClick={() => setShowEditor(true)}
                         className="flex items-center gap-2 px-4 py-2 border border-neutral-200 rounded-lg hover:bg-neutral-50"
                     >
@@ -762,11 +773,48 @@ function ContentTab({
                 />
             )}
 
+            {/* Image Gallery */}
+            {showImages && (
+                <div className="bg-white rounded-xl border border-neutral-200 p-4">
+                    <ImageGallery domain={domain} />
+                </div>
+            )}
+
+            {/* Batch Operations Panel */}
+            <BatchOperationsPanel
+                domain={domain}
+                articles={filteredArticles.map(a => ({
+                    id: a.id,
+                    title: a.title,
+                    slug: a.slug,
+                    status: a.status,
+                    category: a.category,
+                    wordCount: a.wordCount
+                }))}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
+                onOperationComplete={onRefresh}
+            />
+
             {/* Articles List */}
             <div className="border border-neutral-200 rounded-xl overflow-hidden">
                 <table className="w-full">
                     <thead className="bg-neutral-50 text-left text-sm text-neutral-600">
                         <tr>
+                            <th className="px-4 py-3 w-10">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedIds.size === filteredArticles.length && filteredArticles.length > 0}
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setSelectedIds(new Set(filteredArticles.map(a => a.id)));
+                                        } else {
+                                            setSelectedIds(new Set());
+                                        }
+                                    }}
+                                    className="rounded border-neutral-300"
+                                />
+                            </th>
                             <th className="px-4 py-3">Title</th>
                             <th className="px-4 py-3">Type</th>
                             <th className="px-4 py-3">Status</th>
@@ -778,69 +826,84 @@ function ContentTab({
                     <tbody className="divide-y divide-neutral-100">
                         {filteredArticles.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-4 py-8 text-center text-neutral-500">
+                                <td colSpan={7} className="px-4 py-8 text-center text-neutral-500">
                                     {articles.length === 0
                                         ? 'No articles yet. Create or import your first article.'
                                         : 'No articles match your filters.'
                                     }
                                 </td>
                             </tr>
-                        ) : (
                             filteredArticles.map(article => (
-                                <tr key={article.id} className="hover:bg-neutral-50">
-                                    <td className="px-4 py-3">
-                                        <div className="font-medium text-neutral-900">{article.title}</div>
-                                        <div className="text-sm text-neutral-500">/{article.slug}</div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span className="px-2 py-0.5 bg-neutral-100 rounded text-xs">
-                                            {article.contentType}
-                                        </span>
-                                        {article.isExternal && (
-                                            <span className="ml-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">
-                                                external
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span className={`px-2 py-0.5 rounded text-xs ${article.status === 'published' ? 'bg-green-100 text-green-700' :
-                                            article.status === 'ready' ? 'bg-blue-100 text-blue-700' :
-                                                'bg-neutral-100 text-neutral-600'
-                                            }`}>
-                                            {article.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-neutral-600">
-                                        {article.wordCount.toLocaleString()}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-neutral-600">
-                                        {new Date(article.lastModifiedAt).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-1">
-                                            <button className="p-1 hover:bg-neutral-100 rounded" title="Edit">
-                                                <Edit className="w-4 h-4 text-neutral-500" />
-                                            </button>
-                                            <a
-                                                href={`https://${domain}/${article.slug}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="p-1 hover:bg-neutral-100 rounded"
-                                                title="Preview"
-                                            >
-                                                <Eye className="w-4 h-4 text-neutral-500" />
-                                            </a>
-                                            <ArticleActionsMenu
-                                                domain={domain}
-                                                articleSlug={article.slug}
-                                                articleTitle={article.title}
-                                                canonicalUrl={`https://${domain}/${article.slug}`}
-                                                onDelete={() => handleDelete(article.id)}
-                                            />
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
+                        <tr key={article.id} className={`hover:bg-neutral-50 ${selectedIds.has(article.id) ? 'bg-indigo-50' : ''}`}>
+                            <td className="px-4 py-3">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedIds.has(article.id)}
+                                    onChange={(e) => {
+                                        const newSelected = new Set(selectedIds);
+                                        if (e.target.checked) {
+                                            newSelected.add(article.id);
+                                        } else {
+                                            newSelected.delete(article.id);
+                                        }
+                                        setSelectedIds(newSelected);
+                                    }}
+                                    className="rounded border-neutral-300"
+                                />
+                            </td>
+                            <td className="px-4 py-3">
+                                <div className="font-medium text-neutral-900">{article.title}</div>
+                                <div className="text-sm text-neutral-500">/{article.slug}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 bg-neutral-100 rounded text-xs">
+                                    {article.contentType}
+                                </span>
+                                {article.isExternal && (
+                                    <span className="ml-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">
+                                        external
+                                    </span>
+                                )}
+                            </td>
+                            <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded text-xs ${article.status === 'published' ? 'bg-green-100 text-green-700' :
+                                    article.status === 'ready' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-neutral-100 text-neutral-600'
+                                    }`}>
+                                    {article.status}
+                                </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-neutral-600">
+                                {article.wordCount.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-neutral-600">
+                                {new Date(article.lastModifiedAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3">
+                                <div className="flex items-center gap-1">
+                                    <button className="p-1 hover:bg-neutral-100 rounded" title="Edit">
+                                        <Edit className="w-4 h-4 text-neutral-500" />
+                                    </button>
+                                    <a
+                                        href={`https://${domain}/${article.slug}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-1 hover:bg-neutral-100 rounded"
+                                        title="Preview"
+                                    >
+                                        <Eye className="w-4 h-4 text-neutral-500" />
+                                    </a>
+                                    <ArticleActionsMenu
+                                        domain={domain}
+                                        articleSlug={article.slug}
+                                        articleTitle={article.title}
+                                        canonicalUrl={`https://${domain}/${article.slug}`}
+                                        onDelete={() => handleDelete(article.id)}
+                                    />
+                                </div>
+                            </td>
+                        </tr>
+                        ))
                         )}
                     </tbody>
                 </table>
