@@ -32,21 +32,71 @@ export function generateHowToContent(
 
     // Use profile data or defaults
     const niche = profile?.niche || 'general';
-    const keywords = profile?.primaryKeywords?.slice(0, 3) || ['your keyword 1', 'your keyword 2', 'your keyword 3'];
-    const topics = profile?.suggestedTopics?.slice(0, 3) || ['Topic A', 'Topic B', 'Topic C'];
+    const primaryKeywords = profile?.primaryKeywords || [];
+    const secondaryKeywords = profile?.secondaryKeywords || [];
+    const suggestedTopics = profile?.suggestedTopics || [];
     const categories = profile?.suggestedCategories || ['guides', 'reviews', 'how-to', 'listicle', 'comparison'];
+    const keywords = primaryKeywords.slice(0, 5);
 
-    // Generate example table content based on niche
-    const exampleRows = keywords.map((kw, i) =>
+    // Generate example table content based on keywords
+    const exampleRows = keywords.slice(0, 3).map((kw, i) =>
         `| ${kw.charAt(0).toUpperCase() + kw.slice(1)} | Feature ${i + 1} | 4.${5 - i}/5 |`
     ).join('\n');
 
-    return `# 🤖 AI Article Import Guide
+    // Build profile section
+    const profileSection = profile ? `
+## 📊 Website Profile (Use This Data!)
+
+This website has been researched and profiled. **Use this data to generate relevant content.**
+
+| Property | Value |
+|----------|-------|
+| **Domain** | ${domain} |
+| **Niche** | ${niche} |
+| **Author** | ${author.name} (${author.role || 'Writer'}) |
+
+### Primary Keywords (Target These)
+${primaryKeywords.length > 0 ? primaryKeywords.map(k => `- ${k}`).join('\n') : '- No keywords defined yet'}
+
+### Secondary Keywords (Long-tail Variations)
+${secondaryKeywords.length > 0 ? secondaryKeywords.map(k => `- ${k}`).join('\n') : '- No secondary keywords yet'}
+
+### Suggested Article Topics
+${suggestedTopics.length > 0 ? suggestedTopics.map((t, i) => `${i + 1}. ${t}`).join('\n') : '- No topics suggested yet'}
+
+### Available Categories
+Use one of these in your frontmatter: ${categories.join(', ')}
+
+---
+` : `
+## ⚠️ No Profile Found
+
+This website doesn't have a profile yet. To get better AI-generated content:
+1. Go to Ifrit → Hunt tab
+2. Research "${domain}"  
+3. Save as Profile
+
+For now, use the niche "${niche}" and generate general content.
+
+---
+`;
+
+    return `# 🤖 AI Article Import Guide for ${domain}
 
 Welcome! This guide helps external AI assistants (ChatGPT, Claude, Gemini, etc.) create properly formatted articles for **${domain}**.
 
-**Niche**: ${niche}
-**Primary Keywords**: ${keywords.join(', ')}
+${profileSection}
+
+## 🎯 Article Generation Instructions
+
+When asked to generate articles for this website:
+
+1. **Read the Profile** above to understand the niche and keywords
+2. **Use Primary Keywords** as main topics for articles
+3. **Use Secondary Keywords** within article content
+4. **Pick from Suggested Topics** or generate variations
+5. **Follow the folder structure** below for each article
+6. **Include images** (cover + 2-3 content images per article)
 
 ---
 
@@ -83,7 +133,7 @@ date: "${today}"
 description: "150-160 character meta description for SEO"
 author: "${author.name}"
 category: "${categories[0] || 'guides'}"
-tags: [${keywords.slice(0, 3).map(k => `"${k}"`).join(', ')}]
+tags: [${keywords.slice(0, 3).map(k => `"${k}"`).join(', ') || '"tag1", "tag2"'}]
 ---
 
 # Your Main Heading
@@ -103,7 +153,7 @@ Content with proper formatting...
 | \`description\` | 150-160 chars for SEO | "Complete guide to..." |
 | \`author\` | Author name | "${author.name}" |
 | \`category\` | One of: ${categories.join(', ')} | "${categories[0] || 'guides'}" |
-| \`tags\` | Array of 3-5 tags | [${keywords.slice(0, 3).map(k => `"${k}"`).join(', ')}] |
+| \`tags\` | Array of 3-5 tags | [${keywords.slice(0, 3).map(k => `"${k}"`).join(', ') || '"tag1", "tag2"'}] |
 
 ---
 
@@ -126,20 +176,13 @@ Content with proper formatting...
 \`\`\`markdown
 | Item | Features | Rating |
 |------|----------|--------|
-${exampleRows}
+${exampleRows || '| Example Item | Feature 1 | 4.5/5 |'}
 \`\`\`
 
 ### Table Format (WRONG - all on one line)
 \`\`\`
 | Item | Features | |---|---| | Data | More |
 \`\`\`
-
----
-
-## Suggested Topics for ${domain}
-
-Based on keyword research:
-${topics.map((t, i) => `${i + 1}. ${t}`).join('\n')}
 
 ---
 
