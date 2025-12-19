@@ -276,3 +276,172 @@ export function createDecisionRecord(
 export function generateDecisionsJson(output: AISiteBuilderOutput): string {
     return JSON.stringify(output, null, 2);
 }
+
+// ============================================
+// DECISION APPLICATOR
+// ============================================
+
+import type { ThemeConfig, LayoutVariant } from '@/templates/shared/themeSeed';
+
+/**
+ * Apply AI decisions to modify ThemeConfig
+ * This bridges the gap between AI decisions and actual theme generation
+ */
+export function applyAIDecisionsToTheme(
+    theme: ThemeConfig,
+    decisions: AISiteDecisions
+): ThemeConfig {
+    // Create a copy to avoid mutation
+    const modifiedTheme = { ...theme };
+
+    // Apply layout variant decisions
+    // Using 'as any' for flexibility since AI may return valid values not in current type definitions
+    const layoutVariant: LayoutVariant = {
+        homepage: (decisions.homepageLayout?.value || theme.layoutVariant?.homepage || 'grid') as LayoutVariant['homepage'],
+        articleGrid: {
+            style: (decisions.articleGridStyle?.value || theme.layoutVariant?.articleGrid?.style || '2-column') as LayoutVariant['articleGrid']['style'],
+            showExcerpt: true,
+            showImage: true,
+            showCategory: true,
+            showDate: true,
+            showAuthor: false,
+        },
+        newsletter: {
+            placement: (decisions.newsletterPlacement?.value || theme.layoutVariant?.newsletter?.placement || 'footer') as LayoutVariant['newsletter']['placement'],
+            style: 'boxed' as LayoutVariant['newsletter']['style'],
+        },
+        adZones: {
+            aboveFold: decisions.adZones?.aboveFold?.enabled ?? true,
+            inFeed: decisions.adZones?.inFeed?.enabled ?? true,
+            inFeedFrequency: decisions.adZones?.inFeed?.frequency || 3,
+            sidebar: decisions.adZones?.sidebar?.enabled ?? true,
+            inArticle: decisions.adZones?.inArticle?.enabled ?? true,
+            inArticleFrequency: decisions.adZones?.inArticle?.frequency || 400,
+            footer: decisions.adZones?.footer?.enabled ?? false,
+            betweenSections: decisions.adZones?.betweenSections?.enabled ?? true,
+        },
+        headerLayout: {
+            style: (decisions.headerStyle?.value || theme.layoutVariant?.headerLayout?.style || 'left-aligned') as LayoutVariant['headerLayout']['style'],
+            showTagline: true,
+            showSearch: true,
+            showSocialLinks: false,
+            navPosition: 'inline' as const,
+        },
+        footerLayout: {
+            style: (decisions.footerStyle?.value || theme.layoutVariant?.footerLayout?.style || 'multi-column') as LayoutVariant['footerLayout']['style'],
+            columns: 4,
+            showNewsletter: true,
+            showSocialLinks: true,
+            showRecentPosts: true,
+            showCategories: true,
+        },
+        sidebarConfig: {
+            position: 'right' as const,
+            sticky: true,
+            widgets: ['popular', 'categories', 'newsletter'] as LayoutVariant['sidebarConfig']['widgets'],
+        },
+        articleLayout: {
+            style: (decisions.articleLayout?.value || theme.layoutVariant?.articleLayout?.style || 'classic') as LayoutVariant['articleLayout']['style'],
+            showToc: decisions.trustSignals?.tableOfContents?.enabled ?? true,
+            tocPosition: 'sidebar' as const,
+            showProgressBar: decisions.trustSignals?.readingProgressBar?.enabled ?? false,
+            showShareButtons: true,
+            shareButtonsPosition: 'both' as const,
+            showRelatedArticles: decisions.trustSignals?.relatedArticles?.enabled ?? true,
+            relatedArticlesCount: decisions.trustSignals?.relatedArticles?.count || 3,
+            showAuthorBox: decisions.trustSignals?.authorBox?.enabled ?? true,
+            showComments: false,
+        },
+    };
+
+    modifiedTheme.layoutVariant = layoutVariant;
+
+    // Apply card style to components
+    if (decisions.cardStyle?.value && modifiedTheme.components) {
+        const validCardStyles = ['classic', 'modern', 'minimal', 'outlined', 'elevated', 'glassmorphism'] as const;
+        type CardStyle = typeof validCardStyles[number];
+        const cardStyle = validCardStyles.includes(decisions.cardStyle.value as CardStyle)
+            ? decisions.cardStyle.value as CardStyle
+            : 'modern';
+        modifiedTheme.components.cards = {
+            ...modifiedTheme.components.cards,
+            style: cardStyle,
+        };
+    }
+
+    // Apply button style
+    if (decisions.buttonStyle?.value && modifiedTheme.components) {
+        const validButtonStyles = ['solid', 'outline', 'ghost', 'gradient'] as const;
+        type ButtonStyle = typeof validButtonStyles[number];
+        const buttonStyle = validButtonStyles.includes(decisions.buttonStyle.value as ButtonStyle)
+            ? decisions.buttonStyle.value as ButtonStyle
+            : 'solid';
+        modifiedTheme.components.buttons = {
+            ...modifiedTheme.components.buttons,
+            style: buttonStyle,
+        };
+    }
+
+    return modifiedTheme;
+}
+
+/**
+ * Generate CSS class overrides based on AI decisions
+ */
+export function generateAIDecisionCSS(decisions: AISiteDecisions): string {
+    const css: string[] = [];
+
+    css.push(`/* AI-Generated CSS Overrides */`);
+    css.push(`/* Strategy: ${decisions.overallStrategy || 'Revenue optimized'} */`);
+
+    // Homepage layout classes
+    css.push(`
+/* Homepage Layout: ${decisions.homepageLayout?.value || 'default'} */
+.homepage-grid { display: grid; gap: 1.5rem; }
+`);
+
+    // Article grid styles
+    const gridStyle = decisions.articleGridStyle?.value;
+    if (gridStyle === '3-column') {
+        css.push(`.article-grid { grid-template-columns: repeat(3, 1fr); }`);
+    } else if (gridStyle === '2-column') {
+        css.push(`.article-grid { grid-template-columns: repeat(2, 1fr); }`);
+    } else if (gridStyle === 'masonry') {
+        css.push(`.article-grid { column-count: 3; column-gap: 1.5rem; }`);
+    } else if (gridStyle === 'list-view') {
+        css.push(`.article-grid { display: flex; flex-direction: column; gap: 1rem; }`);
+    }
+
+    // Card style
+    const cardStyle = decisions.cardStyle?.value;
+    if (cardStyle === 'glassmorphism') {
+        css.push(`.article-card { 
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }`);
+    } else if (cardStyle === 'elevated') {
+        css.push(`.article-card {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .article-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.16);
+        }`);
+    }
+
+    // Trust signals visibility
+    if (!decisions.trustSignals?.tableOfContents?.enabled) {
+        css.push(`.table-of-contents { display: none; }`);
+    }
+    if (!decisions.trustSignals?.readingProgressBar?.enabled) {
+        css.push(`.reading-progress { display: none; }`);
+    }
+    if (!decisions.trustSignals?.authorBox?.enabled) {
+        css.push(`.author-box { display: none; }`);
+    }
+
+    return css.join('\n');
+}
+

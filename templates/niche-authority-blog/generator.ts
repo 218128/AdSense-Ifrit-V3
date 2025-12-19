@@ -19,6 +19,7 @@ import {
     generateManifest,
     generateGraphicsFiles
 } from '../shared';
+import { AISiteDecisions, applyAIDecisionsToTheme, generateAIDecisionCSS } from '@/lib/aiSiteBuilder';
 
 export interface SiteConfig {
     siteName: string;
@@ -38,6 +39,7 @@ export interface SiteConfig {
     themeSeed?: string; // Optional custom seed for reproducible themes
     umamiId?: string; // Optional Umami Website ID
     template?: 'niche' | 'magazine' | 'expert'; // Template selection
+    aiDecisions?: AISiteDecisions; // AI-generated configuration decisions
 }
 
 // Get domain from config or extract from repo name
@@ -57,7 +59,13 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
     // Generate unique theme for this site
     const niche = config?.niche || detectNicheFromName(siteName);
     const themeSeed = createThemeSeed(niche, config?.themeSeed);
-    const theme = generateTheme(themeSeed);
+    let theme = generateTheme(themeSeed);
+
+    // Apply AI decisions if provided
+    const aiDecisions = config?.aiDecisions;
+    if (aiDecisions) {
+        theme = applyAIDecisionsToTheme(theme, aiDecisions);
+    }
 
     // Use provided colors or theme-generated colors
     const primaryColor = config?.colors?.primary || theme.colors.primary;
@@ -139,10 +147,10 @@ module.exports = nextConfig;
         },
 
         // Global CSS with professional design
-        // Global Styles - Generated from unique theme seed
+        // Global Styles - Generated from unique theme seed + AI decisions
         {
             path: 'app/globals.css',
-            content: generateThemeCSS(theme)
+            content: generateThemeCSS(theme) + (aiDecisions ? '\n\n' + generateAIDecisionCSS(aiDecisions) : '')
         },
 
         // Theme configuration file (for reference/debugging)
