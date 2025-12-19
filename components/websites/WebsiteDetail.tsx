@@ -572,6 +572,7 @@ function ContentTab({
     const [showGenerateModal, setShowGenerateModal] = useState(false);
     const [showBulkQueue, setShowBulkQueue] = useState(false);
     const [showEditor, setShowEditor] = useState(false);
+    const [editingArticle, setEditingArticle] = useState<Article | null>(null);
     const [showPrompts, setShowPrompts] = useState(false);
     const [showImages, setShowImages] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -762,14 +763,16 @@ function ContentTab({
             )}
 
             {/* Manual Editor Modal */}
-            {showEditor && (
+            {(showEditor || editingArticle) && (
                 <ArticleEditor
                     domain={domain}
                     niche={niche}
                     author={{ name: 'Author', role: 'Expert' }}
                     websiteCategories={['how-to', 'reviews', 'guides', 'tutorials', 'tips', 'listicles', 'comparisons']}
-                    onSave={() => { setShowEditor(false); onRefresh(); }}
-                    onClose={() => setShowEditor(false)}
+                    initialContent={editingArticle?.content || ''}
+                    articleId={editingArticle?.id}
+                    onSave={() => { setShowEditor(false); setEditingArticle(null); onRefresh(); }}
+                    onClose={() => { setShowEditor(false); setEditingArticle(null); }}
                 />
             )}
 
@@ -882,7 +885,11 @@ function ContentTab({
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-1">
-                                            <button className="p-1 hover:bg-neutral-100 rounded" title="Edit">
+                                            <button
+                                                onClick={() => setEditingArticle(article)}
+                                                className="p-1 hover:bg-neutral-100 rounded"
+                                                title="Edit"
+                                            >
                                                 <Edit className="w-4 h-4 text-neutral-500" />
                                             </button>
                                             <a
