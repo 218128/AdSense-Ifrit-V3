@@ -32,5 +32,13 @@ export { generateNewsletter } from './components/newsletter';
 // Schema (Structured Data)
 export * from './schema';
 
+// SEO Files (ads.txt, robots.txt, sitemap, manifest)
+export {
+    generateAdsTxt,
+    generateRobotsTxt,
+    generateSitemapXml,
+    generateManifest
+} from './components/seoFiles';
+
 // Article Templates
 export * from './articleTemplates';

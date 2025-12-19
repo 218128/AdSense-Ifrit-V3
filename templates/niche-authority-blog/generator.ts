@@ -9,7 +9,15 @@
  * - AdSense-optimized layouts
  */
 
-import { createThemeSeed, generateTheme, generateThemeCSS, ThemeSeed } from '../shared';
+import {
+    createThemeSeed,
+    generateTheme,
+    generateThemeCSS,
+    generateAdsTxt,
+    generateRobotsTxt,
+    generateSitemapXml,
+    generateManifest
+} from '../shared';
 
 export interface SiteConfig {
     siteName: string;
@@ -31,6 +39,11 @@ export interface SiteConfig {
     template?: 'niche' | 'magazine' | 'expert'; // Template selection
 }
 
+// Get domain from config or extract from repo name
+function getDomain(repoName: string, config?: Partial<SiteConfig>): string {
+    return config?.domain || repoName.replace(/-/g, '.');
+}
+
 export function generateTemplateFiles(repoName: string, config?: Partial<SiteConfig>) {
     const siteName = config?.siteName || repoName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     const tagline = config?.tagline || 'Your trusted source for quality content';
@@ -48,6 +61,7 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
     // Use provided colors or theme-generated colors
     const primaryColor = config?.colors?.primary || theme.colors.primary;
     const secondaryColor = config?.colors?.secondary || theme.colors.secondary;
+    const domain = getDomain(repoName, config);
 
     return [
         // Package.json
@@ -203,6 +217,34 @@ module.exports = nextConfig;
         {
             path: 'content/.gitkeep',
             content: '# Articles will be pushed here\n'
+        },
+
+        // ============================================
+        // SEO & ADSENSE COMPLIANCE FILES
+        // ============================================
+
+        // ads.txt (Required by Google AdSense)
+        ...(adsensePublisherId ? [{
+            path: 'public/ads.txt',
+            content: generateAdsTxt(adsensePublisherId)
+        }] : []),
+
+        // robots.txt
+        {
+            path: 'public/robots.txt',
+            content: generateRobotsTxt(domain)
+        },
+
+        // sitemap.xml (base - articles added dynamically)
+        {
+            path: 'public/sitemap.xml',
+            content: generateSitemapXml(domain)
+        },
+
+        // Web App Manifest (PWA support + theme colors)
+        {
+            path: 'public/manifest.json',
+            content: generateManifest(siteName, theme.colors.primary, theme.colors.background)
         }
     ];
 }
