@@ -42,17 +42,17 @@ export async function POST(
         const { githubRepo, githubOwner } = metadata.deployment || {};
 
         if (!githubRepo || !githubOwner) {
-            return NextResponse.json({ 
-                success: false, 
-                error: 'GitHub repo not configured. Deploy website first.' 
+            return NextResponse.json({
+                success: false,
+                error: 'GitHub repo not configured. Deploy website first.'
             }, { status: 400 });
         }
 
-        const results: { id: string; slug: string; success: boolean; error?: string }[] = [];
+        const results: { id: string; slug: string; success: boolean; error?: string; imagesPushed?: number }[] = [];
 
         for (const articleId of articleIds) {
             const articlePath = path.join(articlesDir, `${articleId}.json`);
-            
+
             if (!fs.existsSync(articlePath)) {
                 results.push({ id: articleId, slug: '', success: false, error: 'Article not found' });
                 continue;
@@ -60,7 +60,7 @@ export async function POST(
 
             try {
                 const article = JSON.parse(fs.readFileSync(articlePath, 'utf-8'));
-                
+
                 // Generate markdown with frontmatter
                 const frontmatter = `---
 title: "${article.title.replace(/"/g, '\\"')}"
@@ -101,8 +101,8 @@ tags: ${JSON.stringify(article.tags || [])}
                         'User-Agent': 'AdSense-Ifrit'
                     },
                     body: JSON.stringify({
-                        message: sha 
-                            ? `Update: ${article.title}` 
+                        message: sha
+                            ? `Update: ${article.title}`
                             : `Publish: ${article.title}`,
                         content: Buffer.from(markdown).toString('base64'),
                         branch: 'main',
@@ -112,13 +112,108 @@ tags: ${JSON.stringify(article.tags || [])}
 
                 if (!putResponse.ok) {
                     const errorData = await putResponse.json();
-                    results.push({ 
-                        id: articleId, 
-                        slug: article.slug, 
-                        success: false, 
-                        error: errorData.message || 'GitHub API error' 
+                    results.push({
+                        id: articleId,
+                        slug: article.slug,
+                        success: false,
+                        error: errorData.message || 'GitHub API error'
                     });
                     continue;
+                }
+
+                // Push images to GitHub
+                const imagesDir = path.join(websiteDir, 'content', 'images', article.slug);
+                let imagesPushed = 0;
+
+                // Push cover image (flat structure: public/images/{slug}.png)
+                const coverDir = path.join(imagesDir, 'cover');
+                if (fs.existsSync(coverDir)) {
+                    const coverFiles = fs.readdirSync(coverDir).filter(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f));
+                    if (coverFiles.length > 0) {
+                        const coverFile = coverFiles[0];
+                        const coverPath = path.join(coverDir, coverFile);
+                        const coverExt = path.extname(coverFile);
+                        const coverContent = fs.readFileSync(coverPath);
+                        const coverGitPath = `public/images/${article.slug}${coverExt}`;
+
+                        // Check if cover exists
+                        const coverCheckUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${coverGitPath}`;
+                        const coverCheckRes = await fetch(coverCheckUrl, {
+                            headers: {
+                                'Authorization': `Bearer ${githubToken}`,
+                                'Accept': 'application/vnd.github.v3+json',
+                                'User-Agent': 'AdSense-Ifrit'
+                            }
+                        });
+                        let coverSha: string | undefined;
+                        if (coverCheckRes.ok) {
+                            const existing = await coverCheckRes.json();
+                            coverSha = existing.sha;
+                        }
+
+                        // Push cover
+                        await fetch(coverCheckUrl, {
+                            method: 'PUT',
+                            headers: {
+                                'Authorization': `Bearer ${githubToken}`,
+                                'Accept': 'application/vnd.github.v3+json',
+                                'Content-Type': 'application/json',
+                                'User-Agent': 'AdSense-Ifrit'
+                            },
+                            body: JSON.stringify({
+                                message: `Add cover image: ${article.slug}`,
+                                content: coverContent.toString('base64'),
+                                branch: 'main',
+                                ...(coverSha ? { sha: coverSha } : {})
+                            })
+                        });
+                        imagesPushed++;
+                    }
+                }
+
+                // Push content images (nested: public/images/{slug}/images/img-001.png)
+                const contentImagesDir = path.join(imagesDir, 'images');
+                if (fs.existsSync(contentImagesDir)) {
+                    const contentImageFiles = fs.readdirSync(contentImagesDir).filter(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f));
+
+                    for (const imgFile of contentImageFiles) {
+                        const imgPath = path.join(contentImagesDir, imgFile);
+                        const imgContent = fs.readFileSync(imgPath);
+                        const imgGitPath = `public/images/${article.slug}/images/${imgFile}`;
+
+                        // Check if image exists
+                        const imgCheckUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${imgGitPath}`;
+                        const imgCheckRes = await fetch(imgCheckUrl, {
+                            headers: {
+                                'Authorization': `Bearer ${githubToken}`,
+                                'Accept': 'application/vnd.github.v3+json',
+                                'User-Agent': 'AdSense-Ifrit'
+                            }
+                        });
+                        let imgSha: string | undefined;
+                        if (imgCheckRes.ok) {
+                            const existing = await imgCheckRes.json();
+                            imgSha = existing.sha;
+                        }
+
+                        // Push image
+                        await fetch(imgCheckUrl, {
+                            method: 'PUT',
+                            headers: {
+                                'Authorization': `Bearer ${githubToken}`,
+                                'Accept': 'application/vnd.github.v3+json',
+                                'Content-Type': 'application/json',
+                                'User-Agent': 'AdSense-Ifrit'
+                            },
+                            body: JSON.stringify({
+                                message: `Add image: ${article.slug}/${imgFile}`,
+                                content: imgContent.toString('base64'),
+                                branch: 'main',
+                                ...(imgSha ? { sha: imgSha } : {})
+                            })
+                        });
+                        imagesPushed++;
+                    }
                 }
 
                 // Update local article status
@@ -126,15 +221,15 @@ tags: ${JSON.stringify(article.tags || [])}
                 article.publishedAt = Date.now();
                 fs.writeFileSync(articlePath, JSON.stringify(article, null, 2));
 
-                results.push({ id: articleId, slug: article.slug, success: true });
-                console.log(`✅ Published: ${article.title} to ${domain}`);
+                results.push({ id: articleId, slug: article.slug, success: true, imagesPushed });
+                console.log(`✅ Published: ${article.title} to ${domain} (${imagesPushed} images)`);
 
             } catch (err) {
-                results.push({ 
-                    id: articleId, 
-                    slug: '', 
-                    success: false, 
-                    error: err instanceof Error ? err.message : 'Unknown error' 
+                results.push({
+                    id: articleId,
+                    slug: '',
+                    success: false,
+                    error: err instanceof Error ? err.message : 'Unknown error'
                 });
             }
         }

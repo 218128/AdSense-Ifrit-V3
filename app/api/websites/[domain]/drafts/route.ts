@@ -124,10 +124,15 @@ function getDraftFolderInfo(draftsPath: string, name: string): {
         }
     }
 
-    // Check for cover
+    // Check for cover - either in cover/ subfolder OR cover.png/jpg in root
     const coverPath = path.join(entryPath, 'cover');
-    const hasCover = fs.existsSync(coverPath) &&
+    let hasCover = fs.existsSync(coverPath) &&
         fs.readdirSync(coverPath).some(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f));
+
+    // Also check for cover.png/jpg directly in folder root
+    if (!hasCover) {
+        hasCover = files.some(f => /^cover\.(jpg|jpeg|png|webp|gif)$/i.test(f));
+    }
 
     // Count content images
     const imagesPath = path.join(entryPath, 'images');
@@ -157,15 +162,32 @@ function copyDraftImages(
     let coverImage: CoverImage | undefined;
     const contentImages: ContentImage[] = [];
 
-    // Copy cover image
+    // Copy cover image - check cover/ folder first, then cover.png in root
     const sourceCoverPath = path.join(sourcePath, 'cover');
-    if (fs.existsSync(sourceCoverPath)) {
+    if (fs.existsSync(sourceCoverPath) && fs.statSync(sourceCoverPath).isDirectory()) {
         const coverFiles = fs.readdirSync(sourceCoverPath)
             .filter(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f));
 
         if (coverFiles.length > 0) {
             const srcFile = path.join(sourceCoverPath, coverFiles[0]);
             const ext = path.extname(coverFiles[0]);
+            const destFile = path.join(imagesBasePath, 'cover', `cover${ext}`);
+            fs.copyFileSync(srcFile, destFile);
+
+            coverImage = {
+                url: `/images/${articleSlug}/cover/cover${ext}`,
+                alt: articleSlug.replace(/-/g, ' '),
+                source: 'manual'
+            };
+        }
+    } else {
+        // Check for cover.png/jpg directly in folder root
+        const rootFiles = fs.readdirSync(sourcePath);
+        const coverFile = rootFiles.find(f => /^cover\.(jpg|jpeg|png|webp|gif)$/i.test(f));
+
+        if (coverFile) {
+            const srcFile = path.join(sourcePath, coverFile);
+            const ext = path.extname(coverFile);
             const destFile = path.join(imagesBasePath, 'cover', `cover${ext}`);
             fs.copyFileSync(srcFile, destFile);
 
