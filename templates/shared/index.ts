@@ -4,6 +4,9 @@
  * Reusable component generators for all templates.
  */
 
+// Theme Seed System
+export * from './themeSeed';
+
 // Layout Components
 export { generateHeader } from './components/header';
 export { generateFooter } from './components/footer';

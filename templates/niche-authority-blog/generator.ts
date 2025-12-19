@@ -1,22 +1,32 @@
 /**
  * Niche Authority Blog Template
  * Professional template files for AdSense-optimized niche sites
+ * 
+ * Features:
+ * - Unique theme generation via themeSeed
+ * - Niche-aware color palettes
+ * - 30+ font pairings
+ * - AdSense-optimized layouts
  */
+
+import { createThemeSeed, generateTheme, generateThemeCSS, ThemeSeed } from '../shared';
 
 export interface SiteConfig {
     siteName: string;
     tagline: string;
     domain: string;
+    niche?: string; // e.g., 'tech', 'finance', 'health' - used for theme generation
     adsensePublisherId?: string; // e.g., 'ca-pub-1658375151633555'
     author: {
         name: string;
         role: string;
         bio: string;
     };
-    colors: {
+    colors?: { // Now optional - will be generated from theme seed if not provided
         primary: string;
         secondary: string;
     };
+    themeSeed?: string; // Optional custom seed for reproducible themes
     umamiId?: string; // Optional Umami Website ID
     template?: 'niche' | 'magazine' | 'expert'; // Template selection
 }
@@ -27,10 +37,17 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
     const authorName = config?.author?.name || 'Editorial Team';
     const authorRole = config?.author?.role || 'Content Team';
     const authorBio = config?.author?.bio || 'We are dedicated to bringing you the best content.';
-    const primaryColor = config?.colors?.primary || '#2563eb';
-    const secondaryColor = config?.colors?.secondary || '#10b981';
     const adsensePublisherId = config?.adsensePublisherId || '';
     const umamiId = config?.umamiId;
+
+    // Generate unique theme for this site
+    const niche = config?.niche || detectNicheFromName(siteName);
+    const themeSeed = createThemeSeed(niche, config?.themeSeed);
+    const theme = generateTheme(themeSeed);
+
+    // Use provided colors or theme-generated colors
+    const primaryColor = config?.colors?.primary || theme.colors.primary;
+    const secondaryColor = config?.colors?.secondary || theme.colors.secondary;
 
     return [
         // Package.json
@@ -107,9 +124,31 @@ module.exports = nextConfig;
         },
 
         // Global CSS with professional design
+        // Global Styles - Generated from unique theme seed
         {
             path: 'app/globals.css',
-            content: generateGlobalStyles(primaryColor, secondaryColor)
+            content: generateThemeCSS(theme)
+        },
+
+        // Theme configuration file (for reference/debugging)
+        {
+            path: 'theme.json',
+            content: JSON.stringify({
+                seed: themeSeed.seed,
+                niche: themeSeed.niche,
+                mood: themeSeed.mood,
+                generatedAt: themeSeed.generatedAt,
+                colors: theme.colors,
+                typography: {
+                    headingFont: theme.typography.headingFont,
+                    bodyFont: theme.typography.bodyFont
+                },
+                components: {
+                    headerStyle: theme.components.header.style,
+                    cardStyle: theme.components.cards.style,
+                    buttonStyle: theme.components.buttons.style
+                }
+            }, null, 2)
         },
 
         // Layout with header/footer + AdSense + Analytics
@@ -294,6 +333,32 @@ a:hover { color: var(--color-primary-dark); }
   .author-box-avatar { margin: 0 auto; }
 }
 `;
+}
+
+/**
+ * Detect niche category from site name
+ * Used when niche is not explicitly provided
+ */
+function detectNicheFromName(siteName: string): string {
+    const name = siteName.toLowerCase();
+
+    const nicheKeywords: Record<string, string[]> = {
+        tech: ['tech', 'digital', 'code', 'software', 'app', 'ai', 'cyber', 'data', 'cloud', 'dev', 'gadget'],
+        finance: ['finance', 'money', 'invest', 'bank', 'credit', 'wealth', 'budget', 'trade', 'stock', 'crypto'],
+        health: ['health', 'fitness', 'wellness', 'medical', 'diet', 'nutrition', 'workout', 'yoga', 'mental'],
+        lifestyle: ['lifestyle', 'fashion', 'beauty', 'home', 'decor', 'style', 'living', 'modern'],
+        food: ['food', 'recipe', 'cook', 'kitchen', 'meal', 'chef', 'bake', 'eat', 'taste', 'gourmet'],
+        travel: ['travel', 'trip', 'vacation', 'adventure', 'explore', 'journey', 'destination', 'tour'],
+        education: ['learn', 'study', 'course', 'teach', 'education', 'tutorial', 'academy', 'skill'],
+    };
+
+    for (const [niche, keywords] of Object.entries(nicheKeywords)) {
+        if (keywords.some(kw => name.includes(kw))) {
+            return niche;
+        }
+    }
+
+    return 'default';
 }
 
 function adjustColor(hex: string, percent: number): string {
