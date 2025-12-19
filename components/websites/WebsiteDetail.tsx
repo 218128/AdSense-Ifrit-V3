@@ -48,6 +48,7 @@ import PendingImports from './PendingImports';
 import PagesTab from './PagesTab';
 import BatchOperationsPanel from './BatchOperationsPanel';
 import ImageGallery from './ImageGallery';
+import SiteDecisionsPanel from './SiteDecisionsPanel';
 
 // Types from websiteStore
 interface Website {
@@ -129,7 +130,7 @@ interface WebsiteDetailProps {
     onBack: () => void;
 }
 
-type TabId = 'overview' | 'content' | 'pages' | 'versions' | 'upgrades' | 'settings';
+type TabId = 'overview' | 'content' | 'pages' | 'versions' | 'upgrades' | 'ai' | 'settings';
 
 export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
     const [activeTab, setActiveTab] = useState<TabId>('overview');
@@ -211,6 +212,7 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
         { id: 'pages', label: 'Pages', icon: <FileText className="w-4 h-4" /> },
         { id: 'versions', label: 'Versions', icon: <History className="w-4 h-4" /> },
         { id: 'upgrades', label: 'Upgrades', icon: <ArrowUpCircle className="w-4 h-4" /> },
+        { id: 'ai', label: 'AI Config', icon: <Sparkles className="w-4 h-4" /> },
         { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> }
     ];
 
@@ -372,6 +374,9 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                         deploying={deploying}
                         deployMessage={deployMessage}
                     />
+                )}
+                {activeTab === 'ai' && (
+                    <SiteDecisionsPanel domain={domain} onRefresh={fetchWebsite} />
                 )}
                 {activeTab === 'settings' && (
                     <SettingsTab website={website} />
