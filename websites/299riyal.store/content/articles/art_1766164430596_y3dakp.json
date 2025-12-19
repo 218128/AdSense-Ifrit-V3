@@ -15,7 +15,8 @@
       "id": "img_1766164430595_0",
       "url": "/images/xiaomi-vs-realme-budget/images/img-001.png",
       "alt": "img 001",
-      "source": "manual"
+      "source": "manual",
+      "caption": ""
     }
   ],
   "contentType": "external",
@@ -27,7 +28,7 @@
   "isExternal": true,
   "source": "external",
   "status": "draft",
-  "lastModifiedAt": 1766164618028,
+  "lastModifiedAt": 1766186898368,
   "versions": [
     {
       "id": "ver_1766164618021",

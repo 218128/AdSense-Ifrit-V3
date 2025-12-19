@@ -24,12 +24,12 @@
     "liveUrl": "https://299riyal.store",
     "lastDeployAt": 1766105382815,
     "lastDeployCommit": "89184d1186f457bf400f27da7d7c5019dd1f81e0",
-    "pendingChanges": 1
+    "pendingChanges": 2
   },
   "stats": {
     "articlesCount": 16,
     "totalWords": 17187,
-    "lastPublishedAt": 1766185345284,
+    "lastPublishedAt": 1766186616110,
     "estimatedMonthlyRevenue": 0
   },
   "versions": [
@@ -90,5 +90,5 @@
   },
   "status": "live",
   "createdAt": 1702504120000,
-  "updatedAt": 1766185509646
+  "updatedAt": 1766186898372
 }
