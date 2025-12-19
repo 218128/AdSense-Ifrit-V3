@@ -78,9 +78,9 @@ export default function SiteDecisionsPanel({ domain, onRefresh }: SiteDecisionsP
         setMessage(null);
 
         try {
-            // Get API keys from localStorage
+            // Get API keys from localStorage (matching lib/ai/multiProvider key names)
             const apiKeys: Record<string, string> = {};
-            const keyNames = ['openai_api_key', 'claude_api_key', 'gemini_api_key', 'deepseek_api_key', 'groq_api_key', 'mistral_api_key'];
+            const keyNames = ['gemini_api_key', 'deepseek_api_key', 'openrouter_api_key', 'vercel_api_key', 'perplexity_api_key'];
             keyNames.forEach(key => {
                 const value = localStorage.getItem(key);
                 if (value) apiKeys[key] = value;

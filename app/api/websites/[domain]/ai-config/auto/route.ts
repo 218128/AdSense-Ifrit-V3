@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDomainProfile } from '@/lib/websiteStore';
 import { generateAISiteBuilderPrompt, DomainProfileForAI, validateAIDecisions, createDecisionRecord, AISiteDecisions } from '@/lib/aiSiteBuilder';
-import { callAIWithRotation, AI_PROVIDERS } from '@/lib/aiProviders';
+import { AIKeyManager, MultiProviderAI, PROVIDERS, AIProvider } from '@/lib/ai/multiProvider';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -13,22 +13,23 @@ interface Params {
 }
 
 /**
- * POST - Auto-generate AI decisions using available AI providers
+ * POST - Auto-generate AI decisions using existing multiProvider system
  */
 export async function POST(request: NextRequest, { params }: Params): Promise<NextResponse> {
     try {
         const { domain } = await params;
         const body = await request.json();
-        const { apiKeys, strategy = 'rotate' } = body;
+        const { apiKeys, preferredProvider } = body;
 
         if (!apiKeys || Object.keys(apiKeys).length === 0) {
             return NextResponse.json({
                 success: false,
                 error: 'No API keys provided. Send apiKeys object with provider keys.',
-                availableProviders: Object.values(AI_PROVIDERS).map(p => ({
-                    id: p.id,
+                availableProviders: Object.entries(PROVIDERS).map(([id, p]) => ({
+                    id,
                     name: p.name,
-                    keyName: p.apiKeyName,
+                    description: p.description,
+                    pricing: p.pricing,
                 })),
             }, { status: 400 });
         }
@@ -57,16 +58,37 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
             difficultyScore: profile.difficultyScore || 50,
         };
 
+        // Initialize key manager and AI client
+        const keyManager = new AIKeyManager();
+
+        // Add keys from request to key manager
+        // Map common key names to providers
+        const keyMapping: Record<string, AIProvider> = {
+            'gemini_api_key': 'gemini',
+            'deepseek_api_key': 'deepseek',
+            'openrouter_api_key': 'openrouter',
+            'vercel_api_key': 'vercel',
+            'perplexity_api_key': 'perplexity',
+        };
+
+        for (const [keyName, key] of Object.entries(apiKeys)) {
+            const provider = keyMapping[keyName];
+            if (provider && typeof key === 'string' && key.trim()) {
+                keyManager.addKey(provider, key.trim(), keyName);
+            }
+        }
+
+        const aiClient = new MultiProviderAI(keyManager);
+
         // Generate prompt
         const prompt = generateAISiteBuilderPrompt(aiProfile);
 
-        // Call AI with rotation
-        const aiResponse = await callAIWithRotation(apiKeys, {
-            prompt,
-            systemPrompt: 'You are an expert website configuration assistant. Return only valid JSON matching the exact structure specified in the prompt.',
+        // Call AI with automatic failover
+        const aiResponse = await aiClient.generateContent(prompt, {
+            maxTokens: 4000,
             temperature: 0.7,
-            jsonMode: true,
-        }, strategy as 'rotate' | 'random');
+            preferredProvider: preferredProvider as AIProvider | undefined,
+        });
 
         if (!aiResponse.success) {
             return NextResponse.json({
@@ -76,10 +98,13 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
             }, { status: 500 });
         }
 
-        // Parse AI response
+        // Parse AI response - handle markdown code blocks
         let decisions: AISiteDecisions;
         try {
-            const parsed = JSON.parse(aiResponse.content || '{}');
+            let content = aiResponse.content || '{}';
+            // Remove markdown code blocks if present
+            content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            const parsed = JSON.parse(content);
             decisions = parsed.decisions || parsed;
         } catch {
             return NextResponse.json({
@@ -116,7 +141,7 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
             success: true,
             message: 'AI decisions generated and saved successfully',
             provider: aiResponse.provider,
-            tokensUsed: aiResponse.tokensUsed,
+            model: aiResponse.model,
             decisions: record,
             nextStep: 'Create website via /api/websites/create with useAIDecisions: true',
         });
