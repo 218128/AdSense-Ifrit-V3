@@ -135,6 +135,24 @@ module.exports = nextConfig;
             content: generateAboutPage(siteName, authorName, authorRole, authorBio)
         },
 
+        // Privacy page
+        {
+            path: 'app/privacy/page.tsx',
+            content: generatePrivacyPage(siteName)
+        },
+
+        // Terms page
+        {
+            path: 'app/terms/page.tsx',
+            content: generateTermsPage(siteName)
+        },
+
+        // Contact page
+        {
+            path: 'app/contact/page.tsx',
+            content: generateContactPage(siteName)
+        },
+
         // Content library
         {
             path: 'lib/content.ts',
@@ -374,27 +392,131 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 }
 
 function generateAboutPage(siteName: string, name: string, role: string, bio: string) {
-    return `export default function About() {
-    return (
-        <div className="container" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
-            <h1>About ${siteName}</h1>
-            <p className="lead" style={{ fontSize: '1.25rem', color: 'var(--color-text-muted)', marginBottom: '2rem' }}>
-                We are a digital magazine dedicated to bringing you the freshest perspectives.
-            </p>
-            <div style={{ background: 'var(--color-bg-alt)', padding: '2rem', borderRadius: '1rem' }}>
-                <h3>Editorial Team</h3>
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', alignItems: 'center' }}>
-                    <div style={{ width: '60px', height: '60px', background: 'var(--color-primary)', borderRadius: '50%' }}></div>
-                    <div>
-                        <div style={{ fontWeight: 'bold' }}>${name}</div>
-                        <div style={{ fontSize: '0.875rem' }}>${role}</div>
+    return `import { getStructuralPage } from '@/lib/content';
+
+export const metadata = {
+    title: 'About ${siteName}',
+    description: 'Learn more about ${siteName}.',
+};
+
+export default function About() {
+    const page = getStructuralPage('about');
+    
+    if (!page) {
+        return (
+            <div className="container" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
+                <h1>About ${siteName}</h1>
+                <p className="lead" style={{ fontSize: '1.25rem', color: 'var(--color-text-muted)', marginBottom: '2rem' }}>
+                    We are a digital magazine dedicated to bringing you the freshest perspectives.
+                </p>
+                <div style={{ background: 'var(--color-bg-alt)', padding: '2rem', borderRadius: '1rem' }}>
+                    <h3>Editorial Team</h3>
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', alignItems: 'center' }}>
+                        <div style={{ width: '60px', height: '60px', background: 'var(--color-primary)', borderRadius: '50%' }}></div>
+                        <div>
+                            <div style={{ fontWeight: 'bold' }}>${name}</div>
+                            <div style={{ fontSize: '0.875rem' }}>${role}</div>
+                        </div>
                     </div>
+                    <p style={{ marginTop: '1rem' }}>${bio}</p>
                 </div>
-                <p style={{ marginTop: '1rem' }}>${bio}</p>
             </div>
+        );
+    }
+
+    return (
+        <div className="container structural-page" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
+            <article className="prose" dangerouslySetInnerHTML={{ __html: page.html }} />
         </div>
     );
 }`;
+}
+
+function generatePrivacyPage(siteName: string): string {
+    return `import { getStructuralPage } from '@/lib/content';
+
+export const metadata = {
+    title: 'Privacy Policy',
+    description: 'Privacy policy for ${siteName}.',
+};
+
+export default function PrivacyPage() {
+    const page = getStructuralPage('privacy');
+    
+    if (!page) {
+        return (
+            <div className="container structural-page" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
+                <h1>Privacy Policy</h1>
+                <p>Privacy policy content coming soon.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container structural-page" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
+            <article className="prose" dangerouslySetInnerHTML={{ __html: page.html }} />
+        </div>
+    );
+}
+`;
+}
+
+function generateTermsPage(siteName: string): string {
+    return `import { getStructuralPage } from '@/lib/content';
+
+export const metadata = {
+    title: 'Terms of Service',
+    description: 'Terms of service for ${siteName}.',
+};
+
+export default function TermsPage() {
+    const page = getStructuralPage('terms');
+    
+    if (!page) {
+        return (
+            <div className="container structural-page" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
+                <h1>Terms of Service</h1>
+                <p>Terms of service content coming soon.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container structural-page" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
+            <article className="prose" dangerouslySetInnerHTML={{ __html: page.html }} />
+        </div>
+    );
+}
+`;
+}
+
+function generateContactPage(siteName: string): string {
+    return `import { getStructuralPage } from '@/lib/content';
+
+export const metadata = {
+    title: 'Contact Us',
+    description: 'Get in touch with ${siteName}.',
+};
+
+export default function ContactPage() {
+    const page = getStructuralPage('contact');
+    
+    if (!page) {
+        return (
+            <div className="container structural-page" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
+                <h1>Contact Us</h1>
+                <p>Contact information coming soon.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container structural-page" style={{ maxWidth: '800px', padding: '4rem 2rem' }}>
+            <article className="prose" dangerouslySetInnerHTML={{ __html: page.html }} />
+        </div>
+    );
+}
+`;
 }
 
 function generateContentLib() {
@@ -403,6 +525,9 @@ import path from 'path';
 import matter from 'gray-matter';
 
 const contentDir = path.join(process.cwd(), 'content');
+
+// Structural page slugs to exclude from article listings
+const STRUCTURAL_SLUGS = ['about', 'privacy', 'terms', 'contact', 'disclaimer'];
 
 export interface Article {
     slug: string;
@@ -415,7 +540,9 @@ export interface Article {
 
 export function getAllArticles(): Article[] {
     if (!fs.existsSync(contentDir)) return [];
-    const files = fs.readdirSync(contentDir).filter(f => f.endsWith('.md'));
+    const files = fs.readdirSync(contentDir)
+        .filter(f => f.endsWith('.md'))
+        .filter(f => !STRUCTURAL_SLUGS.includes(f.replace(/\\.md$/, '')));
     return files.map((file) => {
         const slug = file.replace(/\\.md$/, '');
         const { data, content } = matter(fs.readFileSync(path.join(contentDir, file), 'utf8'));
@@ -442,6 +569,55 @@ export function getArticleBySlug(slug: string): Article | null {
             content
         };
     } catch { return null; }
+}
+
+// Interface for structural pages
+export interface StructuralPage {
+    slug: string;
+    title: string;
+    content: string;
+    html: string;
+}
+
+// Simple markdown to HTML converter
+function markdownToHtml(markdown: string): string {
+    return markdown
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+        .replace(/\\*(.+?)\\*/g, '<em>$1</em>')
+        .replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2">$1</a>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\\/li>\\n?)+/gm, '<ul>$&</ul>')
+        .split('\\n\\n')
+        .map(para => {
+            para = para.trim();
+            if (!para) return '';
+            if (para.startsWith('<h') || para.startsWith('<ul') || para.startsWith('<li')) return para;
+            return '<p>' + para.replace(/\\n/g, ' ') + '</p>';
+        })
+        .join('\\n');
+}
+
+// Get structural page (about, privacy, terms, contact)
+export function getStructuralPage(slug: string): StructuralPage | null {
+    try {
+        const fullPath = path.join(contentDir, \`\${slug}.md\`);
+        if (!fs.existsSync(fullPath)) return null;
+        
+        const fileContents = fs.readFileSync(fullPath, 'utf8');
+        const { data, content } = matter(fileContents);
+        
+        return {
+            slug,
+            title: data.title || slug.charAt(0).toUpperCase() + slug.slice(1),
+            content,
+            html: markdownToHtml(content)
+        };
+    } catch {
+        return null;
+    }
 }
 `;
 }
