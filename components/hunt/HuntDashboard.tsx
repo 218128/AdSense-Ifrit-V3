@@ -27,20 +27,19 @@ import {
 // State management
 import { useHuntStore, AnalyzeCandidate } from '@/stores/huntStore';
 
-// Import keyword hunting tools
-import KeywordHunter from './KeywordHunter';
+// Subtab 1: Keywords/Niches
+import { TrendScanner, KeywordHunter } from './subtabs/KeywordsNiches';
 
-// Import domain tools
-import {
-    ExpiredDomainFinder,
-    DomainScorer,
-    CloudflareManager,
-    FlipPipeline,
-    PurchaseQueue
-} from './DomainDomination';
+// Subtab 2: Domain Acquire (Find → Analyze → Purchase)
+import { ExpiredDomainFinder, DomainScorer, PurchaseQueue } from './subtabs/DomainAcquire';
+
+// Subtab 3: Flip Pipeline
+import { FlipPipeline } from './subtabs/FlipPipeline';
+
+// Shared components
+import { CloudflareManager } from './shared';
 
 import SaveResearchButton from './SaveResearchButton';
-import TrendScanner from './TrendScanner';
 
 type HuntSubTab = 'keywords' | 'domains' | 'flip';
 type DomainStep = 'find' | 'analyze' | 'purchase';
