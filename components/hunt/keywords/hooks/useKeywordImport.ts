@@ -24,7 +24,7 @@ export interface UseKeywordImportReturn {
     csvKeywords: KeywordItem[];
     handleCSVImport: (event: React.ChangeEvent<HTMLInputElement>) => void;
     clearCSV: () => void;
-    fileInputRef: React.RefObject<HTMLInputElement>;
+    fileInputRef: React.RefObject<HTMLInputElement | null>;
 
     // Evergreen
     evergreenKeywords: KeywordItem[];

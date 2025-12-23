@@ -32,6 +32,3 @@ export type {
     DomainFiltersProps,
     DomainRowProps,
 } from './components';
-
-// Container component
-export { default as ExpiredDomainFinderV2 } from './ExpiredDomainFinderV2';

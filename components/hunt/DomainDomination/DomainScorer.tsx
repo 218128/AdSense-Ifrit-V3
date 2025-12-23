@@ -30,6 +30,7 @@ import {
     HelpCircle
 } from 'lucide-react';
 import { DataSourceBanner } from './MetricTooltip';
+import { ScorerScoreCard as ScoreCard } from './ScorerScoreCard';
 
 interface DomainScore {
     overall: number;
@@ -554,52 +555,6 @@ export default function DomainScorer({
                         </p>
                     </div>
                 )}
-            </div>
-        </div>
-    );
-}
-
-function ScoreCard({
-    icon,
-    label,
-    score,
-}: {
-    icon: React.ReactNode;
-    label: string;
-    score: number;
-}) {
-    const getColor = (s: number) => {
-        if (s >= 70) return 'text-green-600';
-        if (s >= 50) return 'text-yellow-600';
-        if (s >= 30) return 'text-orange-600';
-        return 'text-red-600';
-    };
-
-    const getBg = (s: number) => {
-        if (s >= 70) return 'bg-green-100';
-        if (s >= 50) return 'bg-yellow-100';
-        if (s >= 30) return 'bg-orange-100';
-        return 'bg-red-100';
-    };
-
-    return (
-        <div className="p-3 border rounded-lg">
-            <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
-                {icon}
-                {label}
-            </div>
-            <div className="flex items-center gap-2">
-                <div
-                    className={`text-xl font-bold ${getColor(score)}`}
-                >
-                    {score}
-                </div>
-                <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                        className={`h-full ${getBg(score)} transition-all`}
-                        style={{ width: `${score}%` }}
-                    />
-                </div>
             </div>
         </div>
     );

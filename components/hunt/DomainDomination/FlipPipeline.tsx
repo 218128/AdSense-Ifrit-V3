@@ -6,66 +6,36 @@
  * Track domain flip projects from acquisition to sale.
  * Features: project creation, stage tracking, ROI calculation, valuation.
  * Now with educational guidance and watchlist integration!
+ * 
+ * REFACTORED: Extracted StatCard, ProjectCard, ProjectForm, flipUtils into separate files.
  */
 
 import { useState, useEffect } from 'react';
 import {
     TrendingUp,
     Plus,
-    DollarSign,
-    Calendar,
-    Target,
-    CheckCircle,
-    Clock,
-    ArrowRight,
-    ExternalLink,
-    Edit2,
-    Trash2,
     BarChart3,
     Package,
     Rocket,
+    Target,
     Banknote,
-    HelpCircle,
     ChevronDown,
     ChevronUp,
-    Download,
     BookOpen,
     Star
 } from 'lucide-react';
 import { DataSourceBanner } from './MetricTooltip';
 
-export interface FlipProject {
-    id: string;
-    domain: string;
-    stage: FlipStage;
+// Extracted components
+import { StatCard } from './StatCard';
+import { ProjectCard } from './ProjectCard';
+import { ProjectForm } from './ProjectForm';
+import { calculateStats } from './flipUtils';
 
-    // Acquisition
-    purchasePrice: number;
-    purchaseDate: string;
-    registrar: string;
+// Types
+import type { FlipProject, FlipStage } from '@/lib/flip/types';
 
-    // Building
-    buildingNotes?: string;
-    contentCount?: number;
-    trafficEstimate?: number;
-
-    // Valuation
-    currentValuation?: number;
-    targetPrice?: number;
-
-    // Sale
-    salePrice?: number;
-    saleDate?: string;
-    marketplace?: string;
-
-    // Calculated
-    roi?: number;
-    profit?: number;
-    daysHeld?: number;
-
-    createdAt: number;
-    updatedAt: number;
-}
+// ============ CONSTANTS ============
 
 interface WatchlistDomain {
     domain: string;
@@ -75,8 +45,6 @@ interface WatchlistDomain {
     addedAt: number;
 }
 
-export type FlipStage = 'acquired' | 'building' | 'listed' | 'sold';
-
 const STAGES: { id: FlipStage; label: string; icon: React.ReactNode; color: string; guidance: string }[] = [
     { id: 'acquired', label: 'Acquired', icon: <Package className="w-4 h-4" />, color: 'blue', guidance: 'Just purchased. Start planning content strategy.' },
     { id: 'building', label: 'Building', icon: <Rocket className="w-4 h-4" />, color: 'orange', guidance: 'Adding content, building traffic, improving metrics.' },
@@ -84,10 +52,10 @@ const STAGES: { id: FlipStage; label: string; icon: React.ReactNode; color: stri
     { id: 'sold', label: 'Sold', icon: <Banknote className="w-4 h-4" />, color: 'green', guidance: 'Sale complete! Track your ROI.' },
 ];
 
-const MARKETPLACES = ['Sedo', 'Dan.com', 'Afternic', 'Flippa', 'Namecheap', 'GoDaddy', 'Other'];
-
 const STORAGE_KEY = 'ifrit_flip_projects';
 const WATCHLIST_KEY = 'ifrit_domain_watchlist';
+
+// ============ COMPONENT ============
 
 export default function FlipPipeline() {
     const [projects, setProjects] = useState<FlipProject[]>([]);
@@ -373,306 +341,4 @@ export default function FlipPipeline() {
             </div>
         </div>
     );
-}
-
-function StatCard({ label, value, color = 'gray' }: { label: string; value: string | number; color?: string }) {
-    const colors: Record<string, string> = {
-        gray: 'text-gray-800',
-        green: 'text-green-600',
-        red: 'text-red-600',
-    };
-
-    return (
-        <div className="text-center">
-            <div className="text-xs text-gray-500 uppercase">{label}</div>
-            <div className={`text-xl font-bold ${colors[color]}`}>{value}</div>
-        </div>
-    );
-}
-
-function ProjectCard({
-    project,
-    stage,
-    onEdit,
-    onDelete,
-    onMoveNext,
-}: {
-    project: FlipProject;
-    stage: FlipStage;
-    onEdit: () => void;
-    onDelete: () => void;
-    onMoveNext: () => void;
-}) {
-    const roi = calculateROI(project);
-
-    return (
-        <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-2">
-                <div>
-                    <h4 className="font-medium text-gray-900 text-sm">{project.domain}</h4>
-                    <div className="text-xs text-gray-500">
-                        ${project.purchasePrice} • {new Date(project.purchaseDate).toLocaleDateString()}
-                    </div>
-                </div>
-                <div className="flex items-center gap-1">
-                    <button onClick={onEdit} className="p-1 text-gray-400 hover:text-gray-600">
-                        <Edit2 className="w-3 h-3" />
-                    </button>
-                    <button onClick={onDelete} className="p-1 text-gray-400 hover:text-red-600">
-                        <Trash2 className="w-3 h-3" />
-                    </button>
-                </div>
-            </div>
-
-            {stage === 'sold' && project.salePrice !== undefined ? (
-                <div className={`text-sm ${roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {roi >= 0 ? '📈' : '📉'} {roi}% ROI (${project.salePrice - project.purchasePrice} profit)
-                </div>
-            ) : project.currentValuation ? (
-                <div className="text-sm text-purple-600">
-                    Est. ${project.currentValuation}
-                </div>
-            ) : null}
-
-            {stage !== 'sold' && (
-                <button
-                    onClick={onMoveNext}
-                    className="mt-2 w-full py-1 text-xs text-pink-600 hover:bg-pink-50 rounded flex items-center justify-center gap-1"
-                >
-                    Next Stage <ArrowRight className="w-3 h-3" />
-                </button>
-            )}
-        </div>
-    );
-}
-
-function ProjectForm({
-    project,
-    onSave,
-    onCancel,
-}: {
-    project: FlipProject | null;
-    onSave: (project: FlipProject) => void;
-    onCancel: () => void;
-}) {
-    const [form, setForm] = useState<Partial<FlipProject>>(project || {
-        domain: '',
-        stage: 'acquired',
-        purchasePrice: 0,
-        purchaseDate: new Date().toISOString().split('T')[0],
-        registrar: 'Namecheap',
-    });
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-
-        const now = Date.now();
-        const newProject: FlipProject = {
-            id: project?.id || crypto.randomUUID(),
-            domain: form.domain || '',
-            stage: form.stage as FlipStage || 'acquired',
-            purchasePrice: form.purchasePrice || 0,
-            purchaseDate: form.purchaseDate || new Date().toISOString(),
-            registrar: form.registrar || 'Namecheap',
-            buildingNotes: form.buildingNotes,
-            contentCount: form.contentCount,
-            currentValuation: form.currentValuation,
-            targetPrice: form.targetPrice,
-            salePrice: form.salePrice,
-            saleDate: form.saleDate,
-            marketplace: form.marketplace,
-            createdAt: project?.createdAt || now,
-            updatedAt: now,
-        };
-
-        onSave(newProject);
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onCancel}>
-            <div className="bg-white rounded-xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
-                <h3 className="text-lg font-semibold mb-4">
-                    {project ? 'Edit Project' : 'Add Flip Project'}
-                </h3>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Domain</label>
-                            <input
-                                type="text"
-                                value={form.domain}
-                                onChange={e => setForm(f => ({ ...f, domain: e.target.value }))}
-                                placeholder="example.com"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
-                            <select
-                                value={form.stage}
-                                onChange={e => setForm(f => ({ ...f, stage: e.target.value as FlipStage }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                            >
-                                {STAGES.map(s => (
-                                    <option key={s.id} value={s.id}>{s.label}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Price</label>
-                            <input
-                                type="number"
-                                value={form.purchasePrice}
-                                onChange={e => setForm(f => ({ ...f, purchasePrice: parseFloat(e.target.value) || 0 }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                min="0"
-                                step="0.01"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
-                            <input
-                                type="date"
-                                value={form.purchaseDate?.split('T')[0]}
-                                onChange={e => setForm(f => ({ ...f, purchaseDate: e.target.value }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Registrar</label>
-                            <input
-                                type="text"
-                                value={form.registrar}
-                                onChange={e => setForm(f => ({ ...f, registrar: e.target.value }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Current Valuation</label>
-                            <input
-                                type="number"
-                                value={form.currentValuation || ''}
-                                onChange={e => setForm(f => ({ ...f, currentValuation: parseFloat(e.target.value) || undefined }))}
-                                placeholder="Estimated value"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                min="0"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Target Price</label>
-                            <input
-                                type="number"
-                                value={form.targetPrice || ''}
-                                onChange={e => setForm(f => ({ ...f, targetPrice: parseFloat(e.target.value) || undefined }))}
-                                placeholder="Asking price"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                min="0"
-                            />
-                        </div>
-                    </div>
-
-                    {form.stage === 'sold' && (
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price</label>
-                                <input
-                                    type="number"
-                                    value={form.salePrice || ''}
-                                    onChange={e => setForm(f => ({ ...f, salePrice: parseFloat(e.target.value) || undefined }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                    min="0"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Sale Date</label>
-                                <input
-                                    type="date"
-                                    value={form.saleDate?.split('T')[0] || ''}
-                                    onChange={e => setForm(f => ({ ...f, saleDate: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Marketplace</label>
-                                <select
-                                    value={form.marketplace || ''}
-                                    onChange={e => setForm(f => ({ ...f, marketplace: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                >
-                                    <option value="">Select...</option>
-                                    {MARKETPLACES.map(m => (
-                                        <option key={m} value={m}>{m}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    )}
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                        <textarea
-                            value={form.buildingNotes || ''}
-                            onChange={e => setForm(f => ({ ...f, buildingNotes: e.target.value }))}
-                            placeholder="Building strategy, content plan, etc..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                            rows={3}
-                        />
-                    </div>
-
-                    <div className="flex justify-end gap-3">
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700"
-                        >
-                            {project ? 'Update' : 'Add'} Project
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-function calculateROI(project: FlipProject): number {
-    if (!project.salePrice || project.purchasePrice === 0) return 0;
-    return Math.round(((project.salePrice - project.purchasePrice) / project.purchasePrice) * 100);
-}
-
-function calculateStats(projects: FlipProject[]): {
-    total: number;
-    inPipeline: number;
-    totalInvested: number;
-    totalProfit: number;
-    avgROI: number;
-} {
-    const soldProjects = projects.filter(p => p.stage === 'sold' && p.salePrice !== undefined);
-
-    const totalInvested = projects.reduce((sum, p) => sum + p.purchasePrice, 0);
-    const totalProfit = soldProjects.reduce((sum, p) => sum + ((p.salePrice || 0) - p.purchasePrice), 0);
-    const avgROI = soldProjects.length > 0
-        ? Math.round(soldProjects.reduce((sum, p) => sum + calculateROI(p), 0) / soldProjects.length)
-        : 0;
-
-    return {
-        total: projects.length,
-        inPipeline: projects.filter(p => p.stage !== 'sold').length,
-        totalInvested: Math.round(totalInvested),
-        totalProfit: Math.round(totalProfit),
-        avgROI,
-    };
 }
