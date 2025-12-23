@@ -25,7 +25,7 @@ import {
     useDomainImport,
     useDomainFilters,
     useWatchlist,
-} from '@/components/hunt/domains/hooks';
+} from './hooks';
 
 // Import components  
 import {
@@ -34,7 +34,7 @@ import {
     SpamZillaImport,
     DomainFilters,
     DomainRow,
-} from '@/components/hunt/domains/components';
+} from './components';
 
 // Import API functions
 import { generateProfile } from '@/lib/domains/api';

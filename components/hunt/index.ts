@@ -19,4 +19,4 @@ export { ExpiredDomainFinder, DomainScorer, PurchaseQueue, ScorerScoreCard } fro
 export { FlipPipeline, StatCard, ProjectCard, ProjectForm, calculateROI, calculateStats } from './subtabs/FlipPipeline';
 
 // Shared components
-export { MetricTooltip, DataSourceBanner, CloudflareManager, DomainSources, FILTER_PRESETS, METRIC_EXPLANATIONS } from './shared';
+export { MetricTooltip, DataSourceBanner, CloudflareManager, DomainSources, FILTER_PRESETS, METRIC_EXPLANATIONS } from './subtabs/shared';

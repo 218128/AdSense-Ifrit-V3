@@ -24,7 +24,7 @@ import {
     BookOpen,
     Star
 } from 'lucide-react';
-import { DataSourceBanner } from '@/components/hunt/shared';
+import { DataSourceBanner } from '../shared';
 
 // Extracted components
 import { StatCard } from './StatCard';

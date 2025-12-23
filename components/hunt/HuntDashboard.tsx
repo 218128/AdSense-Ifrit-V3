@@ -37,9 +37,8 @@ import { ExpiredDomainFinder, DomainScorer, PurchaseQueue } from './subtabs/Doma
 import { FlipPipeline } from './subtabs/FlipPipeline';
 
 // Shared components
-import { CloudflareManager } from './shared';
-
-import SaveResearchButton from './SaveResearchButton';
+import { CloudflareManager } from './subtabs/shared';
+import SaveResearchButton from './subtabs/shared/SaveResearchButton';
 
 type HuntSubTab = 'keywords' | 'domains' | 'flip';
 type DomainStep = 'find' | 'analyze' | 'purchase';

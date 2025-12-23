@@ -29,7 +29,7 @@ import {
     ChevronUp,
     HelpCircle
 } from 'lucide-react';
-import { DataSourceBanner } from '@/components/hunt/shared';
+import { DataSourceBanner } from '../shared';
 import { ScorerScoreCard as ScoreCard } from './ScorerScoreCard';
 
 interface DomainScore {

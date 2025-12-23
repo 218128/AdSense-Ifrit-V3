@@ -25,14 +25,14 @@ import {
     useKeywordImport,
     useKeywordSelection,
     useKeywordAnalysis,
-} from '@/components/hunt/keywords/hooks';
+} from './hooks';
 
 // Import components
 import {
     KeywordCard,
     AnalysisResultCard,
     CSVImporter,
-} from '@/components/hunt/keywords/components';
+} from './components';
 
 // Types
 import type { AnalyzedKeyword } from '@/lib/keywords/types';
