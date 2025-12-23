@@ -192,6 +192,51 @@ export interface ArticleVersion {
 export type StructuralPageType = 'about' | 'contact' | 'privacy' | 'terms' | 'disclaimer';
 
 // ============================================
+// THEME MANAGEMENT
+// ============================================
+
+export interface ThemeConfig {
+    globals: string;           // Main globals.css content
+    variables: {               // Parsed CSS variables for easy editing
+        primaryColor: string;
+        secondaryColor: string;
+        bgColor: string;
+        textColor: string;
+        fontFamily?: string;
+    };
+    custom?: string;           // User custom CSS (never touched by system)
+    lastModifiedAt: number;
+}
+
+export interface ThemeVersion {
+    id: string;
+    globals: string;
+    variables: ThemeConfig['variables'];
+    savedAt: number;
+    reason: 'auto' | 'manual' | 'before-edit' | 'before-deploy';
+}
+
+// ============================================
+// PENDING CHANGES (Selective Deploy)
+// ============================================
+
+export interface PendingChanges {
+    hasChanges: boolean;           // Quick check if anything pending
+    theme: boolean;                // Local theme differs from deployed
+    articles: string[];            // IDs of unpublished articles
+    pages: string[];               // IDs of changed pages
+    plugins: boolean;              // Local plugins not yet deployed
+    template: boolean;             // Template version differs
+    summary: {                     // For display
+        themeLabel: string | null;
+        articlesLabel: string | null;
+        pagesLabel: string | null;
+        pluginsLabel: string | null;
+        templateLabel: string | null;
+    };
+}
+
+// ============================================
 // DOMAIN PROFILE (Hunt → Website Transfer)
 // ============================================
 
@@ -288,6 +333,15 @@ export function ensureArticleImageDirs(domain: string, articleSlug: string): voi
 
 function getPagesDir(domain: string): string {
     return path.join(getContentDir(domain), 'pages');
+}
+
+// Theme paths
+export function getThemeDir(domain: string): string {
+    return path.join(getWebsiteDir(domain), 'theme');
+}
+
+function getThemeVersionsDir(domain: string): string {
+    return path.join(getVersionsDir(domain), 'theme');
 }
 
 // ============================================
@@ -884,6 +938,362 @@ export function createDefaultPages(domain: string, siteName: string, author: { n
 }
 
 // ============================================
+// THEME CRUD
+// ============================================
+
+const MAX_THEME_VERSIONS = 10;
+
+/**
+ * Ensure theme directory exists
+ */
+function ensureThemeDir(domain: string): void {
+    const themeDir = getThemeDir(domain);
+    const themeVersionsDir = getThemeVersionsDir(domain);
+    if (!fs.existsSync(themeDir)) {
+        fs.mkdirSync(themeDir, { recursive: true });
+    }
+    if (!fs.existsSync(themeVersionsDir)) {
+        fs.mkdirSync(themeVersionsDir, { recursive: true });
+    }
+}
+
+/**
+ * Parse CSS variables from globals.css content
+ */
+function parseCssVariables(css: string): ThemeConfig['variables'] {
+    const defaults: ThemeConfig['variables'] = {
+        primaryColor: '#2563eb',
+        secondaryColor: '#10b981',
+        bgColor: '#ffffff',
+        textColor: '#1f2937',
+        fontFamily: 'Inter, sans-serif'
+    };
+
+    const primaryMatch = css.match(/--color-primary:\s*([^;]+);/);
+    const secondaryMatch = css.match(/--color-secondary:\s*([^;]+);/);
+    const bgMatch = css.match(/--color-bg:\s*([^;]+);/);
+    const textMatch = css.match(/--color-text:\s*([^;]+);/);
+    const fontMatch = css.match(/--font-sans:\s*([^;]+);/);
+
+    return {
+        primaryColor: primaryMatch?.[1]?.trim() || defaults.primaryColor,
+        secondaryColor: secondaryMatch?.[1]?.trim() || defaults.secondaryColor,
+        bgColor: bgMatch?.[1]?.trim() || defaults.bgColor,
+        textColor: textMatch?.[1]?.trim() || defaults.textColor,
+        fontFamily: fontMatch?.[1]?.trim() || defaults.fontFamily
+    };
+}
+
+/**
+ * Save theme configuration
+ */
+export function saveTheme(domain: string, theme: Partial<ThemeConfig>): void {
+    ensureThemeDir(domain);
+    const themeDir = getThemeDir(domain);
+
+    // Get existing theme or create new
+    const existing = getTheme(domain);
+    const now = Date.now();
+
+    const config: ThemeConfig = {
+        globals: theme.globals ?? existing?.globals ?? '',
+        variables: theme.variables ?? existing?.variables ?? parseCssVariables(theme.globals || ''),
+        custom: theme.custom ?? existing?.custom,
+        lastModifiedAt: now
+    };
+
+    // Save globals.css file
+    if (config.globals) {
+        fs.writeFileSync(path.join(themeDir, 'globals.css'), config.globals, 'utf-8');
+    }
+
+    // Save variables.json
+    fs.writeFileSync(
+        path.join(themeDir, 'variables.json'),
+        JSON.stringify(config.variables, null, 2),
+        'utf-8'
+    );
+
+    // Save custom.css if provided
+    if (config.custom) {
+        fs.writeFileSync(path.join(themeDir, 'custom.css'), config.custom, 'utf-8');
+    }
+
+    // Save metadata
+    fs.writeFileSync(
+        path.join(themeDir, 'theme.json'),
+        JSON.stringify({ lastModifiedAt: config.lastModifiedAt }, null, 2),
+        'utf-8'
+    );
+}
+
+/**
+ * Get theme configuration
+ */
+export function getTheme(domain: string): ThemeConfig | null {
+    const themeDir = getThemeDir(domain);
+
+    if (!fs.existsSync(themeDir)) {
+        return null;
+    }
+
+    const globalsPath = path.join(themeDir, 'globals.css');
+    const variablesPath = path.join(themeDir, 'variables.json');
+    const customPath = path.join(themeDir, 'custom.css');
+    const metaPath = path.join(themeDir, 'theme.json');
+
+    let globals = '';
+    let variables: ThemeConfig['variables'] = {
+        primaryColor: '#2563eb',
+        secondaryColor: '#10b981',
+        bgColor: '#ffffff',
+        textColor: '#1f2937'
+    };
+    let custom: string | undefined;
+    let lastModifiedAt = Date.now();
+
+    if (fs.existsSync(globalsPath)) {
+        globals = fs.readFileSync(globalsPath, 'utf-8');
+        variables = parseCssVariables(globals);
+    }
+
+    if (fs.existsSync(variablesPath)) {
+        try {
+            variables = JSON.parse(fs.readFileSync(variablesPath, 'utf-8'));
+        } catch { /* use parsed */ }
+    }
+
+    if (fs.existsSync(customPath)) {
+        custom = fs.readFileSync(customPath, 'utf-8');
+    }
+
+    if (fs.existsSync(metaPath)) {
+        try {
+            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+            lastModifiedAt = meta.lastModifiedAt || lastModifiedAt;
+        } catch { /* use default */ }
+    }
+
+    return { globals, variables, custom, lastModifiedAt };
+}
+
+/**
+ * Save a version snapshot of the theme
+ */
+export function saveThemeVersion(
+    domain: string,
+    reason: ThemeVersion['reason'] = 'auto'
+): ThemeVersion | null {
+    const theme = getTheme(domain);
+    if (!theme) return null;
+
+    ensureThemeDir(domain);
+    const versionsDir = getThemeVersionsDir(domain);
+
+    const version: ThemeVersion = {
+        id: `theme_v_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        globals: theme.globals,
+        variables: theme.variables,
+        savedAt: Date.now(),
+        reason
+    };
+
+    // Save version file
+    fs.writeFileSync(
+        path.join(versionsDir, `${version.id}.json`),
+        JSON.stringify(version, null, 2),
+        'utf-8'
+    );
+
+    // Clean up old versions (keep MAX_THEME_VERSIONS)
+    const versions = listThemeVersions(domain);
+    if (versions.length > MAX_THEME_VERSIONS) {
+        const toDelete = versions.slice(MAX_THEME_VERSIONS);
+        for (const v of toDelete) {
+            const vPath = path.join(versionsDir, `${v.id}.json`);
+            if (fs.existsSync(vPath)) {
+                fs.unlinkSync(vPath);
+            }
+        }
+    }
+
+    return version;
+}
+
+/**
+ * List theme versions
+ */
+export function listThemeVersions(domain: string): ThemeVersion[] {
+    const versionsDir = getThemeVersionsDir(domain);
+
+    if (!fs.existsSync(versionsDir)) {
+        return [];
+    }
+
+    const files = fs.readdirSync(versionsDir).filter(f => f.endsWith('.json'));
+    const versions: ThemeVersion[] = [];
+
+    for (const file of files) {
+        try {
+            const content = fs.readFileSync(path.join(versionsDir, file), 'utf-8');
+            versions.push(JSON.parse(content));
+        } catch { /* skip invalid */ }
+    }
+
+    // Sort by savedAt descending (newest first)
+    return versions.sort((a, b) => b.savedAt - a.savedAt);
+}
+
+/**
+ * Restore theme to a previous version
+ */
+export function restoreThemeVersion(domain: string, versionId: string): boolean {
+    const versions = listThemeVersions(domain);
+    const version = versions.find(v => v.id === versionId);
+
+    if (!version) {
+        return false;
+    }
+
+    // Save current as backup before restore
+    saveThemeVersion(domain, 'before-edit');
+
+    // Restore
+    saveTheme(domain, {
+        globals: version.globals,
+        variables: version.variables
+    });
+
+    return true;
+}
+
+// ============================================
+// PLUGIN MANAGEMENT
+// ============================================
+
+export interface Plugin {
+    name: string;           // npm package name
+    version: string;        // semver version
+    installedAt: number;
+    description?: string;
+}
+
+function getPluginsDir(domain: string): string {
+    return path.join(getWebsiteDir(domain), 'plugins');
+}
+
+function ensurePluginsDir(domain: string): void {
+    const pluginsDir = getPluginsDir(domain);
+    if (!fs.existsSync(pluginsDir)) {
+        fs.mkdirSync(pluginsDir, { recursive: true });
+    }
+}
+
+/**
+ * Get installed plugins for a website
+ */
+export function getInstalledPlugins(domain: string): Plugin[] {
+    const pluginsPath = path.join(getPluginsDir(domain), 'installed.json');
+
+    if (!fs.existsSync(pluginsPath)) {
+        return [];
+    }
+
+    try {
+        const content = fs.readFileSync(pluginsPath, 'utf-8');
+        return JSON.parse(content);
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Install a plugin (add to local registry)
+ */
+export function installPlugin(
+    domain: string,
+    name: string,
+    version: string,
+    description?: string
+): Plugin {
+    ensurePluginsDir(domain);
+
+    const plugins = getInstalledPlugins(domain);
+
+    // Check if already installed
+    const existing = plugins.find(p => p.name === name);
+    if (existing) {
+        // Update version
+        existing.version = version;
+        existing.installedAt = Date.now();
+        if (description) existing.description = description;
+    } else {
+        // Add new
+        plugins.push({
+            name,
+            version,
+            installedAt: Date.now(),
+            description
+        });
+    }
+
+    // Save
+    const pluginsPath = path.join(getPluginsDir(domain), 'installed.json');
+    fs.writeFileSync(pluginsPath, JSON.stringify(plugins, null, 2), 'utf-8');
+
+    return plugins.find(p => p.name === name)!;
+}
+
+/**
+ * Uninstall a plugin (remove from local registry)
+ */
+export function uninstallPlugin(domain: string, name: string): boolean {
+    const plugins = getInstalledPlugins(domain);
+    const index = plugins.findIndex(p => p.name === name);
+
+    if (index === -1) {
+        return false;
+    }
+
+    plugins.splice(index, 1);
+
+    const pluginsPath = path.join(getPluginsDir(domain), 'installed.json');
+    fs.writeFileSync(pluginsPath, JSON.stringify(plugins, null, 2), 'utf-8');
+
+    return true;
+}
+
+/**
+ * Get package.json with installed plugins merged
+ * Used when deploying to include local plugins
+ */
+export function getMergedPackageJson(
+    domain: string,
+    basePackageJson: Record<string, unknown>
+): Record<string, unknown> {
+    const plugins = getInstalledPlugins(domain);
+
+    if (plugins.length === 0) {
+        return basePackageJson;
+    }
+
+    // Clone base
+    const merged = JSON.parse(JSON.stringify(basePackageJson));
+
+    // Ensure dependencies object exists
+    if (!merged.dependencies) {
+        merged.dependencies = {};
+    }
+
+    // Add plugins (additive only - never remove)
+    for (const plugin of plugins) {
+        merged.dependencies[plugin.name] = plugin.version;
+    }
+
+    return merged;
+}
+
+// ============================================
 // VERSION CONTROL
 // ============================================
 
@@ -1409,4 +1819,66 @@ export function markProfileTransferred(domain: string): void {
         profile.websiteCreatedAt = Date.now();
         saveDomainProfile(profile);
     }
+}
+
+// ============================================
+// SELECTIVE DEPLOY
+// ============================================
+
+/**
+ * Get detailed pending changes for selective deploy
+ * Returns which element types have local changes not yet deployed
+ */
+export function getPendingChanges(domain: string): PendingChanges {
+    const website = getWebsite(domain);
+    const articles = listArticles(domain);
+    const pages = listPages(domain);
+
+    // Find unpublished articles
+    const unpublishedArticles = articles
+        .filter(a => a.status !== 'published')
+        .map(a => a.id);
+
+    // Find locally modified pages (use lastModified vs lastPublished if tracked)
+    // For now, check if page has local copy
+    const changedPages = pages
+        .filter(p => !p.publishedAt || (p.lastModifiedAt && p.lastModifiedAt > (p.publishedAt || 0)))
+        .map(p => p.id);
+
+    // Check for local theme
+    const localTheme = getTheme(domain);
+    const hasThemeChanges = localTheme !== null && localTheme.globals !== '';
+
+    // Check for local plugins
+    const plugins = getInstalledPlugins(domain);
+    const hasPluginChanges = plugins.length > 0;
+
+    // Check template (if website has upgrade available)
+    const hasTemplateChanges = website?.template.upgradeAvailable ? true : false;
+
+    // Determine if any changes exist
+    const hasChanges = hasThemeChanges ||
+        unpublishedArticles.length > 0 ||
+        changedPages.length > 0 ||
+        hasPluginChanges;
+
+    return {
+        hasChanges,
+        theme: hasThemeChanges,
+        articles: unpublishedArticles,
+        pages: changedPages,
+        plugins: hasPluginChanges,
+        template: hasTemplateChanges,
+        summary: {
+            themeLabel: hasThemeChanges ? 'Theme changes' : null,
+            articlesLabel: unpublishedArticles.length > 0
+                ? `${unpublishedArticles.length} article${unpublishedArticles.length > 1 ? 's' : ''}`
+                : null,
+            pagesLabel: changedPages.length > 0
+                ? `${changedPages.length} page${changedPages.length > 1 ? 's' : ''}`
+                : null,
+            pluginsLabel: hasPluginChanges ? `${plugins.length} plugin${plugins.length > 1 ? 's' : ''}` : null,
+            templateLabel: hasTemplateChanges ? 'Template update' : null,
+        }
+    };
 }

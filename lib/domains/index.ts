@@ -2,6 +2,12 @@
  * Domains Module Index
  */
 
+// Centralized Types (new)
+export * from './types';
+
+// Centralized API Functions (new)
+export * from './api';
+
 export type { DomainConfig, AdsenseConfig, DomainsState } from './domainConfig';
 
 export {

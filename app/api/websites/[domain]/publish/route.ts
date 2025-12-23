@@ -78,6 +78,7 @@ export async function POST(
         const filesToPush: { path: string; content: string; binary?: boolean }[] = [];
         const results: { id: string; slug: string; success: boolean; error?: string; imagesPushed?: number }[] = [];
         const publishedArticles: { id: string; path: string }[] = [];
+        let failedImages: string[] = [];  // Track images that failed to upload
 
         for (const articleId of articleIds) {
             const articlePath = path.join(articlesDir, `${articleId}.json`);
@@ -90,25 +91,12 @@ export async function POST(
             try {
                 const article = JSON.parse(fs.readFileSync(articlePath, 'utf-8'));
 
-                // Generate markdown with frontmatter
-                const frontmatter = `---
-title: "${article.title.replace(/"/g, '\\"')}"
-date: "${new Date(article.lastModifiedAt).toISOString().split('T')[0]}"
-description: "${(article.description || '').replace(/"/g, '\\"').replace(/\n/g, ' ').slice(0, 160)}"
-author: "${article.author || 'Editorial Team'}"
-category: "${article.category || 'guides'}"
-tags: ${JSON.stringify(article.tags || [])}
----
-
-`;
-                const markdown = frontmatter + article.content;
-                filesToPush.push({ path: `content/${article.slug}.md`, content: markdown });
-
-                // Collect images
+                // Collect images FIRST to determine cover image path for frontmatter
                 const imagesDir = path.join(websiteDir, 'content', 'images', article.slug);
                 let imagesPushed = 0;
+                let coverImagePath: string | null = null;
 
-                // Cover image
+                // Check for cover image first (need this for frontmatter)
                 const coverDir = path.join(imagesDir, 'cover');
                 if (fs.existsSync(coverDir)) {
                     const coverFiles = fs.readdirSync(coverDir).filter(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f));
@@ -117,14 +105,31 @@ tags: ${JSON.stringify(article.tags || [])}
                         const coverPath = path.join(coverDir, coverFile);
                         const coverExt = path.extname(coverFile);
                         const coverContent = fs.readFileSync(coverPath).toString('base64');
-                        filesToPush.push({ 
-                            path: `public/images/${article.slug}${coverExt}`, 
-                            content: coverContent, 
-                            binary: true 
+                        const githubCoverPath = `public/images/${article.slug}${coverExt}`;
+                        filesToPush.push({
+                            path: githubCoverPath,
+                            content: coverContent,
+                            binary: true
                         });
                         imagesPushed++;
+                        // Store the web-accessible path for frontmatter
+                        coverImagePath = `/images/${article.slug}${coverExt}`;
                     }
                 }
+
+                // Generate markdown with frontmatter (including image if exists)
+                const frontmatter = `---
+title: "${article.title.replace(/"/g, '\\"')}"
+date: "${new Date(article.lastModifiedAt).toISOString().split('T')[0]}"
+description: "${(article.description || '').replace(/"/g, '\\"').replace(/\n/g, ' ').slice(0, 160)}"
+author: "${article.author || 'Editorial Team'}"
+category: "${article.category || 'guides'}"
+tags: ${JSON.stringify(article.tags || [])}${coverImagePath ? `\nimage: "${coverImagePath}"` : ''}
+---
+
+`;
+                const markdown = frontmatter + article.content;
+                filesToPush.push({ path: `content/${article.slug}.md`, content: markdown });
 
                 // Content images
                 const contentImagesDir = path.join(imagesDir, 'images');
@@ -133,10 +138,10 @@ tags: ${JSON.stringify(article.tags || [])}
                     for (const imgFile of imgFiles) {
                         const imgPath = path.join(contentImagesDir, imgFile);
                         const imgContent = fs.readFileSync(imgPath).toString('base64');
-                        filesToPush.push({ 
-                            path: `public/images/${article.slug}/images/${imgFile}`, 
-                            content: imgContent, 
-                            binary: true 
+                        filesToPush.push({
+                            path: `public/images/${article.slug}/images/${imgFile}`,
+                            content: imgContent,
+                            binary: true
                         });
                         imagesPushed++;
                     }
@@ -164,13 +169,33 @@ tags: ${JSON.stringify(article.tags || [])}
 
         for (const file of filesToPush) {
             if (file.binary) {
-                const blobRes = await fetch(
-                    `https://api.github.com/repos/${githubOwner}/${githubRepo}/git/blobs`,
-                    { method: 'POST', headers, body: JSON.stringify({ content: file.content, encoding: 'base64' }) }
-                );
-                if (blobRes.ok) {
-                    const blobData = await blobRes.json();
-                    treeItems.push({ path: file.path, mode: '100644', type: 'blob', sha: blobData.sha });
+                // Try to create blob with retry for resilience
+                let blobSha: string | null = null;
+                for (let attempt = 0; attempt < 2; attempt++) {
+                    try {
+                        const blobRes = await fetch(
+                            `https://api.github.com/repos/${githubOwner}/${githubRepo}/git/blobs`,
+                            { method: 'POST', headers, body: JSON.stringify({ content: file.content, encoding: 'base64' }) }
+                        );
+                        if (blobRes.ok) {
+                            const blobData = await blobRes.json();
+                            blobSha = blobData.sha;
+                            break;
+                        } else {
+                            const errData = await blobRes.json().catch(() => ({ message: 'Unknown' }));
+                            console.error(`[Publish] Blob creation failed for ${file.path} (attempt ${attempt + 1}): ${errData.message}`);
+                            if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+                        }
+                    } catch (err) {
+                        console.error(`[Publish] Blob creation error for ${file.path}: ${err}`);
+                    }
+                }
+
+                if (blobSha) {
+                    treeItems.push({ path: file.path, mode: '100644', type: 'blob', sha: blobSha });
+                } else {
+                    failedImages.push(file.path);
+                    console.error(`[Publish] FAILED to push image after retries: ${file.path}`);
                 }
             } else {
                 treeItems.push({ path: file.path, mode: '100644', type: 'blob', content: file.content });
@@ -229,9 +254,10 @@ tags: ${JSON.stringify(article.tags || [])}
         console.log(`✅ Published ${successCount} articles + ${totalImages} images in ONE commit to ${domain}`);
 
         return NextResponse.json({
-            success: failCount === 0,
-            message: `Published ${successCount} article(s) + ${totalImages} image(s) in single commit${failCount > 0 ? `, ${failCount} failed` : ''}`,
+            success: failCount === 0 && failedImages.length === 0,
+            message: `Published ${successCount} article(s) + ${totalImages} image(s) in single commit${failCount > 0 ? `, ${failCount} failed` : ''}${failedImages.length > 0 ? `, ${failedImages.length} image(s) failed to upload` : ''}`,
             results,
+            failedImages: failedImages.length > 0 ? failedImages : undefined,
             commitSha: commitData.sha,
             deployUrl: `https://${domain}`
         });

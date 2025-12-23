@@ -15,6 +15,10 @@ import {
     CloudUpload,
     Shield
 } from 'lucide-react';
+import { UsageStatsPanel } from './UsageStatsPanel';
+import { TaskModelsPanel } from './TaskModelsPanel';
+import { MCPToolsPanel } from './MCPToolsPanel';
+import CapabilitiesPanel from './CapabilitiesPanel';
 
 interface ProviderInfo {
     id: string;
@@ -59,8 +63,18 @@ export function AIKeyManager() {
         try {
             const res = await fetch('/api/ai-providers');
             const data = await res.json();
-            if (data.success) {
-                setProviders(data.providers);
+            if (data.success && Array.isArray(data.providers)) {
+                // Ensure each provider has required fields with defaults
+                const safeProviders = data.providers.map((p: Partial<ProviderInfo>) => ({
+                    id: p.id || 'unknown',
+                    name: p.name || p.id || 'Unknown Provider',
+                    description: p.description || '',
+                    signupUrl: p.signupUrl || '#',
+                    pricing: p.pricing || 'See provider website',
+                    features: Array.isArray(p.features) ? p.features : [],
+                    models: Array.isArray(p.models) ? p.models : []
+                }));
+                setProviders(safeProviders);
             }
         } catch (error) {
             console.error('Failed to load providers:', error);
@@ -561,7 +575,20 @@ export function AIKeyManager() {
                                     style={{ backgroundColor: getProviderColor(provider.id) }}
                                 />
                                 <div className="text-left">
-                                    <div className="font-medium">{provider.name}</div>
+                                    <div className="font-medium flex items-center gap-2">
+                                        {provider.name}
+                                        {/* Status badges */}
+                                        {providerKeys.filter(k => k.validated).length > 0 && (
+                                            <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded">
+                                                Key ✓
+                                            </span>
+                                        )}
+                                        {selectedModels[provider.id] && (
+                                            <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
+                                                Model ✓
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="text-xs text-gray-500">{provider.pricing}</div>
                                 </div>
                             </div>
@@ -569,11 +596,6 @@ export function AIKeyManager() {
                                 {providerKeys.length > 0 && (
                                     <span className="px-2 py-1 bg-gray-100 rounded text-sm">
                                         {providerKeys.length} key{providerKeys.length !== 1 ? 's' : ''}
-                                        {validatedCount > 0 && (
-                                            <span className="text-green-600 ml-1">
-                                                ({validatedCount} ✓)
-                                            </span>
-                                        )}
                                     </span>
                                 )}
                                 {/* Enable/Disable Toggle */}
@@ -582,11 +604,18 @@ export function AIKeyManager() {
                                         e.stopPropagation();
                                         toggleEnabled(provider.id);
                                     }}
-                                    className={`relative w-12 h-6 rounded-full transition-colors ${enabled[provider.id]
-                                        ? 'bg-green-500'
-                                        : 'bg-gray-300'
+                                    disabled={!selectedModels[provider.id]}
+                                    className={`relative w-12 h-6 rounded-full transition-colors ${!selectedModels[provider.id]
+                                        ? 'bg-gray-200 cursor-not-allowed opacity-50'
+                                        : enabled[provider.id]
+                                            ? 'bg-green-500'
+                                            : 'bg-gray-300'
                                         }`}
-                                    title={enabled[provider.id] ? 'Enabled - click to disable' : 'Disabled - click to enable'}
+                                    title={!selectedModels[provider.id]
+                                        ? 'Test key and select model first'
+                                        : enabled[provider.id]
+                                            ? 'Enabled - click to disable'
+                                            : 'Disabled - click to enable'}
                                 >
                                     <span
                                         className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow ${enabled[provider.id] ? 'translate-x-7' : 'translate-x-1'
@@ -638,6 +667,7 @@ export function AIKeyManager() {
                                             onChange={(e) => selectModel(provider.id, e.target.value)}
                                             className="w-full px-3 py-2 bg-white border border-blue-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         >
+                                            <option value="" disabled>⚠️ Select a model to enable provider...</option>
                                             {availableModels[provider.id].map(model => (
                                                 <option key={model} value={model}>
                                                     {model}
@@ -645,7 +675,9 @@ export function AIKeyManager() {
                                             ))}
                                         </select>
                                         <p className="text-xs text-blue-600 mt-1">
-                                            Selected model will be used for article generation
+                                            {selectedModels[provider.id]
+                                                ? '✓ Model selected - provider can be enabled'
+                                                : '⚠️ Select a model to enable this provider'}
                                         </p>
                                     </div>
                                 )}
@@ -752,6 +784,33 @@ export function AIKeyManager() {
                     </div>
                 </div>
             </div>
+
+            {/* Divider */}
+            <hr className="my-6 border-gray-200" />
+
+            {/* Task Model Assignments */}
+            <TaskModelsPanel
+                availableModels={availableModels}
+                selectedModels={selectedModels}
+            />
+
+            {/* Divider */}
+            <hr className="my-6 border-gray-200" />
+
+            {/* AI Capabilities */}
+            <CapabilitiesPanel />
+
+            {/* Divider */}
+            <hr className="my-6 border-gray-200" />
+
+            {/* MCP Tools (Optional Enhancement) */}
+            <MCPToolsPanel />
+
+            {/* Divider */}
+            <hr className="my-6 border-gray-200" />
+
+            {/* Usage Statistics */}
+            <UsageStatsPanel />
         </div>
     );
 }

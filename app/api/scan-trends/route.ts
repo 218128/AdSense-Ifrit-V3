@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { TrendScanner } from '@/lib/modules/trendScanner';
 import { analyzeCPC } from '@/lib/modules/cpcIntelligence';
+import { fetchMultiSourceTrends } from '@/lib/modules/multiSourceTrends';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,9 +13,12 @@ interface TrendItem {
 }
 
 interface ScanResponse {
-    liveTraends: TrendItem[];
+    liveTrends: TrendItem[];
+    liveTraends?: TrendItem[];  // Keep for backward compatibility
     highCpcKeywords: TrendItem[];
     hasLiveTrends: boolean;
+    success: boolean;
+    error?: string;
 }
 
 // High-CPC fallback keywords (always available)
@@ -30,17 +33,23 @@ const HIGH_CPC_KEYWORDS = [
     { topic: 'Cybersecurity Best Practices', context: 'Protect your business from cyber threats and data breaches', niche: 'Technology' },
 ];
 
-export async function GET(): Promise<NextResponse<ScanResponse>> {
+async function scanTrends(): Promise<ScanResponse> {
     try {
-        // Try to fetch live trends
-        const scanner = new TrendScanner();
-        const scanResult = await scanner.scan();
+        // Use multi-source trends (free sources only, no API key needed)
+        const result = await fetchMultiSourceTrends({
+            useBraveSearch: false,  // No API key in this context
+            useHackerNews: true,
+            useGoogleNews: true,
+            useProductHunt: true,
+            useReddit: false,
+            maxPerSource: 5
+        });
 
-        let liveTraends: TrendItem[] = [];
-        const hasLiveTrends = scanResult.source === 'google_trends' && scanResult.trends.length > 0;
+        let liveTrends: TrendItem[] = [];
+        const hasLiveTrends = result.trends.length > 0;
 
         if (hasLiveTrends) {
-            liveTraends = scanResult.trends.slice(0, 8).map(t => {
+            liveTrends = result.trends.slice(0, 8).map(t => {
                 const cpc = analyzeCPC(t.topic);
                 return {
                     topic: t.topic,
@@ -62,11 +71,13 @@ export async function GET(): Promise<NextResponse<ScanResponse>> {
             };
         });
 
-        return NextResponse.json({
-            liveTraends,
+        return {
+            liveTrends,
+            liveTraends: liveTrends,  // Backward compatibility
             highCpcKeywords,
-            hasLiveTrends
-        });
+            hasLiveTrends,
+            success: true
+        };
 
     } catch (error) {
         console.error('Scan trends error:', error);
@@ -81,10 +92,23 @@ export async function GET(): Promise<NextResponse<ScanResponse>> {
             };
         });
 
-        return NextResponse.json({
+        return {
+            liveTrends: [],
             liveTraends: [],
             highCpcKeywords,
-            hasLiveTrends: false
-        });
+            hasLiveTrends: false,
+            success: true,
+            error: error instanceof Error ? error.message : 'Failed to fetch live trends'
+        };
     }
+}
+
+export async function GET(): Promise<NextResponse<ScanResponse>> {
+    const result = await scanTrends();
+    return NextResponse.json(result);
+}
+
+export async function POST(): Promise<NextResponse<ScanResponse>> {
+    const result = await scanTrends();
+    return NextResponse.json(result);
 }

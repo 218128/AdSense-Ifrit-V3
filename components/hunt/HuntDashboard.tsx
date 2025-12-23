@@ -196,10 +196,10 @@ export default function HuntDashboard() {
                             {/* Trend Scanner Section */}
                             <div className="mb-6 pb-6 border-b border-neutral-200">
                                 <TrendScanner
-                                    onSelectTrend={(trend) => {
-                                        // When user clicks "Write" on a trend, log it and could open article modal
-                                        console.log('Selected trend for article:', trend);
-                                        // Future: Open GenerateArticleModal with trend.topic pre-filled
+                                    onSelectKeywords={(keywords) => {
+                                        // When user selects trends and clicks "Analyze Selected"
+                                        // Navigate to Domain Acquire with these keywords
+                                        handleNavigateToDomains(keywords);
                                     }}
                                 />
                             </div>

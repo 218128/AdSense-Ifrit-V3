@@ -1,0 +1,20 @@
+{
+    "child": {
+        "directory": "",
+        "height": 463,
+        "overrideCommand": "vim \/home\/ubuntu\/Documents\/MyDocuments\/domains-data",
+        "profile": "2b7c4080-0ddd-46c5-8f23-563fd3ba789d",
+        "readOnly": false,
+        "synchronizedInput": true,
+        "type": "Terminal",
+        "uuid": "e368c5f7-6438-4623-aa71-1882eaee583d",
+        "width": 722
+    },
+    "height": 463,
+    "name": "${title}",
+    "synchronizedInput": false,
+    "type": "Session",
+    "uuid": "30cdb417-fb24-40eb-8edf-2ca1322a1292",
+    "version": "1.0",
+    "width": 722
+}

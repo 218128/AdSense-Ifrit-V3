@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { TrendScanner, ScanResult } from '@/lib/modules/trendScanner';
+import { fetchMultiSourceTrends, FetchedTrend } from '@/lib/modules/multiSourceTrends';
 import { ContentGenerator, Article } from '@/lib/modules/contentGenerator';
 import { validateUserConfig, devFallbacks } from '@/lib/config/env';
 import { analyzeCPC } from '@/lib/modules/cpcIntelligence';
@@ -49,7 +49,7 @@ interface GenerateResponse {
     message: string;
     article?: string;
     slug?: string;
-    trendSource?: 'google_trends' | 'fallback' | 'high_cpc_mode' | 'user_selected' | 'csv_import';
+    trendSource?: 'multi_source' | 'fallback' | 'high_cpc_mode' | 'user_selected' | 'csv_import';
     // Step 1: Topic
     topicName?: string;
     topicContext?: string;
@@ -72,6 +72,13 @@ interface GenerateResponse {
     warning?: string;
     error?: string;
 }
+
+// High-CPC fallback keywords
+const HIGH_CPC_KEYWORDS: FetchedTrend[] = [
+    { topic: 'Best VPN Services 2025', context: 'Review and comparison of top VPN providers', source: 'Fallback', sourceType: 'fallback', cpcScore: 80, niche: 'Technology' },
+    { topic: 'Credit Card Comparison 2025', context: 'Compare rewards, cashback, and travel credit cards', source: 'Fallback', sourceType: 'fallback', cpcScore: 85, niche: 'Finance' },
+    { topic: 'Life Insurance Quotes Online', context: 'How to get the best life insurance rates', source: 'Fallback', sourceType: 'fallback', cpcScore: 90, niche: 'Insurance' },
+];
 
 export async function POST(req: NextRequest): Promise<NextResponse<GenerateResponse>> {
     try {
@@ -97,24 +104,36 @@ export async function POST(req: NextRequest): Promise<NextResponse<GenerateRespo
         if (body.selectedTopic) {
             // User selected a specific topic
             selectedTrend = body.selectedTopic;
-            trendSource = body.selectedTopic.source === 'live' ? 'google_trends' : 'user_selected';
+            trendSource = body.selectedTopic.source === 'live' ? 'multi_source' : 'user_selected';
         } else {
-            // Auto-scan for trends
-            const scanner = new TrendScanner();
+            // Auto-scan for trends using multi-source
             const highCpcMode = body.options?.highCpcMode ?? true;
-            const scanResult: ScanResult = highCpcMode
-                ? await scanner.scanHighCPC()
-                : await scanner.scan();
 
-            if (!scanResult.trends || scanResult.trends.length === 0) {
-                return NextResponse.json({
-                    message: 'No trends found',
-                    trendSource: scanResult.source
-                }, { status: 200 });
+            if (highCpcMode) {
+                // Use high-CPC fallback keywords
+                selectedTrend = HIGH_CPC_KEYWORDS[0];
+                trendSource = 'high_cpc_mode';
+            } else {
+                // Fetch from multi-source API
+                const result = await fetchMultiSourceTrends({
+                    useBraveSearch: false,
+                    useHackerNews: true,
+                    useGoogleNews: true,
+                    useProductHunt: true,
+                    useReddit: false,
+                    maxPerSource: 3
+                });
+
+                if (result.trends.length === 0) {
+                    return NextResponse.json({
+                        message: 'No trends found',
+                        trendSource: 'fallback'
+                    }, { status: 200 });
+                }
+
+                selectedTrend = result.trends[0];
+                trendSource = 'multi_source';
             }
-
-            selectedTrend = scanResult.trends[0];
-            trendSource = highCpcMode ? 'high_cpc_mode' : scanResult.source;
         }
 
         // 2. Analyze CPC with detailed reasoning
@@ -245,7 +264,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<GenerateRespo
             // Step 5
             wordCount,
             sectionCount,
-            warning: trendSource === 'fallback' ? 'Used fallback trends' : undefined
+            warning: trendSource === 'high_cpc_mode' ? 'Used fallback trends' : undefined
         });
 
     } catch (error: unknown) {

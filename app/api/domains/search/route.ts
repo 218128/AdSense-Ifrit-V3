@@ -2,30 +2,64 @@
  * Expired Domain Search API
  * 
  * Search for expired domains with filtering and scoring.
+ * API key must be passed via x-spamzilla-key header from client.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-    searchExpiredDomains,
-    getWatchlist,
-    addToWatchlist,
-    removeFromWatchlist,
-    checkAvailability,
-    getPurchaseLinks,
-    isExpiredDomainsConfigured,
-    type SearchFilters,
-    type ExpiredDomain,
-} from '@/lib/domains/expiredDomains';
-import { scoreDomain } from '@/lib/domains/domainScorer';
-import { toMetrics } from '@/lib/domains/expiredDomains';
+import { scoreDomain, parseDomain, quickQualityCheck } from '@/lib/domains/domainScorer';
+import { quickSpamCheck } from '@/lib/domains/spamChecker';
 
 export const dynamic = 'force-dynamic';
 
+interface SearchFilters {
+    tlds?: string[];
+    minDR?: number;
+    maxDR?: number;
+    minTF?: number;
+    minBacklinks?: number;
+    minRD?: number;
+    minAge?: number;
+    maxLength?: number;
+    keywords?: string[];
+    excludeKeywords?: string[];
+    niche?: string;
+    onlyAvailable?: boolean;
+}
+
+interface SpamzillaDomainResponse {
+    domain: string;
+    tld?: string;
+    dr?: number;
+    domain_rating?: number;
+    tf?: number;
+    trust_flow?: number;
+    cf?: number;
+    citation_flow?: number;
+    backlinks?: number;
+    bl?: number;
+    referring_domains?: number;
+    rd?: number;
+    age?: number;
+    status?: 'available' | 'pending-delete' | 'auction' | 'unknown';
+    drop_date?: string;
+}
+
 /**
- * GET - Search expired domains
+ * GET - Search expired domains via Spamzilla API
  */
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
+
+    // Get API key from header or query param
+    const spamzillaKey = request.headers.get('x-spamzilla-key') || searchParams.get('apiKey');
+
+    if (!spamzillaKey) {
+        return NextResponse.json({
+            success: false,
+            error: 'Spamzilla API key required. Add your API key in Settings → Integrations.',
+            configured: false,
+        }, { status: 400 });
+    }
 
     // Parse filters from query params
     const filters: SearchFilters = {};
@@ -70,15 +104,82 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
 
     try {
-        const results = await searchExpiredDomains(filters, page, limit);
+        // Call Spamzilla API directly
+        const apiParams = new URLSearchParams({
+            api_key: spamzillaKey,
+            page: String(page),
+            limit: String(limit),
+        });
 
-        // Add scores to each domain
-        const domainsWithScores = results.domains.map(domain => {
-            const metrics = toMetrics(domain);
+        if (filters.minDR) apiParams.append('min_dr', String(filters.minDR));
+        if (filters.maxDR) apiParams.append('max_dr', String(filters.maxDR));
+        if (filters.minTF) apiParams.append('min_tf', String(filters.minTF));
+        if (filters.minBacklinks) apiParams.append('min_bl', String(filters.minBacklinks));
+        if (filters.minRD) apiParams.append('min_rd', String(filters.minRD));
+        if (filters.tlds?.length) apiParams.append('tlds', filters.tlds.join(','));
+        if (filters.keywords?.length) apiParams.append('keywords', filters.keywords.join(','));
+
+        console.log(`[SpamZilla API] Fetching domains with filters: ${apiParams.toString()}`);
+
+        const response = await fetch(`https://api.spamzilla.io/v1/domains?${apiParams}`, {
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[SpamZilla API] Error ${response.status}: ${errorText}`);
+            return NextResponse.json({
+                success: false,
+                error: `Spamzilla API returned ${response.status}: ${response.statusText}`,
+                details: errorText.substring(0, 500),
+            }, { status: response.status });
+        }
+
+        const data = await response.json();
+
+        if (!data.success && data.error) {
+            return NextResponse.json({
+                success: false,
+                error: data.error,
+            }, { status: 400 });
+        }
+
+        // Process domains and add scores
+        const domains = (data.domains || []).map((d: SpamzillaDomainResponse) => {
+            const domain = d.domain;
+            const { tld, length } = parseDomain(domain);
+
+            const metrics = {
+                domain,
+                tld: d.tld || tld,
+                length,
+                domainRating: d.dr || d.domain_rating,
+                trustFlow: d.tf || d.trust_flow,
+                citationFlow: d.cf || d.citation_flow,
+                backlinks: d.backlinks || d.bl,
+                referringDomains: d.referring_domains || d.rd,
+                domainAge: d.age,
+                dataSource: 'spamzilla' as const,
+            };
+
             const score = scoreDomain(metrics, filters.niche);
 
             return {
-                ...domain,
+                domain,
+                tld: d.tld || tld,
+                domainRating: d.dr || d.domain_rating,
+                trustFlow: d.tf || d.trust_flow,
+                citationFlow: d.cf || d.citation_flow,
+                backlinks: d.backlinks || d.bl,
+                referringDomains: d.referring_domains || d.rd,
+                domainAge: d.age,
+                status: d.status || 'available',
+                dropDate: d.drop_date,
+                source: 'spamzilla',
+                qualityScore: quickQualityCheck(domain).pass ? 70 : 30,
+                spamScore: quickSpamCheck(domain).score,
                 score: {
                     overall: score.overall,
                     recommendation: score.recommendation,
@@ -88,69 +189,35 @@ export async function GET(request: NextRequest) {
             };
         });
 
+        console.log(`[SpamZilla API] Found ${domains.length} domains`);
+
         return NextResponse.json({
             success: true,
-            domains: domainsWithScores,
-            total: results.total,
-            page: results.page,
-            hasMore: results.hasMore,
-            source: results.source,
+            domains,
+            total: data.total || domains.length,
+            page,
+            hasMore: data.has_more || false,
+            source: 'spamzilla',
         });
+
     } catch (error) {
-        console.error('Domain search error:', error);
+        console.error('[SpamZilla API] Error:', error);
         return NextResponse.json({
             success: false,
-            error: 'Search failed',
+            error: error instanceof Error ? error.message : 'Search failed',
         }, { status: 500 });
     }
 }
 
 /**
- * POST - Actions on domains (watchlist, check availability, etc.)
+ * POST - Actions on domains (check availability, etc.)
  */
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { action, domain } = body;
+        const { action } = body;
 
         switch (action) {
-            case 'add-watchlist': {
-                if (!domain) {
-                    return NextResponse.json({
-                        success: false,
-                        error: 'Domain required',
-                    }, { status: 400 });
-                }
-                addToWatchlist(domain as ExpiredDomain);
-                return NextResponse.json({
-                    success: true,
-                    message: 'Added to watchlist',
-                    watchlist: getWatchlist(),
-                });
-            }
-
-            case 'remove-watchlist': {
-                if (!body.domainName) {
-                    return NextResponse.json({
-                        success: false,
-                        error: 'Domain name required',
-                    }, { status: 400 });
-                }
-                removeFromWatchlist(body.domainName);
-                return NextResponse.json({
-                    success: true,
-                    message: 'Removed from watchlist',
-                    watchlist: getWatchlist(),
-                });
-            }
-
-            case 'get-watchlist': {
-                return NextResponse.json({
-                    success: true,
-                    watchlist: getWatchlist(),
-                });
-            }
-
             case 'check-availability': {
                 if (!body.domainName) {
                     return NextResponse.json({
@@ -158,23 +225,23 @@ export async function POST(request: NextRequest) {
                         error: 'Domain name required',
                     }, { status: 400 });
                 }
-                const availability = await checkAvailability(body.domainName);
-                const purchaseLinks = getPurchaseLinks(body.domainName);
+
+                // Generate purchase links (availability check requires registrar API)
+                const domain = body.domainName;
+                const purchaseLinks = [
+                    { registrar: 'Namecheap', url: `https://www.namecheap.com/domains/registration/results/?domain=${domain}` },
+                    { registrar: 'Cloudflare', url: `https://dash.cloudflare.com/?to=/:account/domains/register/${domain}` },
+                    { registrar: 'Porkbun', url: `https://porkbun.com/checkout/search?q=${domain}` },
+                    { registrar: 'GoDaddy', url: `https://www.godaddy.com/domainsearch/find?checkAvail=1&domainToCheck=${domain}` },
+                ];
 
                 return NextResponse.json({
                     success: true,
-                    domain: body.domainName,
-                    ...availability,
+                    domain,
+                    available: 'unknown',
+                    message: 'Click a registrar link to check exact availability and price',
                     purchaseLinks,
                 });
-            }
-
-            case 'suggest': {
-                // suggestDomains was a mock function - not available
-                return NextResponse.json({
-                    success: false,
-                    error: 'Domain suggestions require API configuration. Configure Spamzilla or similar API in Settings.',
-                }, { status: 400 });
             }
 
             default:

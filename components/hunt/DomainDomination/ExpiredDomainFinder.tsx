@@ -41,27 +41,37 @@ import {
     Globe,
     Sparkles,
     X,
-    Settings
+    Settings,
+    Save
 } from 'lucide-react';
 import MetricTooltip, { DataSourceBanner, FILTER_PRESETS, FilterPreset } from './MetricTooltip';
 import DomainSources from './DomainSources';
 import { scoreDomain, parseDomain } from '@/lib/domains/domainScorer';
+import { parseSpamZillaCSV, SpamZillaDomain, getTierInfo, getPresetInfo, SpamZillaImportResult } from '@/lib/domains/spamzillaParser';
 
 // ============ TYPES ============
 
 interface DomainItem {
     domain: string;
     tld: string;
-    source: 'manual' | 'free' | 'premium';
+    source: 'manual' | 'free' | 'premium' | 'spamzilla';
     status: 'unknown' | 'available' | 'pending' | 'auction';
     domainRating?: number;
     trustFlow?: number;
     citationFlow?: number;
+    tfCfRatio?: number;          // SpamZilla: TF/CF ratio
     backlinks?: number;
     referringDomains?: number;
     domainAge?: number;
     dropDate?: string;
     spamScore?: number;
+    szScore?: number;            // SpamZilla Score (0-20 = clean)
+    szDrops?: number;            // Previous drops
+    szActiveHistory?: number;    // Years of real content
+    qualityTier?: 'gold' | 'silver' | 'bronze' | 'avoid';  // Gold Standard tier
+    adsenseReady?: boolean;
+    price?: string;
+    auctionSource?: string;
     enriched?: boolean;
     enrichedAt?: number;
     score?: {
@@ -131,7 +141,12 @@ export default function ExpiredDomainFinder({
     const [freeError, setFreeError] = useState<string | null>(null);
     const [freeActionRequired, setFreeActionRequired] = useState<ActionRequired | null>(null);
 
-    // Premium API State
+    // SpamZilla CSV Import State
+    const [spamzillaDomains, setSpamzillaDomains] = useState<DomainItem[]>([]);
+    const [spamzillaImportStats, setSpamzillaImportStats] = useState<SpamZillaImportResult['stats'] | null>(null);
+    const [spamzillaPreset, setSpamzillaPreset] = useState<string>('');
+
+    // Premium API State (legacy - kept for compatibility)
     const [premiumDomains, setPremiumDomains] = useState<DomainItem[]>([]);
     const [premiumLoading, setPremiumLoading] = useState(false);
     const [premiumError, setPremiumError] = useState<string | null>(null);
@@ -146,7 +161,8 @@ export default function ExpiredDomainFinder({
     const [keywordFilter, setKeywordFilter] = useState(initialKeywords.join(', '));
     const [showFilters, setShowFilters] = useState(false);
     const [minScore, setMinScore] = useState(0);
-    const [sourceFilter, setSourceFilter] = useState<'all' | 'manual' | 'free' | 'premium'>('all');
+    const [sourceFilter, setSourceFilter] = useState<'all' | 'manual' | 'free' | 'premium' | 'spamzilla'>('all');
+    const [tierFilter, setTierFilter] = useState<'all' | 'gold' | 'silver' | 'bronze'>('all');
 
     // Watchlist
     const [watchlist, setWatchlist] = useState<WatchlistDomain[]>([]);
@@ -159,6 +175,18 @@ export default function ExpiredDomainFinder({
 
     // Selection for bulk actions
     const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set());
+
+    // Profile Generation
+    const [generatingProfile, setGeneratingProfile] = useState<string | null>(null);
+    const [generatedProfile, setGeneratedProfile] = useState<{
+        domain: string;
+        niche: string;
+        primaryKeywords: string[];
+        secondaryKeywords: string[];
+        questionKeywords: string[];
+        suggestedTopics: string[];
+    } | null>(null);
+    const [showProfileModal, setShowProfileModal] = useState(false);
 
     // ============ LOAD/SAVE WATCHLIST ============
 
@@ -189,9 +217,9 @@ export default function ExpiredDomainFinder({
     // ============ COMBINE ALL DOMAINS ============
 
     useEffect(() => {
-        const combined = [...manualDomains, ...freeDomains, ...premiumDomains];
+        const combined = [...manualDomains, ...freeDomains, ...premiumDomains, ...spamzillaDomains];
         setAllDomains(combined);
-    }, [manualDomains, freeDomains, premiumDomains]);
+    }, [manualDomains, freeDomains, premiumDomains, spamzillaDomains]);
 
     // ============ APPLY FILTERS ============
 
@@ -201,6 +229,11 @@ export default function ExpiredDomainFinder({
         // Source filter
         if (sourceFilter !== 'all') {
             filtered = filtered.filter(d => d.source === sourceFilter);
+        }
+
+        // Tier filter (Gold/Silver/Bronze from SpamZilla scoring)
+        if (tierFilter !== 'all') {
+            filtered = filtered.filter(d => d.qualityTier === tierFilter);
         }
 
         // Score filter
@@ -216,14 +249,19 @@ export default function ExpiredDomainFinder({
             );
         }
 
-        // Sort by score
-        filtered.sort((a, b) => (b.score?.overall || 0) - (a.score?.overall || 0));
+        // Sort by quality tier first, then by score
+        const tierOrder = { gold: 0, silver: 1, bronze: 2, avoid: 3, undefined: 4 };
+        filtered.sort((a, b) => {
+            const tierDiff = (tierOrder[a.qualityTier as keyof typeof tierOrder] ?? 4) - (tierOrder[b.qualityTier as keyof typeof tierOrder] ?? 4);
+            if (tierDiff !== 0) return tierDiff;
+            return (b.score?.overall || 0) - (a.score?.overall || 0);
+        });
 
         setFilteredDomains(filtered);
         setPage(1);
-    }, [allDomains, sourceFilter, minScore, keywordFilter]);
+    }, [allDomains, sourceFilter, tierFilter, minScore, keywordFilter]);
 
-    // ============ MANUAL IMPORT ============
+    // ============ CSV IMPORT (Smart Detection) ============
 
     const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -232,10 +270,115 @@ export default function ExpiredDomainFinder({
         const reader = new FileReader();
         reader.onload = (e) => {
             const content = e.target?.result as string;
-            setManualInput(prev => prev + '\n' + content);
+            const filename = file.name;
+
+            // Try to detect SpamZilla CSV format
+            const firstLine = content.split('\n')[0];
+            const isSpamZillaFormat = firstLine.includes('TF') && firstLine.includes('SZ Score');
+
+            if (isSpamZillaFormat) {
+                // Parse as SpamZilla CSV with full metrics
+                try {
+                    const result = parseSpamZillaCSV(content, filename);
+
+                    // Convert SpamZillaDomain to DomainItem
+                    const domainItems: DomainItem[] = result.domains.map(sz => ({
+                        domain: sz.domain,
+                        tld: sz.tld,
+                        source: 'spamzilla' as const,
+                        status: 'unknown' as const,
+                        trustFlow: sz.trustFlow,
+                        citationFlow: sz.citationFlow,
+                        tfCfRatio: sz.tfCfRatio,
+                        domainRating: sz.domainAuthority,
+                        domainAge: sz.age,
+                        backlinks: sz.backlinks,
+                        referringDomains: sz.referringDomains,
+                        szScore: sz.szScore,
+                        szDrops: sz.szDrops,
+                        szActiveHistory: sz.szActiveHistory,
+                        qualityTier: sz.qualityTier,
+                        adsenseReady: sz.adsenseReady,
+                        price: sz.price,
+                        auctionSource: sz.auctionSource,
+                        enriched: true,
+                        fetchedAt: Date.now(),
+                        score: {
+                            overall: calculateOverallScore(sz),
+                            recommendation: sz.qualityTier === 'gold' ? 'strong-buy' :
+                                sz.qualityTier === 'silver' ? 'buy' :
+                                    sz.qualityTier === 'bronze' ? 'consider' : 'avoid',
+                            riskLevel: sz.szScore <= 10 ? 'low' : sz.szScore <= 15 ? 'medium' : 'high',
+                            estimatedValue: estimateValue(sz),
+                        },
+                    }));
+
+                    setSpamzillaDomains(prev => {
+                        const existing = new Set(prev.map(d => d.domain));
+                        const newDomains = domainItems.filter(d => !existing.has(d.domain));
+                        return [...prev, ...newDomains];
+                    });
+                    setSpamzillaImportStats(result.stats);
+                    setSpamzillaPreset(result.preset);
+
+                    console.log(`[SpamZilla Import] ${result.domains.length} domains imported from ${result.preset} preset`);
+                    console.log(`[SpamZilla Import] ${result.stats.adsenseReady} AdSense-ready domains`);
+
+                } catch (error) {
+                    console.error('[SpamZilla Import] Error:', error);
+                    // Fall back to manual input
+                    setManualInput(prev => prev + '\n' + content);
+                }
+            } else {
+                // Regular CSV/text - add to manual input
+                setManualInput(prev => prev + '\n' + content);
+            }
         };
         reader.readAsText(file);
+
+        // Reset file input
+        event.target.value = '';
     };
+
+    // Helper: Calculate overall score from SpamZilla data
+    const calculateOverallScore = (sz: SpamZillaDomain): number => {
+        let score = 0;
+
+        // TF contributes up to 30 points
+        score += Math.min(30, sz.trustFlow * 1.5);
+
+        // DA contributes up to 25 points
+        score += Math.min(25, sz.domainAuthority * 0.5);
+
+        // SZ Score (inverted - lower is better) contributes up to 25 points
+        score += Math.max(0, 25 - sz.szScore);
+
+        // TF:CF ratio contributes up to 10 points
+        score += Math.min(10, sz.tfCfRatio * 10);
+
+        // Age contributes up to 10 points
+        score += Math.min(10, (sz.age || 0) * 0.5);
+
+        return Math.round(Math.min(100, score));
+    };
+
+    // Helper: Estimate domain value
+    const estimateValue = (sz: SpamZillaDomain): number => {
+        let value = 50; // Base value
+
+        if (sz.qualityTier === 'gold') value += 200;
+        else if (sz.qualityTier === 'silver') value += 100;
+        else if (sz.qualityTier === 'bronze') value += 50;
+
+        value += sz.trustFlow * 5;
+        value += sz.domainAuthority * 3;
+
+        if (sz.tld === 'com') value *= 1.5;
+
+        return Math.round(value);
+    };
+
+    // ============ MANUAL IMPORT ============
 
     const parseManualDomains = async () => {
         if (!manualInput.trim()) return;
@@ -330,6 +473,13 @@ export default function ExpiredDomainFinder({
     const fetchPremiumDomains = async () => {
         if (!premiumConfigured) return;
 
+        // Get API key from localStorage
+        const apiKey = localStorage.getItem('ifrit_spamzilla_key');
+        if (!apiKey) {
+            setPremiumError('Spamzilla API key not found. Please add it in Settings → Integrations.');
+            return;
+        }
+
         setPremiumLoading(true);
         setPremiumError(null);
 
@@ -339,7 +489,12 @@ export default function ExpiredDomainFinder({
                 params.set('keywords', keywordFilter);
             }
 
-            const response = await fetch(`/api/domains/search?${params.toString()}`);
+            // Pass API key via header
+            const response = await fetch(`/api/domains/search?${params.toString()}`, {
+                headers: {
+                    'x-spamzilla-key': apiKey,
+                }
+            });
             const data = await response.json();
 
             if (data.success && data.domains) {
@@ -349,6 +504,7 @@ export default function ExpiredDomainFinder({
                     fetchedAt: Date.now(),
                 }));
                 setPremiumDomains(domains);
+                console.log(`[SpamZilla] Fetched ${domains.length} premium domains`);
             } else {
                 setPremiumError(data.error || 'API error');
             }
@@ -572,6 +728,89 @@ export default function ExpiredDomainFinder({
                 recommendation: d.score?.recommendation || 'consider',
                 estimatedValue: d.score?.estimatedValue
             }]);
+        }
+    };
+
+    // ============ PROFILE GENERATION ============
+
+    const handleGenerateProfile = async (domain: DomainItem) => {
+        setGeneratingProfile(domain.domain);
+        try {
+            // Get AI API key from localStorage (user's configured keys)
+            const geminiKeys = localStorage.getItem('ifrit_gemini_keys');
+            let apiKey: string | null = null;
+            if (geminiKeys) {
+                try {
+                    const keys = JSON.parse(geminiKeys);
+                    if (keys.length > 0) {
+                        apiKey = keys[0].key; // Use first available key
+                    }
+                } catch (e) {
+                    console.warn('[Profile] Failed to parse Gemini keys');
+                }
+            }
+
+            const response = await fetch('/api/domain-profiles/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    domain: domain.domain,
+                    spamzillaData: {
+                        trustFlow: domain.trustFlow,
+                        citationFlow: domain.citationFlow,
+                        domainAuthority: domain.domainRating,
+                        age: domain.domainAge,
+                        szScore: domain.szScore,
+                    },
+                    saveProfile: false, // Let user review first
+                    apiKey // Send the key to server
+                })
+            });
+
+            const data = await response.json();
+            if (data.success && data.profile) {
+                setGeneratedProfile({
+                    domain: data.profile.domain,
+                    niche: data.profile.niche,
+                    primaryKeywords: data.profile.primaryKeywords,
+                    secondaryKeywords: data.profile.secondaryKeywords,
+                    questionKeywords: data.profile.questionKeywords,
+                    suggestedTopics: data.profile.suggestedTopics,
+                });
+                setShowProfileModal(true);
+            } else {
+                console.error('[Profile Generate] Error:', data.error);
+                alert('Failed to generate profile. Please try again.');
+            }
+        } catch (error) {
+            console.error('[Profile Generate] Error:', error);
+            alert('Failed to generate profile. Network error.');
+        } finally {
+            setGeneratingProfile(null);
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        if (!generatedProfile) return;
+
+        try {
+            const response = await fetch('/api/domain-profiles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...generatedProfile,
+                    researchedAt: Date.now(),
+                    notes: 'Auto-generated from domain name analysis'
+                })
+            });
+
+            if (response.ok) {
+                setShowProfileModal(false);
+                setGeneratedProfile(null);
+                alert(`Profile saved for ${generatedProfile.domain}! Go to Websites tab to create site.`);
+            }
+        } catch (error) {
+            console.error('[Save Profile] Error:', error);
         }
     };
 
@@ -811,6 +1050,21 @@ export default function ExpiredDomainFinder({
                                             </div>
                                         )}
 
+                                        {/* Generate Profile */}
+                                        <button
+                                            onClick={() => handleGenerateProfile(domain)}
+                                            disabled={generatingProfile === domain.domain}
+                                            className="px-3 py-2 bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg text-sm flex items-center gap-1 disabled:opacity-50"
+                                            title="Generate website profile from this domain"
+                                        >
+                                            {generatingProfile === domain.domain ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <FileText className="w-4 h-4" />
+                                            )}
+                                            Profile
+                                        </button>
+
                                         {/* Watchlist */}
                                         <button
                                             onClick={() => toggleWatchlist(domain)}
@@ -913,6 +1167,104 @@ export default function ExpiredDomainFinder({
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Profile Generation Modal */}
+            {showProfileModal && generatedProfile && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        {/* Header */}
+                        <div className="p-4 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-t-2xl flex items-center justify-between">
+                            <div>
+                                <h3 className="font-bold text-lg">🎯 Generated Profile: {generatedProfile.domain}</h3>
+                                <p className="text-purple-100 text-sm">AI-discovered keywords based on domain name</p>
+                            </div>
+                            <button
+                                onClick={() => { setShowProfileModal(false); setGeneratedProfile(null); }}
+                                className="p-2 hover:bg-white/20 rounded-lg"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-4">
+                            {/* Niche */}
+                            <div className="bg-purple-50 p-4 rounded-xl">
+                                <h4 className="text-sm font-semibold text-purple-800 mb-1">Detected Niche</h4>
+                                <p className="text-lg font-bold text-purple-900">{generatedProfile.niche}</p>
+                            </div>
+
+                            {/* Primary Keywords */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-neutral-700 mb-2">🎯 Primary Keywords</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {generatedProfile.primaryKeywords.map((kw, i) => (
+                                        <span key={i} className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm">
+                                            {kw}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Secondary Keywords */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-neutral-700 mb-2">📊 Secondary Keywords</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {generatedProfile.secondaryKeywords.slice(0, 8).map((kw, i) => (
+                                        <span key={i} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                                            {kw}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Question Keywords */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-neutral-700 mb-2">❓ Question Keywords</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {generatedProfile.questionKeywords.map((kw, i) => (
+                                        <span key={i} className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm">
+                                            {kw}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Suggested Topics */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-neutral-700 mb-2">📝 Suggested Article Topics</h4>
+                                <ul className="list-disc pl-5 text-sm text-neutral-700 space-y-1">
+                                    {generatedProfile.suggestedTopics.map((topic, i) => (
+                                        <li key={i}>{topic}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 bg-neutral-50 rounded-b-2xl flex justify-between items-center">
+                            <p className="text-sm text-neutral-500">
+                                Save this profile to use when building your website
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => { setShowProfileModal(false); setGeneratedProfile(null); }}
+                                    className="px-4 py-2 text-neutral-600 hover:bg-neutral-200 rounded-lg"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveProfile}
+                                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium flex items-center gap-2"
+                                >
+                                    <Save className="w-4 h-4" />
+                                    Save Profile
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

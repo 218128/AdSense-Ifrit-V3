@@ -27,7 +27,7 @@
   "aiOverviewBlocks": [],
   "isExternal": true,
   "source": "external",
-  "status": "draft",
+  "status": "published",
   "lastModifiedAt": 1766186898368,
   "versions": [
     {
@@ -38,5 +38,6 @@
       "reason": "before-edit",
       "wordCount": 733
     }
-  ]
+  ],
+  "publishedAt": 1766233074287
 }

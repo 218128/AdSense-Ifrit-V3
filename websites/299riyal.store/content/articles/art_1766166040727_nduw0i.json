@@ -10,6 +10,11 @@
     "Samsung S24 clone",
     "budget premium phones"
   ],
+  "coverImage": {
+    "url": "/images/cheap-alternatives-flagship-phones/cover/cover.png",
+    "alt": "Cheap Alternatives to Expensive Flagship Phones",
+    "source": "generated"
+  },
   "contentType": "external",
   "pageType": "article",
   "wordCount": 645,
@@ -20,5 +25,5 @@
   "source": "external",
   "status": "published",
   "lastModifiedAt": 1766166040727,
-  "publishedAt": 1766186616110
+  "publishedAt": 1766233074287
 }

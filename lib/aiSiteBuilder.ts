@@ -66,6 +66,15 @@ export interface AISiteDecisions {
     };
     typographyMood: AIDecision;
     colorApproach: AIDecision;
+    // Explicit theme configuration for AI to specify colors/fonts
+    themeConfig?: {
+        primaryColor: string;        // Hex color, e.g., "#2563eb"
+        secondaryColor: string;      // Hex color, e.g., "#10b981"
+        accentColor?: string;        // Optional accent, e.g., "#f59e0b"
+        backgroundColor?: string;    // Light or dark mode bg
+        fontPairing: string;         // e.g., "modern", "classic", "editorial"
+        mood?: string;               // e.g., "professional", "vibrant", "minimal"
+    };
     overallStrategy: string;
 }
 
@@ -149,6 +158,13 @@ Return a valid JSON object with this exact structure:
     },
     "typographyMood": { "value": "mood-name", "reasoning": "..." },
     "colorApproach": { "value": "description", "reasoning": "..." },
+    "themeConfig": {
+      "primaryColor": "#hex-color",
+      "secondaryColor": "#hex-color",
+      "accentColor": "#hex-color",
+      "fontPairing": "modern|classic|editorial|technical|playful",
+      "mood": "professional|vibrant|minimal|elegant|bold"
+    },
     "overallStrategy": "Brief summary of your revenue-optimization strategy for this site..."
   }
 }

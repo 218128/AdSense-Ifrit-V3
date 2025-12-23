@@ -10,6 +10,11 @@
     "Xiaomi Smart Band",
     "Huawei Band Saudi"
   ],
+  "coverImage": {
+    "url": "/images/affordable-fitness-trackers-review/cover/cover.png",
+    "alt": "Top 5 Affordable Fitness Trackers That Actually Work",
+    "source": "generated"
+  },
   "contentType": "external",
   "pageType": "article",
   "wordCount": 697,
@@ -20,5 +25,5 @@
   "source": "external",
   "status": "published",
   "lastModifiedAt": 1766185509643,
-  "publishedAt": 1766186615576
+  "publishedAt": 1766233074287
 }

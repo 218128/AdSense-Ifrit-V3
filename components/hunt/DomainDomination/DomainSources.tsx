@@ -201,65 +201,51 @@ export default function DomainSources({
                 </div>
             </div>
 
-            {/* Column 3: Spamzilla Analysis */}
-            <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-4">
+            {/* Column 3: SpamZilla CSV Import */}
+            <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
-                    <Sparkles className="w-5 h-5 text-indigo-600" />
-                    <span className="font-semibold text-sm text-indigo-800">🔬 Spamzilla Analysis</span>
-                    <span className="text-xs text-indigo-500 ml-auto">Full SEO Metrics</span>
+                    <Sparkles className="w-5 h-5 text-amber-600" />
+                    <span className="font-semibold text-sm text-amber-800">🔥 SpamZilla Import</span>
+                    <span className="text-xs text-amber-500 ml-auto">CSV Export</span>
                 </div>
 
-                {spamzillaConfigured ? (
-                    <div className="space-y-3">
-                        <p className="text-xs text-indigo-600">
-                            Enrich discovered domains with DR, TF, backlinks, spam score, and recommendations.
-                        </p>
+                <div className="space-y-3">
+                    <p className="text-xs text-amber-700">
+                        Import CSV exports from SpamZilla with full metrics: TF, CF, DA, SZ Score, Age, and more.
+                    </p>
 
-                        <button
-                            onClick={enrichAllDomains}
-                            disabled={enriching || allDomains.filter(d => !d.enriched).length === 0}
-                            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                            {enriching ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Analyzing...
-                                </>
-                            ) : (
-                                <>
-                                    <Zap className="w-4 h-4" />
-                                    Analyze All ({allDomains.filter(d => !d.enriched).length})
-                                </>
-                            )}
-                        </button>
+                    {/* Preset badges */}
+                    <div className="flex flex-wrap gap-1.5">
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300">🥇 Gold</span>
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 border border-blue-300">🛡️ Safe</span>
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 border border-purple-300">📊 Volume</span>
+                    </div>
 
-                        <div className="flex justify-between text-xs">
-                            <span className="text-indigo-600">
-                                ✅ {allDomains.filter(d => d.enriched).length} enriched
-                            </span>
-                            <span className="text-neutral-500">
-                                ⏳ {allDomains.filter(d => !d.enriched).length} pending
-                            </span>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        <div className="p-3 bg-indigo-100 border border-indigo-300 rounded-lg">
-                            <p className="text-xs text-indigo-800 font-medium">Spamzilla API Required</p>
-                            <p className="text-xs text-indigo-700 mt-1">
-                                Add your API key in Settings → Integrations to unlock full SEO analysis.
-                            </p>
-                        </div>
-                        <a
-                            href="https://spamzilla.io"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block text-center px-4 py-2 bg-indigo-200 text-indigo-800 rounded-lg hover:bg-indigo-300 text-sm"
-                        >
-                            Get Spamzilla API →
-                        </a>
-                    </div>
-                )}
+                    <input
+                        type="file"
+                        accept=".csv"
+                        onChange={handleCSVUpload}
+                        className="hidden"
+                        id="spamzilla-csv-input"
+                    />
+
+                    <label
+                        htmlFor="spamzilla-csv-input"
+                        className="block w-full px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 cursor-pointer text-center font-medium text-sm shadow-sm"
+                    >
+                        <Upload className="w-4 h-4 inline mr-2" />
+                        Import SpamZilla CSV
+                    </label>
+
+                    <a
+                        href="https://spamzilla.io"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-center text-xs text-amber-600 hover:text-amber-800"
+                    >
+                        Open SpamZilla →
+                    </a>
+                </div>
             </div>
         </div>
     );

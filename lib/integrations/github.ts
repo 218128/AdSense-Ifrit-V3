@@ -1,6 +1,8 @@
 import { generateTemplateFiles as generateNiche, SiteConfig } from '@/templates/niche-authority-blog/generator';
 import { generateTemplateFiles as generateMagazine } from '@/templates/topical-magazine/generator';
 import { generateTemplateFiles as generateExpert } from '@/templates/expert-hub/generator';
+import { getInstalledPlugins, getTheme } from '@/lib/websiteStore';
+import { generateDefaultThemeCSS } from '@/templates/shared/themeGenerator';
 
 export interface GitHubUser {
     login: string;
@@ -146,7 +148,11 @@ export async function pushTemplateFiles(
     repoName: string,
     siteConfig?: Partial<SiteConfig>,
     extraFiles?: Record<string, string>,  // Additional files like essential pages
-    options?: { preserveContent?: boolean }  // Don't overwrite content/ folder
+    options?: {
+        preserveContent?: boolean;  // Don't overwrite content/ folder
+        preserveStyles?: boolean;   // Don't overwrite globals.css (for existing sites)
+        mergePlugins?: string;      // Domain to merge plugins from (additive package.json)
+    }
 ): Promise<{ success: boolean; files?: Array<{ path: string; success: boolean; error?: string }>; repoFullName?: string; commitSha?: string; error?: string }> {
     try {
         const userRes = await validateGitHubToken(token);
@@ -180,6 +186,75 @@ export async function pushTemplateFiles(
         // Filter out content/ folder if preserveContent is true (for upgrades)
         if (options?.preserveContent) {
             templateFiles = templateFiles.filter(f => !f.path.startsWith('content/'));
+        }
+
+        // Filter out globals.css if preserveStyles is true (for existing sites)
+        // This prevents overwriting customized CSS during upgrades/deploys
+        if (options?.preserveStyles) {
+            templateFiles = templateFiles.filter(f =>
+                f.path !== 'app/globals.css' &&
+                f.path !== 'globals.css' &&
+                !f.path.endsWith('/globals.css')
+            );
+        }
+
+        // Merge local plugins into package.json (additive only)
+        if (options?.mergePlugins) {
+            const plugins = getInstalledPlugins(options.mergePlugins);
+            if (plugins.length > 0) {
+                const pkgIndex = templateFiles.findIndex(f => f.path === 'package.json');
+                if (pkgIndex !== -1) {
+                    try {
+                        const pkgJson = JSON.parse(templateFiles[pkgIndex].content);
+                        if (!pkgJson.dependencies) pkgJson.dependencies = {};
+                        for (const plugin of plugins) {
+                            pkgJson.dependencies[plugin.name] = plugin.version;
+                        }
+                        templateFiles[pkgIndex].content = JSON.stringify(pkgJson, null, 2);
+                        console.log(`[GitHub] Merged ${plugins.length} plugins into package.json`);
+                    } catch (e) {
+                        console.error('[GitHub] Failed to merge plugins:', e);
+                    }
+                }
+            }
+        }
+
+        // THEME LAYER: Merge local theme CSS if available
+        // This enables true template-theme separation
+        if (options?.mergePlugins) {  // Using same option as it contains domain
+            const domain = options.mergePlugins;
+            const localTheme = getTheme(domain);
+
+            if (localTheme && localTheme.globals) {
+                // Find globals.css in template files
+                const cssIndex = templateFiles.findIndex(f =>
+                    f.path === 'app/globals.css' || f.path === 'globals.css'
+                );
+
+                if (cssIndex !== -1) {
+                    // Prepend local theme CSS (overrides CSS variables)
+                    const baseCSS = templateFiles[cssIndex].content;
+                    const themeCSS = localTheme.globals;
+
+                    // Theme layer goes first (defines CSS variables)
+                    // Base CSS uses var(--color-*) references
+                    templateFiles[cssIndex].content = `
+/* ==== THEME LAYER (customizable) ==== */
+${themeCSS}
+
+/* ==== BASE LAYER (template structure) ==== */
+${baseCSS}
+`;
+                    console.log(`[GitHub] Applied local theme for ${domain}`);
+                } else if (!options.preserveStyles) {
+                    // No globals.css in template, create one from local theme
+                    templateFiles.push({
+                        path: 'app/globals.css',
+                        content: localTheme.globals
+                    });
+                    console.log(`[GitHub] Created globals.css from local theme for ${domain}`);
+                }
+            }
         }
 
         // Add extra files (like essential pages)

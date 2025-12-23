@@ -6,14 +6,45 @@
  * 2. Wait for Vercel auto-deploy
  * 3. Verify deployment success before updating status
  * 
+ * GET /api/websites/[domain]/deploy
+ * - Returns: pending changes for selective deploy UI
+ * 
  * POST /api/websites/[domain]/deploy
  * - Requires: githubToken in body
+ * - Optional: elements (for selective deploy)
  * - Returns: deployment status and verification result
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getWebsite, saveWebsite, updateVersionCommit } from '@/lib/websiteStore';
+import { getWebsite, saveWebsite, updateVersionCommit, getPendingChanges } from '@/lib/websiteStore';
 import { pushTemplateFiles } from '@/lib/integrations/github';
+
+/**
+ * GET - Get pending changes for selective deploy UI
+ */
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ domain: string }> }
+): Promise<NextResponse> {
+    const { domain } = await params;
+    const website = getWebsite(domain);
+
+    if (!website) {
+        return NextResponse.json(
+            { success: false, error: 'Website not found' },
+            { status: 404 }
+        );
+    }
+
+    const pendingChanges = getPendingChanges(domain);
+
+    return NextResponse.json({
+        success: true,
+        domain,
+        pendingChanges: pendingChanges,
+        deployReady: pendingChanges.hasChanges
+    });
+}
 
 interface DeployResult {
     success: boolean;
@@ -22,6 +53,22 @@ interface DeployResult {
     filesUpdated?: number;
     error?: string;
     verified: boolean;
+    elements?: {               // What was deployed
+        template: boolean;
+        theme: boolean;
+        articles: boolean;
+        pages: boolean;
+        plugins: boolean;
+    };
+}
+
+// Element selection for selective deploy
+interface DeployElements {
+    template?: boolean;         // Deploy template files
+    theme?: boolean;            // Deploy local theme
+    articles?: boolean;         // Deploy articles
+    pages?: boolean;            // Deploy structural pages
+    plugins?: boolean;          // Deploy plugins
 }
 
 export async function POST(
@@ -40,7 +87,17 @@ export async function POST(
         }
 
         const body = await request.json();
-        const { githubToken, adsensePublisherId, umamiId } = body;
+        const { githubToken, adsensePublisherId, umamiId, elements } = body;
+
+        // Selective deploy: which elements to push
+        // If no elements specified, deploy all
+        const deployElements: DeployElements = elements || {
+            template: true,
+            theme: true,
+            articles: true,
+            pages: true,
+            plugins: true
+        };
 
         if (!githubToken) {
             return NextResponse.json(
@@ -88,8 +145,14 @@ export async function POST(
                 ...(umamiId && { umamiId })
             },
             undefined,  // No extra files
-            { preserveContent: true }  // Don't overwrite content/ folder (articles, images)
+            {
+                preserveContent: !deployElements.articles,   // Preserve content if not deploying articles
+                preserveStyles: !deployElements.theme,       // Preserve styles if not deploying theme
+                mergePlugins: deployElements.plugins ? domain : undefined  // Merge plugins only if deploying them
+            }
         );
+
+        console.log(`[Deploy] Selective deploy: template=${deployElements.template}, theme=${deployElements.theme}, articles=${deployElements.articles}, pages=${deployElements.pages}, plugins=${deployElements.plugins}`);
 
         if (!pushResult.success) {
             return NextResponse.json({

@@ -4,6 +4,7 @@
  */
 
 import { AISiteDecisions, generateAIDecisionCSS } from '@/lib/aiSiteBuilder';
+import { generateAdsTxt } from '@/templates/shared/components/seoFiles';
 
 export interface SiteConfig {
     siteName: string;
@@ -53,7 +54,8 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
                     react: '^18.2.0',
                     'react-dom': '^18.2.0',
                     'gray-matter': '^4.0.3',
-                    'react-markdown': '^9.0.0'
+                    'react-markdown': '^9.0.0',
+                    'remark-gfm': '^4.0.0'
                 },
                 devDependencies: {
                     typescript: '^5.0.0',
@@ -167,28 +169,29 @@ module.exports = nextConfig;
         {
             path: 'content/.gitkeep',
             content: '# Articles will be pushed here\n'
-        }
+        },
+
+        // ============================================
+        // SEO & ADSENSE COMPLIANCE FILES  
+        // ============================================
+
+        // ads.txt (Required by Google AdSense)
+        ...(adsensePublisherId ? [{
+            path: 'public/ads.txt',
+            content: generateAdsTxt(adsensePublisherId)
+        }] : [])
     ];
 }
 
-function generateGlobalStyles(primary: string, secondary: string): string {
-    return `/* Topical Magazine - Vibrant & Dynamic */
-:root {
-  --color-primary: ${primary};
-  --color-primary-dark: ${adjustColor(primary, -20)};
-  --color-secondary: ${secondary};
-  --color-bg: #ffffff;
-  --color-bg-alt: #f3f4f6;
-  --color-text: #111827;
-  --color-text-muted: #6b7280;
-  --color-border: #e5e7eb;
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --max-width: 1400px; /* Wider for magazine */
-  --content-width: 800px;
-}
+/**
+ * Generate base CSS - STRUCTURE ONLY
+ * Uses CSS variables for all colors - theme layer defines actual values
+ */
+function generateBaseCSS(): string {
+    return `/* Topical Magazine - Base Structure */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-sans); color: var(--color-text); background: var(--color-bg); line-height: 1.6; }
+body { font-family: var(--font-sans, 'Inter', system-ui, sans-serif); color: var(--color-text); background: var(--color-bg); line-height: 1.6; }
 
 h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; }
 h1 { font-size: 3.5rem; }
@@ -196,13 +199,13 @@ h1 { font-size: 3.5rem; }
 a { color: inherit; text-decoration: none; transition: color 0.2s; }
 a:hover { color: var(--color-primary); }
 
-.container { max-width: var(--max-width); margin: 0 auto; padding: 0 2rem; }
+.container { max-width: var(--max-width, 1400px); margin: 0 auto; padding: 0 2rem; }
 
 /* Magazine Header */
 .header { border-bottom: 4px solid var(--color-primary); padding: 2rem 0; margin-bottom: 3rem; }
 .header-inner { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 .logo { font-size: 2.5rem; font-weight: 900; background: linear-gradient(to right, var(--color-primary), var(--color-secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.tagline { font-family: serif; font-style: italic; font-size: 1.25rem; color: var(--color-text-muted); }
+.tagline { font-family: var(--font-serif, serif); font-style: italic; font-size: 1.25rem; color: var(--color-text-muted); }
 .nav { display: flex; gap: 2rem; margin-top: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.875rem; }
 
 /* Magazine Grid */
@@ -220,11 +223,11 @@ a:hover { color: var(--color-primary); }
 
 /* Article Page */
 .article-header { text-align: center; max-width: 900px; margin: 0 auto 4rem; }
-.article-content { max-width: var(--content-width); margin: 0 auto; font-size: 1.125rem; }
+.article-content { max-width: var(--content-width, 800px); margin: 0 auto; font-size: 1.125rem; }
 .article-content p { margin-bottom: 1.5rem; }
 
 /* Footer */
-.footer { background: #111827; color: white; padding: 4rem 0; margin-top: 6rem; }
+.footer { background: var(--color-footer-bg, #111827); color: var(--color-footer-text, white); padding: 4rem 0; margin-top: 6rem; }
 .footer a:hover { color: var(--color-primary); }
 
 @media (max-width: 768px) {
@@ -232,6 +235,38 @@ a:hover { color: var(--color-primary); }
   h1 { font-size: 2.5rem; }
 }
 `;
+}
+
+/**
+ * Generate default theme CSS variables for magazine template
+ */
+function generateDefaultThemeCSS(primary: string, secondary: string): string {
+    return `/* Theme Variables */
+:root {
+  --color-primary: ${primary};
+  --color-primary-dark: ${adjustColor(primary, -20)};
+  --color-secondary: ${secondary};
+  --color-bg: #ffffff;
+  --color-bg-alt: #f3f4f6;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --max-width: 1400px;
+  --content-width: 800px;
+  --color-footer-bg: #111827;
+  --color-footer-text: white;
+}
+`;
+}
+
+/**
+ * Legacy wrapper: combines base CSS + default theme
+ * For backward compatibility with existing deploy flow
+ */
+function generateGlobalStyles(primary: string, secondary: string): string {
+    return generateDefaultThemeCSS(primary, secondary) + generateBaseCSS();
 }
 
 function adjustColor(hex: string, percent: number): string {
@@ -355,6 +390,7 @@ export default function Home() {
 function generateArticlePage(name: string, _role: string, _bio: string) {
     return `import { getArticleBySlug, getAllArticles } from '../../lib/content';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export async function generateStaticParams() {
     const articles = getAllArticles();
@@ -387,7 +423,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
             </header>
             
             <div className="article-content">
-                <ReactMarkdown>{article.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{article.content}</ReactMarkdown>
             </div>
         </article>
     );

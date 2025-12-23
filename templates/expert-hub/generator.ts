@@ -4,6 +4,7 @@
  */
 
 import { AISiteDecisions, generateAIDecisionCSS } from '@/lib/aiSiteBuilder';
+import { generateAdsTxt } from '@/templates/shared/components/seoFiles';
 
 export interface SiteConfig {
     siteName: string;
@@ -43,7 +44,7 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
                 version: '1.0.0',
                 private: true,
                 scripts: { dev: 'next dev', build: 'next build', start: 'next start' },
-                dependencies: { next: '^14.0.0', react: '^18.2.0', 'react-dom': '^18.2.0', 'gray-matter': '^4.0.3', 'react-markdown': '^9.0.0' },
+                dependencies: { next: '^14.0.0', react: '^18.2.0', 'react-dom': '^18.2.0', 'gray-matter': '^4.0.3', 'react-markdown': '^9.0.0', 'remark-gfm': '^4.0.0' },
                 devDependencies: { typescript: '^5.0.0', '@types/node': '^20.0.0', '@types/react': '^18.2.0', '@types/react-dom': '^18.2.0' }
             }, null, 2)
         },
@@ -139,25 +140,29 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
         {
             path: 'content/.gitkeep',
             content: '# Articles will be pushed here\n'
-        }
+        },
+
+        // ============================================
+        // SEO & ADSENSE COMPLIANCE FILES  
+        // ============================================
+
+        // ads.txt (Required by Google AdSense)
+        ...(adsensePublisherId ? [{
+            path: 'public/ads.txt',
+            content: generateAdsTxt(adsensePublisherId)
+        }] : [])
     ];
 }
 
-function generateGlobalStyles(primary: string, secondary: string): string {
-    return `/* Expert Hub - Clean & Data-Focused */
-:root {
-  --color-primary: ${primary};
-  --color-secondary: ${secondary};
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-text: #334155;
-  --color-heading: #0f172a;
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --max-width: 1024px;
-}
+/**
+ * Generate base CSS - STRUCTURE ONLY
+ * Uses CSS variables for all colors - theme layer defines actual values
+ */
+function generateBaseCSS(): string {
+    return `/* Expert Hub - Base Structure */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-sans); color: var(--color-text); background: var(--color-bg); line-height: 1.7; font-size: 1.05rem; }
+body { font-family: var(--font-sans, 'Inter', system-ui, sans-serif); color: var(--color-text); background: var(--color-bg); line-height: 1.7; font-size: 1.05rem; }
 
 h1, h2, h3, h4, h5, h6 { color: var(--color-heading); font-weight: 700; letter-spacing: -0.01em; }
 h1 { font-size: 3rem; letter-spacing: -0.03em; }
@@ -165,9 +170,9 @@ h1 { font-size: 3rem; letter-spacing: -0.03em; }
 a { color: var(--color-secondary); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
 
-.container { max-width: var(--max-width); margin: 0 auto; padding: 0 1.5rem; }
+.container { max-width: var(--max-width, 1024px); margin: 0 auto; padding: 0 1.5rem; }
 
-.header { background: var(--color-surface); border-bottom: 1px solid #e2e8f0; padding: 1.5rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.header { background: var(--color-surface); border-bottom: 1px solid var(--color-border, #e2e8f0); padding: 1.5rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .header-inner { display: flex; align-items: center; justify-content: space-between; }
 .logo { font-size: 1.5rem; font-weight: 800; color: var(--color-primary); display: flex; align-items: center; gap: 0.5rem; }
 .logo::before { content: ''; width: 24px; height: 24px; background: var(--color-secondary); border-radius: 4px; }
@@ -177,23 +182,52 @@ a:hover { text-decoration: underline; }
 
 .hero { background: var(--color-heading); color: white; padding: 4rem 0; text-align: center; margin-bottom: 2rem; }
 .hero h1 { color: white; margin-bottom: 1rem; }
-.hero p { color: #94a3b8; font-size: 1.25rem; max-width: 600px; margin: 0 auto; }
+.hero p { color: var(--color-hero-text, #94a3b8); font-size: 1.25rem; max-width: 600px; margin: 0 auto; }
 
 .section-title { border-left: 4px solid var(--color-secondary); padding-left: 1rem; margin: 3rem 0 1.5rem; font-size: 1.5rem; }
 
-.card { background: var(--color-surface); border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; }
+.card { background: var(--color-surface); border: 1px solid var(--color-border, #e2e8f0); border-radius: 0.5rem; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; }
 .card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-color: var(--color-secondary); }
 .card h3 { font-size: 1.25rem; margin-bottom: 0.75rem; }
 .card h3 a { color: var(--color-heading); }
 .card h3 a:hover { color: var(--color-secondary); text-decoration: none; }
-.card-meta { font-size: 0.875rem; color: #64748b; margin-top: 1rem; display: flex; gap: 1rem; }
+.card-meta { font-size: 0.875rem; color: var(--color-text-muted, #64748b); margin-top: 1rem; display: flex; gap: 1rem; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 1.5rem; }
 
-.footer { background: white; border-top: 1px solid #e2e8f0; margin-top: 4rem; padding: 3rem 0; font-size: 0.875rem; }
+.footer { background: var(--color-surface); border-top: 1px solid var(--color-border, #e2e8f0); margin-top: 4rem; padding: 3rem 0; font-size: 0.875rem; }
 
 @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
 `;
+}
+
+/**
+ * Generate default theme CSS variables for expert-hub template
+ */
+function generateDefaultThemeCSS(primary: string, secondary: string): string {
+    return `/* Theme Variables */
+:root {
+  --color-primary: ${primary};
+  --color-secondary: ${secondary};
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-text: #334155;
+  --color-text-muted: #64748b;
+  --color-heading: #0f172a;
+  --color-border: #e2e8f0;
+  --color-hero-text: #94a3b8;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --max-width: 1024px;
+}
+`;
+}
+
+/**
+ * Legacy wrapper: combines base CSS + default theme
+ * For backward compatibility with existing deploy flow
+ */
+function generateGlobalStyles(primary: string, secondary: string): string {
+    return generateDefaultThemeCSS(primary, secondary) + generateBaseCSS();
 }
 
 function generateLayoutComponent(siteName: string, tagline: string, adsensePublisherId?: string, umamiId?: string): string {
@@ -281,6 +315,7 @@ export default function Home() {
 function generateArticlePage(name: string, role: string, bio: string) {
     return `import { getArticleBySlug, getAllArticles } from '../../lib/content';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export async function generateStaticParams() {
     const articles = getAllArticles();
@@ -310,7 +345,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
                 </div>
             </header>
             <div style={{ fontSize: '1.125rem', maxWidth: '750px' }}>
-                <ReactMarkdown>{article.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{article.content}</ReactMarkdown>
             </div>
             <div style={{ marginTop: '4rem', background: '#f1f5f9', padding: '2rem', borderRadius: '0.5rem' }}>
                 <h4 style={{ marginBottom: '0.5rem' }}>About the Author</h4>

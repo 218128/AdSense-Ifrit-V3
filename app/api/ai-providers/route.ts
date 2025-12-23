@@ -1,54 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-    AIKeyManager,
-    MultiProviderAI,
-    AIProvider,
-    PROVIDERS,
-    getProvidersList
-} from '@/lib/ai/multiProvider';
+    PROVIDER_ADAPTERS,
+    ProviderId
+} from '@/lib/ai/providers';
 
 /**
  * AI Providers API
  * 
  * GET - List all available providers with their info
  * POST - Test/validate an API key for a specific provider
+ * 
+ * Uses new modular provider system directly.
  */
 
 /**
  * GET - List all available AI providers
  */
 export async function GET() {
-    const providers = getProvidersList();
+    const providerIds = Object.keys(PROVIDER_ADAPTERS) as ProviderId[];
+
+    const providers = providerIds.map(id => {
+        const adapter = PROVIDER_ADAPTERS[id];
+        return {
+            id,
+            name: adapter.meta.name,
+            description: adapter.meta.description,
+            signupUrl: adapter.meta.signupUrl,
+            docsUrl: adapter.meta.docsUrl,
+            keyPrefix: adapter.meta.keyPrefix
+        };
+    });
 
     return NextResponse.json({
         success: true,
-        providers: providers.map(p => ({
-            id: Object.keys(PROVIDERS).find(key => PROVIDERS[key as AIProvider] === p),
-            name: p.name,
-            description: p.description,
-            models: p.models,
-            defaultModel: p.defaultModel,
-            rateLimit: {
-                requestsPerMinute: p.rateLimit.requestsPerMinute,
-                requestsPerDay: p.rateLimit.requestsPerDay,
-                cooldownMs: p.rateLimit.cooldownMs
-            },
-            features: p.features,
-            signupUrl: p.signupUrl,
-            pricing: p.pricing
-        })),
+        providers,
         totalProviders: providers.length,
         recommendation: 'Start with Gemini (free) + OpenRouter (many free models) + DeepSeek (very cheap backup)'
     });
 }
 
 interface TestKeyRequest {
-    provider: AIProvider;
+    provider: ProviderId;
     key: string;
 }
 
 /**
  * POST - Test/validate an API key
+ * Returns real models from provider API
  */
 export async function POST(request: NextRequest) {
     try {
@@ -69,46 +67,39 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // Validate provider
-        if (!PROVIDERS[provider]) {
+        // Validate provider exists
+        const adapter = PROVIDER_ADAPTERS[provider];
+        if (!adapter) {
             return NextResponse.json({
                 success: false,
-                error: `Unknown provider: ${provider}. Valid providers: ${Object.keys(PROVIDERS).join(', ')}`
+                error: `Unknown provider: ${provider}. Valid providers: ${Object.keys(PROVIDER_ADAPTERS).join(', ')}`
             }, { status: 400 });
         }
 
-        // Create a temporary key manager and AI instance for testing
-        const keyManager = new AIKeyManager();
-        keyManager.addKey(provider, key, 'test');
-
-        const ai = new MultiProviderAI(keyManager);
-
-        // Test the key
-        const startTime = Date.now();
-        const result = await ai.validateKey(provider, key);
-        const responseTime = Date.now() - startTime;
+        // Test the key using the provider adapter directly
+        const result = await adapter.testKey(key);
 
         if (result.valid) {
             return NextResponse.json({
                 success: true,
                 valid: true,
-                provider: result.provider,
-                models: result.models || [], // List of available models
-                responseTime: result.responseTime,
-                message: `✅ Key is valid! Found ${result.models?.length || 0} models`,
+                provider,
+                models: result.models.map(m => m.id),
+                modelDetails: result.models,
+                responseTime: result.responseTimeMs,
+                message: `✅ Key is valid! Found ${result.models.length} models`,
                 providerInfo: {
-                    name: PROVIDERS[provider].name,
-                    rateLimit: PROVIDERS[provider].rateLimit,
-                    features: PROVIDERS[provider].features
+                    name: adapter.meta.name,
+                    description: adapter.meta.description,
+                    docsUrl: adapter.meta.docsUrl
                 }
             });
         } else {
             return NextResponse.json({
                 success: false,
                 valid: false,
-                provider: result.provider,
+                provider,
                 error: result.error,
-                responseTime,
                 message: `❌ Key validation failed: ${result.error}`,
                 troubleshooting: getTroubleshootingTips(provider, result.error || '')
             });
@@ -126,12 +117,13 @@ export async function POST(request: NextRequest) {
 /**
  * Get troubleshooting tips based on error
  */
-function getTroubleshootingTips(provider: AIProvider, error: string): string[] {
+function getTroubleshootingTips(provider: ProviderId, error: string): string[] {
     const tips: string[] = [];
+    const adapter = PROVIDER_ADAPTERS[provider];
 
     // Common tips
     tips.push('Double-check that you copied the entire API key');
-    tips.push(`Get a new key from ${PROVIDERS[provider].signupUrl}`);
+    tips.push(`Get a new key from ${adapter.meta.signupUrl}`);
 
     // Provider-specific tips
     if (provider === 'gemini') {
@@ -152,6 +144,12 @@ function getTroubleshootingTips(provider: AIProvider, error: string): string[] {
 
     if (provider === 'perplexity') {
         tips.push('Perplexity API requires Pro subscription ($20/month)');
+        tips.push('API keys must start with "pplx-"');
+    }
+
+    if (provider === 'deepseek') {
+        tips.push('DeepSeek requires account credits');
+        tips.push('Check your balance at platform.deepseek.com');
     }
 
     return tips;

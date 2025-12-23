@@ -6,33 +6,34 @@ import {
     DollarSign,
     Loader2,
     RefreshCw,
-    Flame,
     Crown,
     CheckCircle,
     Upload,
-    ExternalLink,
-    AlertTriangle,
     Trash2,
     Zap,
     TreePine,
-    Bug,
     X,
     Plus,
     Info,
     History,
     Clock,
     ArrowRight,
-    Globe
+    Globe,
+    Sparkles  // AI Discovery icon
 } from 'lucide-react';
 import { analyzeCPC, CPCAnalysis } from '@/lib/modules/cpcIntelligence';
+import { discoverKeywords, discoverKeywordsWithSearch, KeywordDiscoveryResult } from '@/lib/ai/keywordDiscovery';
+import { isBraveSearchAvailable } from '@/lib/mcp/client';
 
 // ============ TYPES ============
 
 interface KeywordItem {
     keyword: string;
-    source: 'csv' | 'live' | 'evergreen';
+    source: 'csv' | 'live' | 'evergreen' | 'ai';  // Added 'ai' source
     niche?: string;
     context?: string;
+    difficulty?: string;  // From AI discovery
+    searchVolume?: string; // From AI discovery
 }
 
 interface AnalyzedKeyword extends KeywordItem {
@@ -51,13 +52,7 @@ interface KeywordHunterProps {
     disabled?: boolean;
 }
 
-interface LiveTrendsState {
-    status: 'idle' | 'loading' | 'success' | 'error';
-    keywords: KeywordItem[];
-    error?: string;
-    debugInfo?: string;
-    needsCaptcha?: boolean;
-}
+// LiveTrendsState removed - using TrendScanner component instead
 
 // ============ HIGH-CPC EVERGREEN KEYWORDS ============
 
@@ -83,12 +78,7 @@ export default function KeywordHunter({ onSelect, onNavigateToDomains, disabled 
     const [csvFileName, setCsvFileName] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Live Trends State
-    const [liveTrends, setLiveTrends] = useState<LiveTrendsState>({
-        status: 'idle',
-        keywords: []
-    });
-    const [showDebug, setShowDebug] = useState(false);
+    // Note: Live Trends UI removed - use TrendScanner component instead
 
     // Selection & Analysis State
     const [selectedKeywords, setSelectedKeywords] = useState<KeywordItem[]>([]);
@@ -99,6 +89,30 @@ export default function KeywordHunter({ onSelect, onNavigateToDomains, disabled 
     const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryItem[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+
+    // AI Discovery State (NEW - 4th Column)
+    const [aiKeywords, setAiKeywords] = useState<KeywordItem[]>([]);
+    const [aiNicheInput, setAiNicheInput] = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
+    const [aiGeminiKey, setAiGeminiKey] = useState<string | null>(null);
+    const [aiService, setAiService] = useState<'auto' | 'gemini' | 'brave'>('auto');
+    const [aiStatusLog, setAiStatusLog] = useState<string[]>([]);
+
+    // Load Gemini API key on mount
+    useEffect(() => {
+        const stored = localStorage.getItem('ifrit_gemini_keys');
+        if (stored) {
+            try {
+                const keys = JSON.parse(stored);
+                if (keys.length > 0) {
+                    setAiGeminiKey(keys[0].key);
+                }
+            } catch {
+                // Ignore
+            }
+        }
+    }, []);
 
     // Load history on mount
     useEffect(() => {
@@ -165,48 +179,117 @@ export default function KeywordHunter({ onSelect, onNavigateToDomains, disabled 
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    // ============ LIVE TRENDS SCRAPING ============
+    // ============ AI KEYWORD DISCOVERY (NEW) ============
 
-    const fetchLiveTrends = async () => {
-        setLiveTrends({ status: 'loading', keywords: [] });
+    const addLog = (message: string) => {
+        const timestamp = new Date().toLocaleTimeString();
+        setAiStatusLog(prev => [...prev, `[${timestamp}] ${message}`]);
+    };
+
+    const fetchAIKeywords = async () => {
+        // Reset state
+        setAiStatusLog([]);
+        setAiKeywords([]);
+        setAiError(null);
+
+        addLog('🚀 Starting keyword discovery...');
+
+        if (!aiGeminiKey) {
+            addLog('❌ No Gemini API key found');
+            setAiError('Please configure a Gemini API key in Settings first');
+            return;
+        }
+        addLog('✅ Gemini API key found');
+
+        if (!aiNicheInput.trim()) {
+            addLog('❌ No topic entered');
+            setAiError('Please enter a niche or topic');
+            return;
+        }
+        addLog(`📌 Topic: "${aiNicheInput}"`);
+
+        setAiLoading(true);
 
         try {
-            const res = await fetch('/api/scan-trends');
-            const data = await res.json();
+            // Determine which service to use
+            const braveAvailable = isBraveSearchAvailable();
+            addLog(`🔍 Brave Search available: ${braveAvailable ? 'Yes' : 'No'}`);
 
-            if (data.hasLiveTrends && data.liveTraends?.length > 0) {
-                setLiveTrends({
-                    status: 'success',
-                    keywords: data.liveTraends.map((t: { topic: string; context: string; niche: string }) => ({
-                        keyword: t.topic,
-                        source: 'live' as const,
-                        niche: t.niche,
-                        context: t.context
-                    })),
-                    debugInfo: JSON.stringify(data, null, 2)
-                });
+            let useBrave = false;
+            if (aiService === 'auto') {
+                useBrave = braveAvailable;
+                addLog(`⚙️ Auto mode: ${useBrave ? 'Using Brave + AI' : 'Using AI-only (Gemini)'}`);
+            } else if (aiService === 'brave') {
+                if (!braveAvailable) {
+                    addLog('⚠️ Brave selected but not available, falling back to Gemini');
+                    useBrave = false;
+                } else {
+                    useBrave = true;
+                    addLog('⚙️ Manual mode: Using Brave + AI');
+                }
             } else {
-                setLiveTrends({
-                    status: 'error',
-                    keywords: [],
-                    error: 'No live trends available',
-                    needsCaptcha: data.needsCaptcha || true,
-                    debugInfo: JSON.stringify(data, null, 2)
+                addLog('⚙️ Manual mode: Using AI-only (Gemini)');
+            }
+
+            let result: import('@/lib/ai/keywordDiscovery').KeywordDiscoveryResult;
+
+            if (useBrave) {
+                addLog('🌐 Step 1: Calling Brave web search...');
+                result = await discoverKeywordsWithSearch(aiGeminiKey, {
+                    topic: aiNicheInput,
+                    niche: aiNicheInput,
+                    maxKeywords: 10
+                });
+
+                if (result.source === 'ai') {
+                    addLog('⚠️ Brave search failed, fell back to AI-only');
+                } else {
+                    addLog('✅ Brave search completed successfully');
+                }
+            } else {
+                addLog('🤖 Calling Gemini AI for keyword analysis...');
+                result = await discoverKeywords(aiGeminiKey, {
+                    topic: aiNicheInput,
+                    niche: aiNicheInput,
+                    maxKeywords: 10
                 });
             }
+
+            if (result.success && result.keywords.length > 0) {
+                addLog(`✅ Found ${result.keywords.length} keywords!`);
+                addLog(`📊 Source: ${result.source === 'ai+search' ? 'Web + AI enhanced' : 'AI-only'}`);
+
+                const keywords: KeywordItem[] = result.keywords.map(kw => ({
+                    keyword: kw.keyword,
+                    source: 'ai' as const,
+                    niche: aiNicheInput,
+                    context: `${result.source === 'ai+search' ? '🔍 Web-enhanced: ' : '🤖 AI-discovered: '}${kw.intent || 'informational'} intent`,
+                    difficulty: kw.difficulty,
+                    searchVolume: kw.searchVolume
+                }));
+                setAiKeywords(keywords);
+                addLog('🎉 Discovery complete!');
+            } else {
+                addLog(`❌ Failed: ${result.error || 'No keywords found'}`);
+                setAiError(result.error || 'No keywords found');
+            }
         } catch (error) {
-            setLiveTrends({
-                status: 'error',
-                keywords: [],
-                error: error instanceof Error ? error.message : 'Failed to fetch',
-                needsCaptcha: true
-            });
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            addLog(`💥 Error: ${errorMsg}`);
+            setAiError(errorMsg);
+        } finally {
+            setAiLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchLiveTrends();
-    }, []);
+    const clearAIKeywords = () => {
+        setAiKeywords([]);
+        setAiNicheInput('');
+        setAiError(null);
+        setAiStatusLog([]);
+    };
+
+    // Note: fetchLiveTrends removed - use TrendScanner component instead
 
     // ============ SELECTION ============
 
@@ -282,7 +365,8 @@ export default function KeywordHunter({ onSelect, onNavigateToDomains, disabled 
             const sourceMap: Record<string, 'live' | 'fallback' | 'csv_import'> = {
                 'csv': 'csv_import',
                 'live': 'live',
-                'evergreen': 'fallback'
+                'evergreen': 'fallback',
+                'ai': 'live'  // AI-discovered keywords treated as live
             };
 
             onSelect({
@@ -311,6 +395,8 @@ export default function KeywordHunter({ onSelect, onNavigateToDomains, disabled 
                 return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">🔴 Live</span>;
             case 'evergreen':
                 return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">🌲 Evergreen</span>;
+            case 'ai':
+                return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">✨ AI</span>;
         }
     };
 
@@ -427,8 +513,8 @@ export default function KeywordHunter({ onSelect, onNavigateToDomains, disabled 
                 </div>
             )}
 
-            {/* 3-Column Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* 4-Column Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
 
                 {/* Column 1: CSV Import */}
                 <div className="bg-purple-50/50 border border-purple-200 rounded-xl p-4">
@@ -489,102 +575,7 @@ export default function KeywordHunter({ onSelect, onNavigateToDomains, disabled 
                     )}
                 </div>
 
-                {/* Column 2: Live Trends */}
-                <div className="bg-red-50/50 border border-red-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Flame className="w-5 h-5 text-red-600" />
-                        <span className="font-semibold text-sm text-red-800">Live Trends</span>
-                        <div className="ml-auto flex items-center gap-2">
-                            <button
-                                onClick={() => setShowDebug(!showDebug)}
-                                className={`p-1 rounded ${showDebug ? 'bg-red-200' : 'hover:bg-red-100'}`}
-                                title="Toggle debug info"
-                            >
-                                <Bug className="w-3 h-3 text-red-500" />
-                            </button>
-                            <button
-                                onClick={fetchLiveTrends}
-                                disabled={liveTrends.status === 'loading'}
-                                className="p-1 hover:bg-red-100 rounded"
-                            >
-                                <RefreshCw className={`w-3 h-3 text-red-500 ${liveTrends.status === 'loading' ? 'animate-spin' : ''}`} />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Status Indicator */}
-                    <div className="flex items-center gap-2 mb-2 text-xs">
-                        {liveTrends.status === 'loading' && (
-                            <span className="text-blue-600">⏳ Scraping Google Trends...</span>
-                        )}
-                        {liveTrends.status === 'success' && (
-                            <span className="text-green-600">🟢 {liveTrends.keywords.length} trends found</span>
-                        )}
-                        {liveTrends.status === 'error' && (
-                            <span className="text-red-600">🔴 {liveTrends.error}</span>
-                        )}
-                    </div>
-
-                    {/* Debug Info */}
-                    {showDebug && liveTrends.debugInfo && (
-                        <pre className="text-xs bg-black text-green-400 p-2 rounded mb-2 max-h-32 overflow-auto">
-                            {liveTrends.debugInfo}
-                        </pre>
-                    )}
-
-                    {/* Captcha Warning */}
-                    {liveTrends.needsCaptcha && liveTrends.status === 'error' && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs">
-                            <div className="flex items-start gap-2">
-                                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                                <div>
-                                    <p className="text-amber-700 font-medium">Google may be blocking</p>
-                                    <a
-                                        href="https://trends.google.com/trending?geo=US"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-amber-600 underline flex items-center gap-1"
-                                    >
-                                        Open Google Trends <ExternalLink className="w-3 h-3" />
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Keywords List */}
-                    {liveTrends.status === 'loading' ? (
-                        <div className="flex items-center justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-red-400" />
-                        </div>
-                    ) : liveTrends.keywords.length > 0 ? (
-                        <div className="max-h-48 overflow-y-auto space-y-1">
-                            {liveTrends.keywords.map((kw, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => toggleSelect(kw)}
-                                    disabled={disabled}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${isSelected(kw.keyword)
-                                        ? 'bg-red-200 border-2 border-red-400'
-                                        : 'bg-white border border-red-100 hover:border-red-300'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        {isSelected(kw.keyword) && <CheckCircle className="w-4 h-4 text-red-600" />}
-                                        <span className="line-clamp-1">{kw.keyword}</span>
-                                    </div>
-                                    {kw.niche && <span className="text-xs text-red-400">{kw.niche}</span>}
-                                </button>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-6 text-sm text-red-400">
-                            No live trends available
-                        </div>
-                    )}
-                </div>
-
-                {/* Column 3: Evergreen Keywords */}
+                {/* Column 2: Evergreen Keywords (was Column 3) */}
                 <div className="bg-green-50/50 border border-green-200 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3">
                         <TreePine className="w-5 h-5 text-green-600" />
@@ -611,6 +602,151 @@ export default function KeywordHunter({ onSelect, onNavigateToDomains, disabled 
                             </button>
                         ))}
                     </div>
+                </div>
+
+                {/* Column 4: AI Discovery (NEW) */}
+                <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Sparkles className="w-5 h-5 text-blue-600" />
+                        <span className="font-semibold text-sm text-blue-800">AI Discovery</span>
+                        <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded ml-auto">MUST</span>
+                    </div>
+
+                    {/* Service Selector */}
+                    <div className="mb-3">
+                        <label className="block text-xs text-blue-600 mb-1">Discovery Service</label>
+                        <select
+                            value={aiService}
+                            onChange={(e) => setAiService(e.target.value as 'auto' | 'gemini' | 'brave')}
+                            className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="auto">🤖 Auto (Best Available)</option>
+                            <option value="gemini">🧠 Gemini AI Only</option>
+                            <option value="brave">🌐 Brave Search + AI</option>
+                        </select>
+                        <p className="text-xs text-blue-400 mt-1">
+                            {aiService === 'auto' && 'Uses Brave if available, otherwise Gemini'}
+                            {aiService === 'gemini' && 'Uses Gemini AI for keyword suggestions'}
+                            {aiService === 'brave' && 'Searches the web first, then analyzes with AI'}
+                        </p>
+                    </div>
+
+                    {/* Niche Input */}
+                    <div className="mb-3">
+                        <input
+                            type="text"
+                            value={aiNicheInput}
+                            onChange={(e) => setAiNicheInput(e.target.value)}
+                            placeholder="Enter niche or topic..."
+                            className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onKeyDown={(e) => e.key === 'Enter' && fetchAIKeywords()}
+                        />
+                    </div>
+
+                    {/* Discover Button */}
+                    <button
+                        onClick={fetchAIKeywords}
+                        disabled={aiLoading || !aiGeminiKey}
+                        className={`w-full px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors mb-3 ${aiLoading || !aiGeminiKey
+                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                    >
+                        {aiLoading ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Discovering...
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles className="w-4 h-4" />
+                                Discover Keywords
+                            </>
+                        )}
+                    </button>
+
+                    {/* Status Log Panel */}
+                    {aiStatusLog.length > 0 && (
+                        <div className="mb-3 bg-slate-900 rounded-lg p-2 max-h-32 overflow-y-auto font-mono text-xs">
+                            {aiStatusLog.map((log, i) => (
+                                <div key={i} className={`${log.includes('❌') || log.includes('💥') ? 'text-red-400' :
+                                    log.includes('⚠️') ? 'text-yellow-400' :
+                                        log.includes('✅') || log.includes('🎉') ? 'text-green-400' :
+                                            'text-slate-300'
+                                    }`}>
+                                    {log}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* No API Key Warning */}
+                    {!aiGeminiKey && (
+                        <div className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2 mb-2">
+                            ⚠️ Configure Gemini API key in Settings
+                        </div>
+                    )}
+
+                    {/* Error */}
+                    {aiError && (
+                        <div className="text-xs text-red-600 bg-red-50 rounded-lg p-2 mb-2">
+                            {aiError}
+                        </div>
+                    )}
+
+                    {/* Results */}
+                    {aiKeywords.length > 0 ? (
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs text-blue-600 mb-2">
+                                <span>✨ {aiKeywords.length} AI keywords</span>
+                                <button onClick={clearAIKeywords} className="hover:text-blue-800">
+                                    <Trash2 className="w-3 h-3" />
+                                </button>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto space-y-1">
+                                {aiKeywords.map((kw, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => toggleSelect(kw)}
+                                        disabled={disabled}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${isSelected(kw.keyword)
+                                            ? 'bg-blue-200 border-2 border-blue-400'
+                                            : 'bg-white border border-blue-100 hover:border-blue-300'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {isSelected(kw.keyword) && <CheckCircle className="w-4 h-4 text-blue-600" />}
+                                            <span className="line-clamp-1">{kw.keyword}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            {kw.context && (
+                                                <span className="text-xs text-blue-500">
+                                                    {kw.context.substring(0, 30)}...
+                                                </span>
+                                            )}
+                                            {kw.difficulty && (
+                                                <span className={`text-xs px-1 rounded ${kw.difficulty === 'easy' ? 'bg-green-100 text-green-600' :
+                                                    kw.difficulty === 'medium' ? 'bg-amber-100 text-amber-600' :
+                                                        'bg-red-100 text-red-600'
+                                                    }`}>
+                                                    {kw.difficulty}
+                                                </span>
+                                            )}
+                                            {kw.searchVolume && (
+                                                <span className="text-xs text-blue-500">
+                                                    {kw.searchVolume} vol
+                                                </span>
+                                            )}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : !aiLoading && (
+                        <div className="text-center py-4 text-sm text-blue-400">
+                            Enter a niche to discover keywords
+                        </div>
+                    )}
                 </div>
             </div>
 

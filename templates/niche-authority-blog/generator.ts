@@ -90,7 +90,8 @@ export function generateTemplateFiles(repoName: string, config?: Partial<SiteCon
                     react: '^18.2.0',
                     'react-dom': '^18.2.0',
                     'gray-matter': '^4.0.3',
-                    'react-markdown': '^9.0.0'
+                    'react-markdown': '^9.0.0',
+                    'remark-gfm': '^4.0.0'
                 },
                 devDependencies: {
                     typescript: '^5.0.0',
@@ -273,27 +274,28 @@ module.exports = nextConfig;
     ];
 }
 
-function generateGlobalStyles(primary: string, secondary: string): string {
-    return `/* Niche Authority Blog - Professional Design System */
+/**
+ * Generate BASE CSS (structure only)
+ * Uses var(--color-*) placeholders - no hardcoded colors
+ * Colors come from theme layer (themeGenerator.ts)
+ */
+function generateBaseCSS(): string {
+    return `/* Niche Authority Blog - Base Structure */
+/* Colors and fonts are defined in theme layer */
+
+/* Structural Variables (not colors) */
 :root {
-  --color-primary: ${primary};
-  --color-primary-dark: ${adjustColor(primary, -20)};
-  --color-secondary: ${secondary};
-  --color-bg: #ffffff;
-  --color-bg-alt: #f8fafc;
-  --color-text: #1f2937;
-  --color-text-muted: #6b7280;
-  --color-border: #e5e7eb;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --max-width: 1200px;
   --content-width: 720px;
 }
 
+/* Base Reset */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
-body { font-family: var(--font-sans); color: var(--color-text); background: var(--color-bg); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font-body, var(--font-sans)); color: var(--color-text); background: var(--color-bg); line-height: 1.6; -webkit-font-smoothing: antialiased; }
 
-h1, h2, h3, h4, h5, h6 { font-weight: 700; line-height: 1.25; }
+/* Typography Structure */
+h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading, var(--font-body)); font-weight: 700; line-height: 1.25; }
 h1 { font-size: 2.5rem; }
 h2 { font-size: 1.875rem; }
 h3 { font-size: 1.5rem; }
@@ -301,27 +303,28 @@ h3 { font-size: 1.5rem; }
 a { color: var(--color-primary); text-decoration: none; }
 a:hover { color: var(--color-primary-dark); }
 
+/* Layout Containers */
 .container { max-width: var(--max-width); margin: 0 auto; padding: 0 1.5rem; }
 .content-wrapper { max-width: var(--content-width); margin: 0 auto; }
 
-/* Header */
+/* Header Structure */
 .header { position: sticky; top: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); border-bottom: 1px solid var(--color-border); z-index: 100; }
 .header-inner { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; max-width: var(--max-width); margin: 0 auto; }
 .logo { display: flex; align-items: center; gap: 0.5rem; font-size: 1.5rem; font-weight: 800; color: var(--color-text); }
-.logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+.logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)); border-radius: var(--radius, 0.5rem); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
 .nav { display: flex; gap: 1.5rem; }
 .nav a { color: var(--color-text-muted); font-weight: 500; }
 .nav a:hover { color: var(--color-primary); }
 
-/* Hero */
+/* Hero Section Structure */
 .hero { background: linear-gradient(135deg, var(--color-bg-alt), var(--color-bg)); padding: 4rem 1.5rem; text-align: center; }
 .hero h1 { font-size: 3rem; margin-bottom: 1rem; background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .hero-tagline { font-size: 1.25rem; color: var(--color-text-muted); max-width: 600px; margin: 0 auto 2rem; }
 
-/* Article Cards */
+/* Article Cards Grid */
 .articles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2rem; padding: 2rem 0; }
-.article-card { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 0.75rem; overflow: hidden; transition: all 0.3s; }
-.article-card:hover { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transform: translateY(-4px); }
+.article-card { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius, 0.75rem); overflow: hidden; transition: var(--transition, all 0.3s); }
+.article-card:hover { box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0,0,0,0.1)); transform: translateY(-4px); }
 .article-card-image { aspect-ratio: 16/9; background: var(--color-bg-alt); display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: 3rem; }
 .article-card-content { padding: 1.5rem; }
 .article-card-category { display: inline-block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--color-primary); margin-bottom: 0.5rem; }
@@ -330,7 +333,7 @@ a:hover { color: var(--color-primary-dark); }
 .article-card h3 a:hover { color: var(--color-primary); }
 .article-card-meta { display: flex; gap: 1rem; font-size: 0.875rem; color: var(--color-text-muted); }
 
-/* Article Page */
+/* Article Page Structure */
 .article { padding: 3rem 1.5rem; }
 .article-header { text-align: center; margin-bottom: 3rem; max-width: var(--content-width); margin-left: auto; margin-right: auto; }
 .article-header h1 { font-size: 2.5rem; margin-bottom: 1.5rem; }
@@ -350,13 +353,13 @@ a:hover { color: var(--color-primary-dark); }
 .article-content th { background: var(--color-bg-alt); font-weight: 600; }
 
 /* Author Box */
-.author-box { background: var(--color-bg-alt); border-radius: 0.75rem; padding: 2rem; margin-top: 3rem; display: flex; gap: 1.5rem; }
+.author-box { background: var(--color-bg-alt); border-radius: var(--radius, 0.75rem); padding: 2rem; margin-top: 3rem; display: flex; gap: 1.5rem; }
 .author-box-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold; flex-shrink: 0; }
 .author-box-content h4 { margin-bottom: 0.25rem; }
 .author-box-role { color: var(--color-primary); font-weight: 500; font-size: 0.875rem; margin-bottom: 0.5rem; }
 .author-box-bio { color: var(--color-text-muted); font-size: 0.9375rem; }
 
-/* Footer */
+/* Footer Structure */
 .footer { background: var(--color-bg-alt); border-top: 1px solid var(--color-border); padding: 3rem 1.5rem; margin-top: 4rem; }
 .footer-inner { max-width: var(--max-width); margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; }
 .footer-section h5 { margin-bottom: 1rem; }
@@ -399,6 +402,34 @@ a:hover { color: var(--color-primary-dark); }
   .author-box-avatar { margin: 0 auto; }
 }
 `;
+}
+
+// Legacy function - now combines base + default theme
+// Kept for backwards compatibility
+function generateGlobalStyles(primary: string, secondary: string): string {
+    // Default theme CSS with provided colors
+    const themeCSS = `
+/* Theme Layer */
+:root {
+  --color-primary: ${primary};
+  --color-primary-dark: ${adjustColor(primary, -20)};
+  --color-secondary: ${secondary};
+  --color-bg: #ffffff;
+  --color-bg-alt: #f8fafc;
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --radius: 0.75rem;
+  --transition: all 0.3s ease;
+}
+`;
+    return themeCSS + '\n' + generateBaseCSS();
 }
 
 /**
@@ -585,6 +616,7 @@ function generateArticlePage(authorName: string, authorRole: string, authorBio: 
 
     return `import { getArticleBySlug, getAllArticles } from '../../lib/content';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export async function generateStaticParams() {
     const articles = getAllArticles();
@@ -664,7 +696,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
             </div>
             
             <div className="article-content">
-                <ReactMarkdown>{article.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{article.content}</ReactMarkdown>
             </div>
             
             {/* Social Share */}

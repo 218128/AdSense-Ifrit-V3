@@ -33,7 +33,8 @@ import {
     Cpu,
     Sparkles,
     RotateCcw,
-    Rocket
+    Rocket,
+    Palette
 } from 'lucide-react';
 import BuildingProgress from './BuildingProgress';
 import GenerateArticleModal from './GenerateArticleModal';
@@ -49,6 +50,7 @@ import PagesTab from './PagesTab';
 import BatchOperationsPanel from './BatchOperationsPanel';
 import ImageGallery from './ImageGallery';
 import SiteDecisionsPanel from './SiteDecisionsPanel';
+import ThemeEditor from './ThemeEditor';
 
 // Types from websiteStore
 interface Website {
@@ -130,7 +132,7 @@ interface WebsiteDetailProps {
     onBack: () => void;
 }
 
-type TabId = 'overview' | 'content' | 'pages' | 'versions' | 'upgrades' | 'ai' | 'settings';
+type TabId = 'overview' | 'content' | 'pages' | 'theme' | 'versions' | 'upgrades' | 'ai' | 'settings';
 
 export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
     const [activeTab, setActiveTab] = useState<TabId>('overview');
@@ -140,6 +142,7 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
     const [error, setError] = useState<string | null>(null);
     const [deploying, setDeploying] = useState(false);
     const [deployMessage, setDeployMessage] = useState<string | null>(null);
+    const [showGenerateModal, setShowGenerateModal] = useState(false);
 
     // Fetch website data
     const fetchWebsite = useCallback(async () => {
@@ -210,6 +213,7 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
         { id: 'overview', label: 'Overview', icon: <Globe className="w-4 h-4" /> },
         { id: 'content', label: 'Content', icon: <FileText className="w-4 h-4" /> },
         { id: 'pages', label: 'Pages', icon: <FileText className="w-4 h-4" /> },
+        { id: 'theme', label: 'Theme', icon: <Palette className="w-4 h-4" /> },
         { id: 'versions', label: 'Versions', icon: <History className="w-4 h-4" /> },
         { id: 'upgrades', label: 'Upgrades', icon: <ArrowUpCircle className="w-4 h-4" /> },
         { id: 'ai', label: 'AI Config', icon: <Sparkles className="w-4 h-4" /> },
@@ -344,7 +348,14 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                 )}
 
                 {activeTab === 'overview' && (
-                    <OverviewTab website={website} />
+                    <OverviewTab
+                        website={website}
+                        onDeploy={handleDeploy}
+                        deploying={deploying}
+                        onNewArticle={() => setShowGenerateModal(true)}
+                        onEditTheme={() => setActiveTab('theme')}
+                        onEditPages={() => setActiveTab('pages')}
+                    />
                 )}
                 {activeTab === 'content' && (
                     <ContentTab
@@ -356,6 +367,12 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                 )}
                 {activeTab === 'pages' && (
                     <PagesTab
+                        domain={domain}
+                        onRefresh={fetchWebsite}
+                    />
+                )}
+                {activeTab === 'theme' && (
+                    <ThemeEditor
                         domain={domain}
                         onRefresh={fetchWebsite}
                     />
@@ -382,6 +399,19 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                     <SettingsTab website={website} />
                 )}
             </div>
+
+            {/* Generate Article Modal (accessible from any tab via quick actions) */}
+            {showGenerateModal && (
+                <GenerateArticleModal
+                    domain={domain}
+                    niche={website?.niche || ''}
+                    onClose={() => setShowGenerateModal(false)}
+                    onGenerated={() => {
+                        setShowGenerateModal(false);
+                        fetchWebsite();
+                    }}
+                />
+            )}
         </div>
     );
 }
@@ -413,11 +443,113 @@ function StatusBadge({ status }: { status: string }) {
 // OVERVIEW TAB
 // ============================================
 
-function OverviewTab({ website }: { website: Website }) {
+function OverviewTab({
+    website,
+    onDeploy,
+    deploying,
+    onNewArticle,
+    onEditTheme,
+    onEditPages
+}: {
+    website: Website;
+    onDeploy: () => void;
+    deploying: boolean;
+    onNewArticle: () => void;
+    onEditTheme: () => void;
+    onEditPages: () => void;
+}) {
     const formatDate = (ts: number) => new Date(ts).toLocaleDateString();
+    const [pendingChanges, setPendingChanges] = useState<{
+        hasChanges: boolean;
+        theme: boolean;
+        articles: string[];
+        pages: string[];
+        plugins: boolean;
+        summary: Record<string, string | null>;
+    } | null>(null);
+
+    // Fetch pending changes on mount
+    useEffect(() => {
+        fetch(`/api/websites/${website.domain}/deploy`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    setPendingChanges(data.pendingChanges);
+                }
+            })
+            .catch(console.error);
+    }, [website.domain]);
+
+    // Build pending items list
+    const pendingItems = pendingChanges ? [
+        pendingChanges.summary.articlesLabel,
+        pendingChanges.summary.pagesLabel,
+        pendingChanges.summary.themeLabel,
+        pendingChanges.summary.pluginsLabel
+    ].filter(Boolean) : [];
 
     return (
         <div className="space-y-6">
+            {/* Quick Actions Bar */}
+            <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-indigo-900">Quick Actions</h3>
+                    {pendingItems.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {pendingItems.map((item, i) => (
+                                <span key={i} className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                                    {item}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                    <button
+                        onClick={onNewArticle}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors text-sm font-medium"
+                    >
+                        <FileText className="w-4 h-4 text-indigo-600" />
+                        New Article
+                    </button>
+                    <button
+                        onClick={onDeploy}
+                        disabled={deploying}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
+                    >
+                        {deploying ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Rocket className="w-4 h-4" />
+                        )}
+                        {deploying ? 'Deploying...' : pendingItems.length > 0 ? `Deploy (${pendingItems.length})` : 'Deploy'}
+                    </button>
+                    <a
+                        href={website.deployment.liveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors text-sm font-medium"
+                    >
+                        <ExternalLink className="w-4 h-4 text-indigo-600" />
+                        View Live Site
+                    </a>
+                    <button
+                        onClick={onEditTheme}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors text-sm font-medium"
+                    >
+                        <Palette className="w-4 h-4 text-purple-600" />
+                        Edit Theme
+                    </button>
+                    <button
+                        onClick={onEditPages}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors text-sm font-medium"
+                    >
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        Add Page
+                    </button>
+                </div>
+            </div>
+
             {/* Stats Grid */}
             <div className="grid grid-cols-4 gap-4">
                 <div className="p-4 bg-neutral-50 rounded-xl">

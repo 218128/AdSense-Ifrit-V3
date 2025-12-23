@@ -248,6 +248,10 @@ function calculateCPCScore(keyword: string, classifications: NicheClassification
     if (classifications.length > 0) {
         const cpcScores: Record<CPCLevel, number> = { 'very_high': 40, 'high': 30, 'medium': 20, 'low': 10 };
         score += cpcScores[classifications[0].cpcLevel];
+    } else {
+        // Minimum baseline for trending content (15 points)
+        // Even unclassified trends have some value as fresh content
+        score = 15;
     }
 
     // Bonus for commercial/transactional intent
@@ -270,6 +274,20 @@ function calculateCPCScore(keyword: string, classifications: NicheClassification
     for (const pattern of highValuePatterns) {
         if (keyword.includes(pattern)) {
             score += 5;
+            break;
+        }
+    }
+
+    // Bonus for trending/news indicators (content velocity)
+    const trendingIndicators = [
+        'new', 'latest', 'update', 'release', 'launch', 'announce',
+        '2024', '2025', 'breaking', 'just', 'today', 'first', 'reveals',
+        'ai', 'iphone', 'google', 'apple', 'microsoft', 'amazon', 'tesla',
+        'trump', 'biden', 'election', 'congress', 'law', 'ruling'
+    ];
+    for (const indicator of trendingIndicators) {
+        if (keyword.includes(indicator)) {
+            score += 15;
             break;
         }
     }

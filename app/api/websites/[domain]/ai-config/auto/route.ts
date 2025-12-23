@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDomainProfile } from '@/lib/websiteStore';
 import { generateAISiteBuilderPrompt, DomainProfileForAI, validateAIDecisions, createDecisionRecord, AISiteDecisions } from '@/lib/aiSiteBuilder';
 import { AIKeyManager, MultiProviderAI, PROVIDERS, AIProvider } from '@/lib/ai/multiProvider';
+import { executeGenerationWithAIServices, hasCapabilityHandlers } from '@/lib/ai/serverIntegration';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -13,13 +14,13 @@ interface Params {
 }
 
 /**
- * POST - Auto-generate AI decisions using existing multiProvider system
+ * POST - Auto-generate AI decisions using AIServices (preferred) or multiProvider fallback
  */
 export async function POST(request: NextRequest, { params }: Params): Promise<NextResponse> {
     try {
         const { domain } = await params;
         const body = await request.json();
-        const { apiKeys, preferredProvider } = body;
+        const { apiKeys, preferredProvider, useAIServices = true } = body;
 
         if (!apiKeys || Object.keys(apiKeys).length === 0) {
             return NextResponse.json({
@@ -58,37 +59,69 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
             difficultyScore: profile.difficultyScore || 50,
         };
 
-        // Initialize key manager and AI client
-        const keyManager = new AIKeyManager();
-
-        // Add keys from request to key manager
-        // Map common key names to providers
-        const keyMapping: Record<string, AIProvider> = {
-            'gemini_api_key': 'gemini',
-            'deepseek_api_key': 'deepseek',
-            'openrouter_api_key': 'openrouter',
-            'vercel_api_key': 'vercel',
-            'perplexity_api_key': 'perplexity',
-        };
-
-        for (const [keyName, key] of Object.entries(apiKeys)) {
-            const provider = keyMapping[keyName];
-            if (provider && typeof key === 'string' && key.trim()) {
-                keyManager.addKey(provider, key.trim(), keyName);
-            }
-        }
-
-        const aiClient = new MultiProviderAI(keyManager);
-
         // Generate prompt
         const prompt = generateAISiteBuilderPrompt(aiProfile);
 
-        // Call AI with automatic failover
-        const aiResponse = await aiClient.generateContent(prompt, {
-            maxTokens: 4000,
-            temperature: 0.7,
-            preferredProvider: preferredProvider as AIProvider | undefined,
-        });
+        let aiResponse: { success: boolean; content?: string; error?: string; provider?: string; model?: string } = {
+            success: false,
+            error: 'No AI provider responded'
+        };
+        let usedAIServices = false;
+
+        // Try AIServices first if enabled and has handlers
+        if (useAIServices && hasCapabilityHandlers('generate')) {
+            console.log('[AI-Config] Trying AIServices for generation...');
+            const aiServicesResult = await executeGenerationWithAIServices(prompt, {
+                maxTokens: 4000,
+                temperature: 0.7,
+            });
+
+            if (aiServicesResult.success && aiServicesResult.text) {
+                aiResponse = {
+                    success: true,
+                    content: aiServicesResult.text,
+                    provider: 'aiservices',
+                    model: 'auto',
+                };
+                usedAIServices = true;
+                console.log('[AI-Config] AIServices generation successful');
+            } else {
+                console.log('[AI-Config] AIServices failed, falling back to MultiProviderAI');
+            }
+        }
+
+        // Fallback to direct MultiProviderAI
+        if (!usedAIServices) {
+            // Initialize key manager and AI client
+            const keyManager = new AIKeyManager();
+
+            // Add keys from request to key manager
+            const keyMapping: Record<string, AIProvider> = {
+                'gemini_api_key': 'gemini',
+                'deepseek_api_key': 'deepseek',
+                'openrouter_api_key': 'openrouter',
+                'vercel_api_key': 'vercel',
+                'perplexity_api_key': 'perplexity',
+            };
+
+            for (const [keyName, key] of Object.entries(apiKeys)) {
+                const provider = keyMapping[keyName];
+                if (provider && typeof key === 'string' && key.trim()) {
+                    keyManager.addKey(provider, key.trim(), keyName);
+                }
+            }
+
+            const aiClient = new MultiProviderAI(keyManager);
+
+            // Call AI with automatic failover
+            const result = await aiClient.generateContent(prompt, {
+                maxTokens: 4000,
+                temperature: 0.7,
+                preferredProvider: preferredProvider as AIProvider | undefined,
+            });
+
+            aiResponse = result;
+        }
 
         if (!aiResponse.success) {
             return NextResponse.json({
