@@ -60,20 +60,17 @@ export {
 } from './spamChecker';
 
 // Domain Domination - Expired Domains
+// NOTE: expiredDomains.ts deleted - awaiting proper API/MCP integration
+
+// Domain Domination - Keyword Affinity Matcher
 export {
-    searchExpiredDomains,
-    addToWatchlist,
-    removeFromWatchlist,
-    getWatchlist,
-    checkAvailability,
-    getPurchaseLinks,
-    isExpiredDomainsConfigured,
-    toMetrics,
-    type ExpiredDomain,
-    type SearchFilters,
-    type SearchResult,
-    type ExpiredDomainsConfig,
-} from './expiredDomains';
+    calculateDomainAffinity,
+    matchKeywordsToDomains,
+    getTopAffinityDomains,
+    detectNicheFromKeywords,
+    type AffinityScore,
+    type AffinityResult,
+} from './keywordAffinityMatcher';
 
 // Domain Domination - Email Deliverability
 export {

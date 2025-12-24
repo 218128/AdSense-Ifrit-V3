@@ -31,7 +31,7 @@ import { useHuntStore, AnalyzeCandidate } from '@/stores/huntStore';
 import { TrendScanner, KeywordHunter } from './subtabs/KeywordsNiches';
 
 // Subtab 2: Domain Acquire (Find → Analyze → Purchase)
-import { ExpiredDomainFinder, DomainScorer, PurchaseQueue } from './subtabs/DomainAcquire';
+import { ExpiredDomainFinder, DomainScorer, PurchaseQueue, QuickAnalyzer } from './subtabs/DomainAcquire';
 
 // Subtab 3: Flip Pipeline
 import { FlipPipeline } from './subtabs/FlipPipeline';
@@ -83,6 +83,40 @@ export default function HuntDashboard() {
         domains.forEach(d => addToPurchase(d));
         setDomainStep('purchase');
     }, [addToPurchase]);
+
+    // Handle marking domain as purchased - triggers profile generation
+    const handleMarkAsPurchased = useCallback(async (domainName: string) => {
+        // Find domain data from queue for profile generation
+        const domainData = purchaseQueue.find(d => d.domain === domainName);
+
+        if (domainData) {
+            try {
+                // Trigger profile generation API
+                const response = await fetch('/api/domain-profiles/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        domain: domainName,
+                        spamzillaData: {
+                            domainAuthority: domainData.score,
+                        },
+                        saveProfile: true,
+                    }),
+                });
+
+                if (response.ok) {
+                    console.log(`[Hunt] Profile generated for ${domainName}`);
+                } else {
+                    console.error(`[Hunt] Failed to generate profile for ${domainName}`);
+                }
+            } catch (error) {
+                console.error(`[Hunt] Error generating profile:`, error);
+            }
+        }
+
+        // Always mark as purchased (removes from queue)
+        markAsPurchased(domainName);
+    }, [purchaseQueue, markAsPurchased]);
 
     // Step badges showing queue counts
     const getStepBadge = (step: DomainStep) => {
@@ -302,7 +336,7 @@ export default function HuntDashboard() {
                                     queue={purchaseQueue}
                                     onRemove={removeFromPurchase}
                                     onClear={clearPurchaseQueue}
-                                    onMarkPurchased={markAsPurchased}
+                                    onMarkPurchased={handleMarkAsPurchased}
                                 />
                             )}
                         </div>
@@ -318,6 +352,11 @@ export default function HuntDashboard() {
                                 <span className="text-xs text-amber-500">Manage renewals at-cost via Cloudflare</span>
                             </div>
                             <CloudflareManager />
+                        </div>
+
+                        {/* Quick Domain Analyzer Utility */}
+                        <div className="mx-6 mb-6">
+                            <QuickAnalyzer />
                         </div>
                     </div>
                 )}

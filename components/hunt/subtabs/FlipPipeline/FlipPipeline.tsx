@@ -7,7 +7,7 @@
  * Features: project creation, stage tracking, ROI calculation, valuation.
  * Now with educational guidance and watchlist integration!
  * 
- * REFACTORED: Extracted StatCard, ProjectCard, ProjectForm, flipUtils into separate files.
+ * REFACTORED: Uses Zustand store (flipStore) for state management.
  */
 
 import { useState, useEffect } from 'react';
@@ -26,11 +26,14 @@ import {
 } from 'lucide-react';
 import { DataSourceBanner } from '../shared';
 
+// Zustand store
+import { useFlipStore } from '@/stores/flipStore';
+import { useHuntStore } from '@/stores/huntStore';
+
 // Extracted components
 import { StatCard } from './StatCard';
 import { ProjectCard } from './ProjectCard';
 import { ProjectForm } from './ProjectForm';
-import { calculateStats } from './flipUtils';
 
 // Types
 import type { FlipProject, FlipStage } from '@/lib/flip/types';
@@ -52,30 +55,28 @@ const STAGES: { id: FlipStage; label: string; icon: React.ReactNode; color: stri
     { id: 'sold', label: 'Sold', icon: <Banknote className="w-4 h-4" />, color: 'green', guidance: 'Sale complete! Track your ROI.' },
 ];
 
-const STORAGE_KEY = 'ifrit_flip_projects';
 const WATCHLIST_KEY = 'ifrit_domain_watchlist';
 
 // ============ COMPONENT ============
 
 export default function FlipPipeline() {
-    const [projects, setProjects] = useState<FlipProject[]>([]);
+    // Zustand store for projects
+    const {
+        projects,
+        addProject,
+        updateProject,
+        deleteProject,
+        moveToStage,
+        getStats,
+    } = useFlipStore();
     const [showForm, setShowForm] = useState(false);
     const [editingProject, setEditingProject] = useState<FlipProject | null>(null);
     const [showGuide, setShowGuide] = useState(true);
     const [watchlist, setWatchlist] = useState<WatchlistDomain[]>([]);
     const [showWatchlistImport, setShowWatchlistImport] = useState(false);
 
-    // Load projects and watchlist on mount
+    // Load watchlist on mount
     useEffect(() => {
-        const savedProjects = localStorage.getItem(STORAGE_KEY);
-        if (savedProjects) {
-            try {
-                setProjects(JSON.parse(savedProjects));
-            } catch {
-                // Ignore
-            }
-        }
-
         const savedWatchlist = localStorage.getItem(WATCHLIST_KEY);
         if (savedWatchlist) {
             try {
@@ -86,16 +87,20 @@ export default function FlipPipeline() {
         }
     }, []);
 
-    // Save projects
-    const saveProjects = (updated: FlipProject[]) => {
-        setProjects(updated);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    // Handler wrappers for form
+    const handleAddProject = (project: FlipProject) => {
+        addProject(project);
+        setShowForm(false);
     };
 
-    const addProject = (project: FlipProject) => {
-        const updated = [...projects, project];
-        saveProjects(updated);
-        setShowForm(false);
+    const handleUpdateProject = (project: FlipProject) => {
+        updateProject(project);
+        setEditingProject(null);
+    };
+
+    const handleDeleteProject = (id: string) => {
+        if (!confirm('Delete this flip project?')) return;
+        deleteProject(id);
     };
 
     const importFromWatchlist = (domain: WatchlistDomain) => {
@@ -113,35 +118,13 @@ export default function FlipPipeline() {
         setShowWatchlistImport(false);
     };
 
-    const updateProject = (project: FlipProject) => {
-        const updated = projects.map(p => p.id === project.id ? project : p);
-        saveProjects(updated);
-        setEditingProject(null);
-    };
-
-    const deleteProject = (id: string) => {
-        if (!confirm('Delete this flip project?')) return;
-        const updated = projects.filter(p => p.id !== id);
-        saveProjects(updated);
-    };
-
-    const moveToStage = (projectId: string, stage: FlipStage) => {
-        const updated = projects.map(p => {
-            if (p.id === projectId) {
-                return { ...p, stage, updatedAt: Date.now() };
-            }
-            return p;
-        });
-        saveProjects(updated);
-    };
-
     // Filter watchlist to only show domains not already in projects
     const availableWatchlist = watchlist.filter(
         w => !projects.some(p => p.domain === w.domain)
     );
 
-    // Calculate stats
-    const stats = calculateStats(projects);
+    // Calculate stats from store
+    const stats = getStats();
 
     return (
         <div className="space-y-4">

@@ -4,7 +4,7 @@
  * Unit tests for TrendScanner helper functions.
  */
 
-import { getSourceColor, formatTimeAgo, CPC_THRESHOLD_HIGH, CPC_THRESHOLD_MEDIUM } from '../trendUtils';
+import { getSourceColor, formatTimeAgo, CPC_THRESHOLD_HIGH, CPC_THRESHOLD_MEDIUM } from '../features/TrendScanner/utils';
 
 describe('getSourceColor', () => {
     it('returns orange theme for Hacker News', () => {

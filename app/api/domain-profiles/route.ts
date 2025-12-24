@@ -78,10 +78,60 @@ export async function POST(request: NextRequest) {
         }
 
         // Build profile with defaults
+        const now = Date.now();
+
         const profile: DomainProfile = {
             domain: body.domain,
             niche: body.niche || 'general',
+            purchaseType: body.purchaseType || 'external',
+            purchasedAt: body.purchasedAt || now,
 
+            // Deep Analysis (from body or defaults)
+            deepAnalysis: body.deepAnalysis || {
+                score: {
+                    overall: 50,
+                    authority: 0,
+                    trustworthiness: 0,
+                    relevance: 50,
+                    emailPotential: 50,
+                    flipPotential: 50,
+                    nameQuality: 50,
+                },
+                riskLevel: 'medium',
+                recommendation: 'consider',
+                estimatedValue: 0,
+                estimatedMonthlyRevenue: 0,
+                wayback: { hasHistory: false },
+                risks: [],
+                trust: { trustworthy: true, score: 50, positives: [], negatives: [] },
+                analyzedAt: now,
+            },
+
+            // Keyword Analysis (from body or defaults)
+            keywordAnalysis: body.keywordAnalysis || {
+                sourceKeywords: [],
+                analysisResults: [],
+                primaryKeywords: body.primaryKeywords || [],
+                secondaryKeywords: body.secondaryKeywords || [],
+                questionKeywords: body.questionKeywords || [],
+                totalSearchVolume: 0,
+                averageCPC: 0,
+                analyzedAt: now,
+            },
+
+            // AI Niche (from body or defaults)
+            aiNiche: body.aiNiche || {
+                niche: body.niche || 'general',
+                suggestedTopics: body.suggestedTopics || [],
+                primaryKeywords: body.primaryKeywords || [],
+                contentAngles: [],
+                targetAudience: '',
+                monetizationStrategy: '',
+                generatedBy: 'manual',
+                generatedAt: now,
+            },
+
+            // Legacy fields
             primaryKeywords: body.primaryKeywords || [],
             secondaryKeywords: body.secondaryKeywords || [],
             questionKeywords: body.questionKeywords || [],
@@ -94,7 +144,7 @@ export async function POST(request: NextRequest) {
             suggestedTopics: body.suggestedTopics || [],
             suggestedCategories: body.suggestedCategories || [],
 
-            researchedAt: body.researchedAt || Date.now(),
+            researchedAt: body.researchedAt || now,
             notes: body.notes || '',
 
             transferredToWebsite: body.transferredToWebsite || false,

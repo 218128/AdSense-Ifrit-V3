@@ -62,10 +62,8 @@ const STORAGE_KEYS = {
         'namecheap_client_ip',
         'namecheap_sandbox',
     ],
-    // Expired Domains / Hunt
+    // Hunt - Domain Watchlist
     hunt: [
-        'ifrit_expireddomains_user',
-        'ifrit_expireddomains_pass',
         'ifrit_domain_watchlist',
     ],
     // Dev.to & Content Distribution
@@ -201,8 +199,7 @@ export async function POST(request: NextRequest) {
                         cloudflareToken: clientSettings['ifrit_cloudflare_token'],
                     },
                     hunt: {
-                        expiredDomainsUser: clientSettings['ifrit_expireddomains_user'],
-                        expiredDomainsPass: clientSettings['ifrit_expireddomains_pass'],
+                        // expiredDomains removed - awaiting API integration
                     },
                     content: {
                         devtoKey: clientSettings['ifrit_devto_api_key'],

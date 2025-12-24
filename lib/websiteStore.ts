@@ -243,19 +243,105 @@ export interface PendingChanges {
 export interface DomainProfile {
     domain: string;
     niche: string;
+    purchaseType: 'internal' | 'external';  // NEW: How domain was acquired
+    purchasedAt: number;                     // NEW: When marked as purchased
 
-    // Keywords from research
-    primaryKeywords: string[];      // Main target keywords
-    secondaryKeywords: string[];    // Long-tail variations
-    questionKeywords: string[];     // "How to...", "What is..."
+    // ========== DEEP ANALYSIS RESULTS ==========
+    // Full scoring and risk assessment from DomainScorer
+    deepAnalysis: {
+        score: {
+            overall: number;             // 0-100
+            authority: number;           // Domain authority score
+            trustworthiness: number;     // Trust signals
+            relevance: number;           // Niche relevance
+            emailPotential: number;      // Email deliverability
+            flipPotential: number;       // Resale value
+            nameQuality: number;         // Domain name quality
+        };
+        riskLevel: 'low' | 'medium' | 'high' | 'critical';
+        recommendation: 'strong-buy' | 'buy' | 'consider' | 'avoid';
+        estimatedValue: number;
+        estimatedMonthlyRevenue: number;
 
-    // Analysis results
+        // Wayback history
+        wayback: {
+            hasHistory: boolean;
+            firstCaptureDate?: string;
+            lastCaptureDate?: string;
+            totalCaptures?: number;
+            wasAdult?: boolean;
+            wasCasino?: boolean;
+            wasPBN?: boolean;
+            hadSpam?: boolean;
+        };
+
+        // Risk assessment
+        risks: Array<{
+            type: string;
+            severity: 'low' | 'medium' | 'high' | 'critical';
+            description: string;
+        }>;
+
+        // Trust analysis
+        trust: {
+            trustworthy: boolean;
+            score: number;
+            positives: string[];
+            negatives: string[];
+        };
+
+        analyzedAt: number;
+    };
+
+    // ========== KEYWORD ANALYSIS RESULTS ==========
+    // Full keyword research from KeywordsNiches tab
+    keywordAnalysis: {
+        sourceKeywords: string[];        // Original keywords that led to domain
+
+        // Full analysis results per keyword
+        analysisResults: Array<{
+            keyword: string;
+            searchVolume: number;
+            cpc: number;
+            competition: 'low' | 'medium' | 'high';
+            difficulty: number;          // 0-100
+            opportunity: number;         // 0-100
+            potentialTraffic: number;
+            relatedKeywords: string[];
+        }>;
+
+        // Aggregated data
+        primaryKeywords: string[];       // Main target keywords
+        secondaryKeywords: string[];     // Long-tail variations
+        questionKeywords: string[];      // "How to...", "What is..."
+        totalSearchVolume: number;
+        averageCPC: number;
+
+        analyzedAt: number;
+    };
+
+    // ========== AI GENERATED NICHE/KEYWORDS ==========
+    // Generated via Gemini for content strategy
+    aiNiche: {
+        niche: string;                   // AI-detected or refined niche
+        suggestedTopics: string[];       // Content topics to cover
+        primaryKeywords: string[];       // AI-suggested primary keywords
+        contentAngles: string[];         // Unique angles to cover
+        targetAudience: string;          // Who the content is for
+        monetizationStrategy: string;    // Suggested revenue approach
+
+        generatedBy: 'gemini' | 'deepseek' | 'manual';
+        generatedAt: number;
+    };
+
+    // ========== LEGACY FIELDS (kept for backward compat) ==========
+    primaryKeywords: string[];           // From keywordAnalysis.primaryKeywords
+    secondaryKeywords: string[];
+    questionKeywords: string[];
     competitorUrls: string[];
-    contentGaps: string[];          // Topics competitors miss
-    trafficPotential: number;       // 1-100 score
-    difficultyScore: number;        // 1-100 score
-
-    // Suggested content strategy
+    contentGaps: string[];
+    trafficPotential: number;
+    difficultyScore: number;
     suggestedTopics: string[];
     suggestedCategories: string[];
 

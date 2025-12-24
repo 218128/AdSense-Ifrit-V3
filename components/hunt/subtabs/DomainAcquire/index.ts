@@ -1,11 +1,24 @@
 /**
- * DomainAcquire Subtab - Index
+ * DomainAcquire Subtab - FSD Index
  * 
- * Exports all components for the Domain Acquire subtab.
- * Steps: Find → Analyze → Purchase
+ * Exports features for the Domain Acquire workflow:
+ * - Step 1: ExpiredDomainFinder (Find domains)
+ * - Step 2: DomainScorer (Analyze domains)
+ * - Step 3: PurchaseQueue (Purchase domains)
+ * - Utility: QuickAnalyzer (One-click analysis)
  */
 
-export { default as ExpiredDomainFinder } from './ExpiredDomainFinder';
-export { default as DomainScorer } from './DomainScorer';
-export { default as PurchaseQueue } from './PurchaseQueue';
-export { ScorerScoreCard } from './ScorerScoreCard';
+// ============ FEATURES ============
+
+// Step 1: Find expired domains
+export { default as ExpiredDomainFinder } from './features/ExpiredDomainFinder/ExpiredDomainFinder';
+
+// Step 2: Analyze/Score domains
+export { default as DomainScorer } from './features/DomainScorer/DomainScorer';
+export { ScorerScoreCard } from './features/DomainScorer/ScorerScoreCard';
+
+// Step 3: Purchase queue
+export { default as PurchaseQueue } from './features/PurchaseQueue/PurchaseQueue';
+
+// Utility: Quick domain analyzer
+export { QuickAnalyzer } from './features/QuickAnalyzer';

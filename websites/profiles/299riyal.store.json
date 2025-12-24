@@ -1,71 +1,186 @@
 {
-    "domain": "299riyal.store",
-    "niche": "budget technology and gadgets",
+  "domain": "299riyal.store",
+  "niche": "General",
+  "purchaseType": "external",
+  "purchasedAt": 1766572669772,
+  "deepAnalysis": {
+    "score": {
+      "overall": 50,
+      "authority": 0,
+      "trustworthiness": 0,
+      "relevance": 50,
+      "emailPotential": 50,
+      "flipPotential": 50,
+      "nameQuality": 50
+    },
+    "riskLevel": "medium",
+    "recommendation": "consider",
+    "estimatedValue": 0,
+    "estimatedMonthlyRevenue": 0,
+    "wayback": {
+      "hasHistory": false
+    },
+    "risks": [],
+    "trust": {
+      "trustworthy": true,
+      "score": 50,
+      "positives": [],
+      "negatives": []
+    },
+    "analyzedAt": 1766572669772
+  },
+  "keywordAnalysis": {
+    "sourceKeywords": [
+      "299",
+      "riy",
+      "al"
+    ],
+    "analysisResults": [
+      {
+        "keyword": "tips",
+        "searchVolume": 0,
+        "cpc": 0,
+        "competition": "medium",
+        "difficulty": 50,
+        "opportunity": 50,
+        "potentialTraffic": 0,
+        "relatedKeywords": []
+      },
+      {
+        "keyword": "guide",
+        "searchVolume": 0,
+        "cpc": 0,
+        "competition": "medium",
+        "difficulty": 50,
+        "opportunity": 50,
+        "potentialTraffic": 0,
+        "relatedKeywords": []
+      },
+      {
+        "keyword": "how to",
+        "searchVolume": 0,
+        "cpc": 0,
+        "competition": "medium",
+        "difficulty": 50,
+        "opportunity": 50,
+        "potentialTraffic": 0,
+        "relatedKeywords": []
+      },
+      {
+        "keyword": "best",
+        "searchVolume": 0,
+        "cpc": 0,
+        "competition": "medium",
+        "difficulty": 50,
+        "opportunity": 50,
+        "potentialTraffic": 0,
+        "relatedKeywords": []
+      },
+      {
+        "keyword": "reviews",
+        "searchVolume": 0,
+        "cpc": 0,
+        "competition": "medium",
+        "difficulty": 50,
+        "opportunity": 50,
+        "potentialTraffic": 0,
+        "relatedKeywords": []
+      }
+    ],
     "primaryKeywords": [
-        "budget smartphones 299 SAR",
-        "affordable tech gadgets Saudi Arabia",
-        "cheap electronics under 300 SAR",
-        "best budget phones 2025",
-        "smart home gadgets affordable"
+      "tips",
+      "guide",
+      "how to",
+      "best",
+      "reviews"
     ],
     "secondaryKeywords": [
-        "Xiaomi phones Saudi Arabia",
-        "Redmi budget phones",
-        "affordable smartwatches",
-        "cheap earbuds under 100 SAR",
-        "budget tablets for students",
-        "best value electronics Riyadh",
-        "tech deals Saudi",
-        "affordable gaming accessories"
+      "beginner guide",
+      "expert tips",
+      "complete guide",
+      "step by step",
+      "ultimate guide"
     ],
     "questionKeywords": [
-        "what is the best budget phone under 300 SAR",
-        "where to buy cheap electronics in Saudi Arabia",
-        "are Xiaomi phones good value",
-        "best smartwatch under 200 SAR",
-        "how to choose a budget smartphone"
+      "how to get started",
+      "what is the best way",
+      "why should I",
+      "when to use",
+      "where to find"
     ],
-    "competitorUrls": [
-        "jarir.com",
-        "extra.com",
-        "noon.com/saudi-en/electronics"
-    ],
-    "contentGaps": [
-        "Budget phone comparison guides in Arabic",
-        "Local warranty information for budget devices",
-        "Real user reviews for sub-300 SAR products",
-        "Buying guides for students and first-time buyers",
-        "Smart home setup on a budget"
-    ],
-    "trafficPotential": 75,
-    "difficultyScore": 45,
+    "totalSearchVolume": 0,
+    "averageCPC": 0,
+    "analyzedAt": 1766572669772
+  },
+  "aiNiche": {
+    "niche": "General",
     "suggestedTopics": [
-        "Best Budget Smartphones Under 299 SAR (2025 Guide)",
-        "Top 10 Affordable Smart Home Gadgets for Saudi Homes",
-        "Xiaomi vs Realme: Which Budget Phone Brand is Better?",
-        "Complete Guide to Buying Electronics in Saudi Arabia",
-        "Best Wireless Earbuds Under 100 SAR",
-        "How to Set Up a Smart Home on a Budget",
-        "Best Budget Tablets for Students in 2025",
-        "Affordable Gaming Accessories Under 200 SAR",
-        "Top 5 Smartwatches Under 300 SAR",
-        "Budget Tech Gift Ideas for Eid",
-        "Best Power Banks for Saudi Arabia Heat",
-        "Cheap Alternatives to Expensive Flagship Phones",
-        "How to Spot Fake Electronics in Saudi Markets",
-        "Best Budget Laptops for Work and School",
-        "Affordable Fitness Trackers That Actually Work"
+      "Getting Started Guide",
+      "Top 10 Tips",
+      "Complete Beginner Tutorial",
+      "Expert Strategies",
+      "Common Mistakes to Avoid"
     ],
-    "suggestedCategories": [
-        "guides",
-        "reviews",
-        "comparisons",
-        "how-to",
-        "listicles",
-        "buying-guides"
+    "primaryKeywords": [
+      "tips",
+      "guide",
+      "how to",
+      "best",
+      "reviews"
     ],
-    "researchedAt": 1734616800000,
-    "notes": "Focus on budget-conscious Saudi consumers. Emphasize value, local availability, and warranty. Use SAR pricing. Target students, young professionals, and first-time tech buyers.",
-    "transferredToWebsite": true,
-    "websiteCreatedAt": 1734616800000
+    "contentAngles": [
+      "Beginner-friendly tutorials",
+      "Expert deep-dives",
+      "Comparison reviews"
+    ],
+    "targetAudience": "People interested in general",
+    "monetizationStrategy": "Use informational content for high ad engagement. Create comparison articles for commercial keywords",
+    "generatedBy": "gemini",
+    "generatedAt": 1766572669772
+  },
+  "primaryKeywords": [
+    "tips",
+    "guide",
+    "how to",
+    "best",
+    "reviews"
+  ],
+  "secondaryKeywords": [
+    "beginner guide",
+    "expert tips",
+    "complete guide",
+    "step by step",
+    "ultimate guide"
+  ],
+  "questionKeywords": [
+    "how to get started",
+    "what is the best way",
+    "why should I",
+    "when to use",
+    "where to find"
+  ],
+  "suggestedTopics": [
+    "Getting Started Guide",
+    "Top 10 Tips",
+    "Complete Beginner Tutorial",
+    "Expert Strategies",
+    "Common Mistakes to Avoid"
+  ],
+  "suggestedCategories": [
+    "Guides",
+    "Tips",
+    "Reviews",
+    "News"
+  ],
+  "competitorUrls": [],
+  "contentGaps": [
+    "Beginner-friendly tutorials",
+    "Expert deep-dives",
+    "Comparison reviews"
+  ],
+  "trafficPotential": 50,
+  "difficultyScore": 50,
+  "researchedAt": 1766572669772,
+  "notes": "Auto-generated from domain name. A general purpose website",
+  "transferredToWebsite": false
 }

@@ -188,10 +188,77 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Step 4: Build profile
+        // Step 4: Build unified profile with all 3 sections
+        const now = Date.now();
+
         const profile: DomainProfile = {
             domain,
             niche: aiResult.niche,
+            purchaseType: 'external',  // Default to external, can be overridden
+            purchasedAt: now,
+
+            // Deep Analysis (placeholder until actual analysis done)
+            deepAnalysis: {
+                score: {
+                    overall: body.spamzillaData?.domainAuthority || 50,
+                    authority: body.spamzillaData?.domainAuthority || 0,
+                    trustworthiness: body.spamzillaData?.trustFlow || 0,
+                    relevance: 50,
+                    emailPotential: 50,
+                    flipPotential: 50,
+                    nameQuality: 50,
+                },
+                riskLevel: 'medium',
+                recommendation: 'consider',
+                estimatedValue: 0,
+                estimatedMonthlyRevenue: 0,
+                wayback: {
+                    hasHistory: false,
+                },
+                risks: [],
+                trust: {
+                    trustworthy: true,
+                    score: body.spamzillaData?.trustFlow || 50,
+                    positives: [],
+                    negatives: [],
+                },
+                analyzedAt: now,
+            },
+
+            // Keyword Analysis (from AI generation)
+            keywordAnalysis: {
+                sourceKeywords: words,  // Domain-extracted words as source
+                analysisResults: aiResult.primaryKeywords.map(kw => ({
+                    keyword: kw,
+                    searchVolume: 0,  // Placeholder - real API needed
+                    cpc: 0,
+                    competition: 'medium' as const,
+                    difficulty: 50,
+                    opportunity: 50,
+                    potentialTraffic: 0,
+                    relatedKeywords: [],
+                })),
+                primaryKeywords: aiResult.primaryKeywords,
+                secondaryKeywords: aiResult.secondaryKeywords,
+                questionKeywords: aiResult.questionKeywords,
+                totalSearchVolume: 0,
+                averageCPC: 0,
+                analyzedAt: now,
+            },
+
+            // AI Generated Niche/Keywords
+            aiNiche: {
+                niche: aiResult.niche,
+                suggestedTopics: aiResult.suggestedTopics,
+                primaryKeywords: aiResult.primaryKeywords,
+                contentAngles: aiResult.contentAngles,
+                targetAudience: inferTargetAudience(aiResult.niche),
+                monetizationStrategy: aiResult.monetizationHints.join('. '),
+                generatedBy: 'gemini',
+                generatedAt: now,
+            },
+
+            // Legacy fields (for backward compatibility)
             primaryKeywords: aiResult.primaryKeywords,
             secondaryKeywords: aiResult.secondaryKeywords,
             questionKeywords: aiResult.questionKeywords,
@@ -201,7 +268,7 @@ export async function POST(request: NextRequest) {
             contentGaps: aiResult.contentAngles,
             trafficPotential: body.spamzillaData?.domainAuthority || 50,
             difficultyScore: 50,
-            researchedAt: Date.now(),
+            researchedAt: now,
             notes: `Auto-generated from domain name. ${aiResult.nicheDescription}`,
             transferredToWebsite: false
         };
@@ -301,4 +368,38 @@ function getFallbackResult(): AIKeywordResult {
         contentAngles: ['Beginner-friendly tutorials', 'Expert deep-dives', 'Comparison reviews'],
         monetizationHints: ['Use informational content for high ad engagement', 'Create comparison articles for commercial keywords']
     };
+}
+
+/**
+ * Infer target audience from niche name
+ */
+function inferTargetAudience(niche: string): string {
+    const nicheLower = niche.toLowerCase();
+
+    if (nicheLower.includes('tech') || nicheLower.includes('software')) {
+        return 'Developers, tech enthusiasts, and IT professionals';
+    }
+    if (nicheLower.includes('health') || nicheLower.includes('fitness')) {
+        return 'Health-conscious individuals seeking wellness information';
+    }
+    if (nicheLower.includes('finance') || nicheLower.includes('money') || nicheLower.includes('invest')) {
+        return 'Investors and individuals seeking financial guidance';
+    }
+    if (nicheLower.includes('travel')) {
+        return 'Travel enthusiasts and vacation planners';
+    }
+    if (nicheLower.includes('food') || nicheLower.includes('cook') || nicheLower.includes('recipe')) {
+        return 'Home cooks and food enthusiasts';
+    }
+    if (nicheLower.includes('business') || nicheLower.includes('marketing')) {
+        return 'Business owners and marketing professionals';
+    }
+    if (nicheLower.includes('education') || nicheLower.includes('learn')) {
+        return 'Students and lifelong learners';
+    }
+    if (nicheLower.includes('home') || nicheLower.includes('diy')) {
+        return 'Homeowners and DIY enthusiasts';
+    }
+
+    return `People interested in ${niche.toLowerCase()}`;
 }
