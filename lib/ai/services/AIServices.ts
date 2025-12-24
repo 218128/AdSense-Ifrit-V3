@@ -90,27 +90,53 @@ class AIServicesClass {
         console.log('[AIServices] Initialized with', this.capabilities.size, 'capabilities,', this.handlers.size, 'handlers');
     }
 
+    /**
+     * Load config from settingsStore (unified settings)
+     * Falls back to legacy localStorage if settingsStore not yet migrated
+     */
     private loadConfig(): void {
         if (typeof window === 'undefined') return;
 
         try {
+            // Try to load from settingsStore first (unified settings)
+            const { useSettingsStore } = require('@/stores/settingsStore');
+            const storeConfig = useSettingsStore.getState().capabilitiesConfig;
+
+            if (storeConfig && Object.keys(storeConfig.capabilitySettings).length > 0) {
+                this.config = { ...DEFAULT_CONFIG, ...storeConfig };
+                console.log('[AIServices] Loaded config from unified settingsStore');
+                return;
+            }
+
+            // Fallback: load from legacy localStorage
             const stored = localStorage.getItem(AI_SERVICES_STORAGE.CAPABILITIES_CONFIG);
             if (stored) {
                 this.config = { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
+                console.log('[AIServices] Loaded config from legacy localStorage');
             }
         } catch {
             console.warn('[AIServices] Failed to load config, using defaults');
         }
     }
 
+    /**
+     * Save config to settingsStore (unified settings)
+     * Also keeps legacy localStorage in sync for backwards compatibility
+     */
     private saveConfig(): void {
         if (typeof window === 'undefined') return;
 
         try {
+            // Save to settingsStore (unified settings)
+            const { useSettingsStore } = require('@/stores/settingsStore');
+            useSettingsStore.getState().setCapabilitiesConfig(this.config);
+
+            // Also keep legacy localStorage in sync (backwards compatibility)
             localStorage.setItem(
                 AI_SERVICES_STORAGE.CAPABILITIES_CONFIG,
                 JSON.stringify(this.config)
             );
+
             this.emit({ type: 'config-updated', config: this.config });
         } catch {
             console.warn('[AIServices] Failed to save config');
@@ -247,6 +273,23 @@ class AIServicesClass {
     // ============================================
 
     private async registerAIProviderHandlers(): Promise<void> {
+        // Use KeyManager to check key availability
+        let hasGeminiKeys = false;
+        let hasDeepseekKeys = false;
+        let hasPerplexityKeys = false;
+        let hasOpenrouterKeys = false;
+
+        try {
+            const { keyManager } = require('@/lib/keys');
+            hasGeminiKeys = !!keyManager.getKey('gemini');
+            hasDeepseekKeys = !!keyManager.getKey('deepseek');
+            hasPerplexityKeys = !!keyManager.getKey('perplexity');
+            hasOpenrouterKeys = !!keyManager.getKey('openrouter');
+        } catch {
+            console.warn('[AIServices] KeyManager not available, defaulting all providers to available');
+            hasGeminiKeys = hasDeepseekKeys = hasPerplexityKeys = hasOpenrouterKeys = true;
+        }
+
         // Register Gemini as handler for multiple capabilities
         this.registerHandler({
             id: 'gemini',
@@ -255,7 +298,7 @@ class AIServicesClass {
             providerId: 'gemini',
             capabilities: ['generate', 'keywords', 'analyze', 'summarize', 'translate', 'reasoning', 'code', 'images'],
             priority: 80,
-            isAvailable: true,  // Will be updated when keys are validated
+            isAvailable: hasGeminiKeys,
             requiresApiKey: true,
         });
 
@@ -267,7 +310,7 @@ class AIServicesClass {
             providerId: 'deepseek',
             capabilities: ['generate', 'reasoning', 'code', 'analyze'],
             priority: 70,
-            isAvailable: true,
+            isAvailable: hasDeepseekKeys,
             requiresApiKey: true,
         });
 
@@ -279,7 +322,7 @@ class AIServicesClass {
             providerId: 'perplexity',
             capabilities: ['generate', 'research', 'summarize'],
             priority: 75,  // Higher for research
-            isAvailable: true,
+            isAvailable: hasPerplexityKeys,
             requiresApiKey: true,
         });
 
@@ -291,7 +334,7 @@ class AIServicesClass {
             providerId: 'openrouter',
             capabilities: ['generate', 'reasoning', 'code', 'analyze', 'summarize'],
             priority: 60,
-            isAvailable: true,
+            isAvailable: hasOpenrouterKeys,
             requiresApiKey: true,
         });
     }
@@ -605,6 +648,87 @@ class AIServicesClass {
             context: { targetLanguage },
         });
         return result.text || '';
+    }
+
+    // ============================================
+    // SERVER-SIDE EXECUTION (with passed keys)
+    // ============================================
+
+    /**
+     * Execute a capability on the server with explicitly provided API keys.
+     * Use this in API routes where localStorage is not available.
+     * 
+     * @param options - Execution options including capability, prompt, etc.
+     * @param providerKeys - Map of providerId → apiKey[]
+     * @returns ExecuteResult with text/data or error
+     */
+    async executeWithKeys(
+        options: ExecuteOptions,
+        providerKeys: Record<string, string[]>
+    ): Promise<ExecuteResult> {
+        const startTime = Date.now();
+        const { capability, prompt } = options;
+
+        // Validate capability exists
+        const cap = this.capabilities.get(capability);
+        if (!cap || !cap.isEnabled) {
+            return {
+                success: false,
+                error: `Capability '${capability}' not found or disabled`,
+                handlerUsed: 'none',
+                source: 'local',
+                latencyMs: Date.now() - startTime,
+            };
+        }
+
+        // Import providers dynamically (safe for server-side)
+        const { PROVIDER_ADAPTERS } = await import('@/lib/ai/providers');
+
+        // Provider priority order
+        const providerOrder = ['gemini', 'deepseek', 'openrouter', 'perplexity'];
+
+        for (const providerId of providerOrder) {
+            const keys = providerKeys[providerId];
+            if (!keys?.length) continue;
+
+            const adapter = PROVIDER_ADAPTERS[providerId as keyof typeof PROVIDER_ADAPTERS];
+            if (!adapter) continue;
+
+            // Try each key
+            for (const apiKey of keys) {
+                try {
+                    const result = await adapter.chat(apiKey, {
+                        prompt,
+                        model: options.model,
+                        maxTokens: options.maxTokens,
+                        temperature: options.temperature,
+                        systemPrompt: options.systemPrompt,
+                    });
+
+                    if (result.success && result.content) {
+                        return {
+                            success: true,
+                            text: result.content,
+                            handlerUsed: providerId,
+                            source: 'ai-provider',
+                            latencyMs: Date.now() - startTime,
+                            model: result.model,
+                        };
+                    }
+                } catch (error) {
+                    console.log(`[AIServices.executeWithKeys] ${providerId} failed:`, error);
+                    continue;
+                }
+            }
+        }
+
+        return {
+            success: false,
+            error: 'All providers failed or no valid keys provided',
+            handlerUsed: 'none',
+            source: 'local',
+            latencyMs: Date.now() - startTime,
+        };
     }
 
     // ============================================

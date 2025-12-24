@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDomainProfile } from '@/lib/websiteStore';
 import { generateAISiteBuilderPrompt, DomainProfileForAI, validateAIDecisions, createDecisionRecord, AISiteDecisions } from '@/lib/aiSiteBuilder';
-import { AIKeyManager, MultiProviderAI, PROVIDERS, AIProvider } from '@/lib/ai/multiProvider';
+import { PROVIDERS, AIProvider } from '@/lib/ai/multiProvider';
 import { PROVIDER_ADAPTERS } from '@/lib/ai/providers';
-import { executeGenerationWithAIServices, hasCapabilityHandlers } from '@/lib/ai/serverIntegration';
+import { aiServices } from '@/lib/ai/services';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -69,52 +69,59 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
         };
         let usedAIServices = false;
 
-        // Try AIServices first if enabled and has handlers
-        if (useAIServices && hasCapabilityHandlers('generate')) {
-            console.log('[AI-Config] Trying AIServices for generation...');
-            const aiServicesResult = await executeGenerationWithAIServices(prompt, {
-                maxTokens: 4000,
-                temperature: 0.7,
-            });
+        // Normalize keys to support both old and new formats first
+        // Old: { 'gemini_api_key': 'key123' }
+        // New: { 'gemini': ['key123', 'key456'] }
+        const normalizedKeys: Record<string, string[]> = {};
+
+        for (const [keyName, value] of Object.entries(apiKeys)) {
+            // Handle old format: gemini_api_key → gemini
+            if (keyName.endsWith('_api_key')) {
+                const provider = keyName.replace('_api_key', '');
+                if (typeof value === 'string' && value.trim()) {
+                    normalizedKeys[provider] = [value.trim()];
+                }
+            }
+            // Handle new format: provider → string[]
+            else if (Array.isArray(value)) {
+                normalizedKeys[keyName] = value.filter(k => typeof k === 'string' && k.trim());
+            }
+            // Handle new format with single key: provider → string
+            else if (typeof value === 'string' && value.trim()) {
+                normalizedKeys[keyName] = [value.trim()];
+            }
+        }
+
+        // Try AIServices.executeWithKeys (uses Capabilities system)
+        if (useAIServices) {
+            console.log('[AI-Config] Trying AIServices.executeWithKeys...');
+            const aiServicesResult = await aiServices.executeWithKeys(
+                {
+                    capability: 'generate',
+                    prompt,
+                    maxTokens: 4000,
+                    temperature: 0.7,
+                },
+                normalizedKeys
+            );
 
             if (aiServicesResult.success && aiServicesResult.text) {
                 aiResponse = {
                     success: true,
                     content: aiServicesResult.text,
-                    provider: 'aiservices',
-                    model: 'auto',
+                    provider: aiServicesResult.handlerUsed,
+                    model: aiServicesResult.model,
                 };
                 usedAIServices = true;
-                console.log('[AI-Config] AIServices generation successful');
+                console.log(`[AI-Config] AIServices succeeded with ${aiServicesResult.handlerUsed}`);
             } else {
-                console.log('[AI-Config] AIServices failed, falling back to MultiProviderAI');
+                console.log('[AI-Config] AIServices.executeWithKeys failed:', aiServicesResult.error);
             }
         }
 
-        // Fallback to direct provider execution
+        // Fallback to direct provider execution (reuses normalizedKeys from above)
         if (!usedAIServices) {
-            // Normalize keys to support both old and new formats
-            // Old: { 'gemini_api_key': 'key123' }
-            // New: { 'gemini': ['key123', 'key456'] }
-            const normalizedKeys: Record<string, string[]> = {};
-
-            for (const [keyName, value] of Object.entries(apiKeys)) {
-                // Handle old format: gemini_api_key → gemini
-                if (keyName.endsWith('_api_key')) {
-                    const provider = keyName.replace('_api_key', '');
-                    if (typeof value === 'string' && value.trim()) {
-                        normalizedKeys[provider] = [value.trim()];
-                    }
-                }
-                // Handle new format: provider → string[]
-                else if (Array.isArray(value)) {
-                    normalizedKeys[keyName] = value.filter(k => typeof k === 'string' && k.trim());
-                }
-                // Handle new format with single key: provider → string
-                else if (typeof value === 'string' && value.trim()) {
-                    normalizedKeys[keyName] = [value.trim()];
-                }
-            }
+            console.log('[AI-Config] Fallback: trying providers directly...');
 
             // Try providers using adapters directly
             const providerOrder: AIProvider[] = ['gemini', 'deepseek', 'openrouter', 'perplexity'];
