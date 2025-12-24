@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSettingsStore, ProviderId } from '@/stores/settingsStore';
 
 interface AIDecision {
     value: string;
@@ -78,16 +79,23 @@ export default function SiteDecisionsPanel({ domain, onRefresh }: SiteDecisionsP
         setMessage(null);
 
         try {
-            // Get API keys from localStorage (matching lib/ai/multiProvider key names)
-            const apiKeys: Record<string, string> = {};
-            const keyNames = ['gemini_api_key', 'deepseek_api_key', 'openrouter_api_key', 'vercel_api_key', 'perplexity_api_key'];
-            keyNames.forEach(key => {
-                const value = localStorage.getItem(key);
-                if (value) apiKeys[key] = value;
-            });
+            // Get API keys from settingsStore (unified key access pattern)
+            const { providerKeys, enabledProviders } = useSettingsStore.getState();
+            const apiKeys: Record<string, string[]> = {};
+            const providers: ProviderId[] = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
 
-            if (Object.keys(apiKeys).length === 0) {
-                setMessage({ type: 'error', text: 'No AI API keys configured. Add them in Settings.' });
+            for (const provider of providers) {
+                if (enabledProviders.includes(provider)) {
+                    const keys = providerKeys[provider];
+                    if (keys?.length > 0) {
+                        apiKeys[provider] = keys.map(k => k.key);
+                    }
+                }
+            }
+
+            const hasAnyKeys = Object.values(apiKeys).some(keys => keys.length > 0);
+            if (!hasAnyKeys) {
+                setMessage({ type: 'error', text: 'No AI API keys configured. Add them in Settings → AI Providers.' });
                 setGenerating(false);
                 return;
             }

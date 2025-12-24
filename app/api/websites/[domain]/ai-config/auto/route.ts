@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDomainProfile } from '@/lib/websiteStore';
 import { generateAISiteBuilderPrompt, DomainProfileForAI, validateAIDecisions, createDecisionRecord, AISiteDecisions } from '@/lib/aiSiteBuilder';
 import { AIKeyManager, MultiProviderAI, PROVIDERS, AIProvider } from '@/lib/ai/multiProvider';
+import { PROVIDER_ADAPTERS } from '@/lib/ai/providers';
 import { executeGenerationWithAIServices, hasCapabilityHandlers } from '@/lib/ai/serverIntegration';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -90,37 +91,69 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
             }
         }
 
-        // Fallback to direct MultiProviderAI
+        // Fallback to direct provider execution
         if (!usedAIServices) {
-            // Initialize key manager and AI client
-            const keyManager = new AIKeyManager();
+            // Normalize keys to support both old and new formats
+            // Old: { 'gemini_api_key': 'key123' }
+            // New: { 'gemini': ['key123', 'key456'] }
+            const normalizedKeys: Record<string, string[]> = {};
 
-            // Add keys from request to key manager
-            const keyMapping: Record<string, AIProvider> = {
-                'gemini_api_key': 'gemini',
-                'deepseek_api_key': 'deepseek',
-                'openrouter_api_key': 'openrouter',
-                'vercel_api_key': 'vercel',
-                'perplexity_api_key': 'perplexity',
-            };
-
-            for (const [keyName, key] of Object.entries(apiKeys)) {
-                const provider = keyMapping[keyName];
-                if (provider && typeof key === 'string' && key.trim()) {
-                    keyManager.addKey(provider, key.trim(), keyName);
+            for (const [keyName, value] of Object.entries(apiKeys)) {
+                // Handle old format: gemini_api_key → gemini
+                if (keyName.endsWith('_api_key')) {
+                    const provider = keyName.replace('_api_key', '');
+                    if (typeof value === 'string' && value.trim()) {
+                        normalizedKeys[provider] = [value.trim()];
+                    }
+                }
+                // Handle new format: provider → string[]
+                else if (Array.isArray(value)) {
+                    normalizedKeys[keyName] = value.filter(k => typeof k === 'string' && k.trim());
+                }
+                // Handle new format with single key: provider → string
+                else if (typeof value === 'string' && value.trim()) {
+                    normalizedKeys[keyName] = [value.trim()];
                 }
             }
 
-            const aiClient = new MultiProviderAI(keyManager);
+            // Try providers using adapters directly
+            const providerOrder: AIProvider[] = ['gemini', 'deepseek', 'openrouter', 'perplexity'];
 
-            // Call AI with automatic failover
-            const result = await aiClient.generateContent(prompt, {
-                maxTokens: 4000,
-                temperature: 0.7,
-                preferredProvider: preferredProvider as AIProvider | undefined,
-            });
+            for (const providerId of providerOrder) {
+                const keys = normalizedKeys[providerId];
+                if (!keys?.length) continue;
 
-            aiResponse = result;
+                const adapter = PROVIDER_ADAPTERS[providerId as keyof typeof PROVIDER_ADAPTERS];
+                if (!adapter) continue;
+
+                // Try each key (rotation within provider)
+                for (const apiKey of keys) {
+                    try {
+                        console.log(`[AI-Config] Trying ${providerId}...`);
+                        const result = await adapter.chat(apiKey, {
+                            prompt,
+                            maxTokens: 4000,
+                            temperature: 0.7,
+                        });
+
+                        if (result.success && result.content) {
+                            aiResponse = {
+                                success: true,
+                                content: result.content,
+                                provider: providerId,
+                                model: result.model,
+                            };
+                            console.log(`[AI-Config] ${providerId} succeeded`);
+                            break;
+                        }
+                    } catch (error) {
+                        console.log(`[AI-Config] ${providerId} failed:`, error instanceof Error ? error.message : 'Unknown');
+                        continue;
+                    }
+                }
+
+                if (aiResponse.success) break;
+            }
         }
 
         if (!aiResponse.success) {
