@@ -264,8 +264,8 @@ export default function ImageGallery({
                             key={f}
                             onClick={() => setFilter(f as typeof filter)}
                             className={`px-2 py-1 text-xs rounded ${filter === f
-                                    ? 'bg-indigo-100 text-indigo-700'
-                                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                ? 'bg-indigo-100 text-indigo-700'
+                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                                 }`}
                         >
                             {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -281,8 +281,8 @@ export default function ImageGallery({
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${dragOver
-                            ? 'border-indigo-400 bg-indigo-50'
-                            : 'border-neutral-200 hover:border-neutral-300'
+                        ? 'border-indigo-400 bg-indigo-50'
+                        : 'border-neutral-200 hover:border-neutral-300'
                         }`}
                 >
                     {uploading ? (
@@ -327,9 +327,9 @@ export default function ImageGallery({
                 </div>
             ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {images.map((image) => (
+                    {images.map((image, idx) => (
                         <div
-                            key={image.id}
+                            key={`${image.id}_${idx}`}  // U10 FIX: Add index for unique key
                             className={`relative group rounded-lg overflow-hidden border ${pickerMode ? 'cursor-pointer hover:ring-2 hover:ring-indigo-500' : ''
                                 } ${!image.articleId ? 'border-amber-300 bg-amber-50' : 'border-neutral-200'}`}
                             onClick={() => pickerMode && onSelect?.(image)}
@@ -347,8 +347,8 @@ export default function ImageGallery({
 
                                 {/* Type badge */}
                                 <span className={`absolute top-2 left-2 px-1.5 py-0.5 text-xs rounded ${image.type === 'cover'
-                                        ? 'bg-purple-100 text-purple-700'
-                                        : 'bg-blue-100 text-blue-700'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : 'bg-blue-100 text-blue-700'
                                     }`}>
                                     {image.type}
                                 </span>

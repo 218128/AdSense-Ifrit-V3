@@ -509,6 +509,10 @@ function SetupWizard({
                 throw new Error('Please configure GitHub and Vercel tokens first (click "Connect" button).');
             }
 
+            if (!githubUser) {
+                throw new Error('GitHub username required. Validate your token in Settings → Integrations.');
+            }
+
             // Step 1: Create website via unified API (GitHub repo + Vercel project)
             setCreationStatus('Setting up GitHub & Vercel...');
             const createResponse = await fetch('/api/websites/create', {
@@ -600,7 +604,7 @@ function SetupWizard({
                         providerKeys: apiProviderKeys,
                         githubConfig: {
                             token: githubToken,
-                            owner: githubUser || '218128',
+                            owner: githubUser,  // C2 FIX: No hardcoded fallback
                             repo: domain.replace(/\./g, '-'),
                             branch: 'main'
                         }

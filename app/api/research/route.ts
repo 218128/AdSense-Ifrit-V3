@@ -103,11 +103,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<ResearchR
         let toolArgs: Record<string, unknown>;
 
         if (serverId === 'perplexity') {
-            // perplexity_ask for quick, perplexity_research for deep
-            toolName = type === 'deep' ? 'perplexity_research' : 'perplexity_ask';
+            // perplexity_ask expects { messages: [{ role: 'user', content: '...' }] }
+            toolName = 'perplexity_ask';
             toolArgs = {
-                query: query,
-                // The actual parameter names depend on the MCP server implementation
+                messages: [
+                    { role: 'user', content: query }
+                ]
             };
         } else if (serverId === 'brave-search') {
             toolName = 'brave_web_search';

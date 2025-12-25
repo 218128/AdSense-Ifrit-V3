@@ -101,6 +101,19 @@ export default function BulkArticleQueue({
             return result;
         };
 
+        const providerKeys = getProviderKeys();
+
+        // U8 FIX: Validate required fields before API call
+        if (!githubUser) {
+            console.error('[BulkQueue] GitHub username not configured');
+            return false;
+        }
+
+        if (!Object.values(providerKeys).some(keys => keys.length > 0)) {
+            console.error('[BulkQueue] No AI provider keys configured');
+            return false;
+        }
+
         try {
             const response = await fetch('/api/generate', {
                 method: 'POST',
@@ -109,6 +122,9 @@ export default function BulkArticleQueue({
                     topic: item.keyword,
                     niche,
                     articleType: 'cluster',
+                    // U8 FIX: Pass geminiKey like GenerateArticleModal
+                    geminiKey: providerKeys.gemini?.[0] || '',
+                    providerKeys,
                     options: {
                         tone: 'professional',
                         targetLength: 1500,
@@ -118,11 +134,10 @@ export default function BulkArticleQueue({
                     saveToWebsite: domain,
                     githubConfig: {
                         token: githubToken,
-                        owner: githubUser || '',
+                        owner: githubUser,  // U8 FIX: No empty string fallback
                         repo: domain.replace(/\./g, '-'),
                         branch: 'main'
-                    },
-                    providerKeys: getProviderKeys()
+                    }
                 })
             });
 

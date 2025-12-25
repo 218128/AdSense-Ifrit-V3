@@ -27,9 +27,9 @@
     "pendingChanges": 4
   },
   "stats": {
-    "articlesCount": 26,
-    "totalWords": 27022,
-    "lastPublishedAt": 1766672425204,
+    "articlesCount": 27,
+    "totalWords": 31264,
+    "lastPublishedAt": 1766674117871,
     "estimatedMonthlyRevenue": 0
   },
   "versions": [
@@ -90,5 +90,5 @@
   },
   "status": "live",
   "createdAt": 1702504120000,
-  "updatedAt": 1766674050904
+  "updatedAt": 1766679191687
 }

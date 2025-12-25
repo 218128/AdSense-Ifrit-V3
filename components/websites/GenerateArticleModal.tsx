@@ -183,6 +183,10 @@ export default function GenerateArticleModal({
 
             setStatus('Generating article...');
 
+            if (!githubUser) {
+                throw new Error('GitHub username required. Configure in Settings → Integrations.');
+            }
+
             // Call the generate API (single article mode)
             const response = await fetch('/api/generate', {
                 method: 'POST',
@@ -191,6 +195,9 @@ export default function GenerateArticleModal({
                     topic: config.keyword,
                     niche,
                     articleType: config.articleType,
+                    // U3 FIX: Pass AI keys to server
+                    geminiKey: providerKeys.gemini?.[0] || '',
+                    providerKeys,
                     options: {
                         tone: config.tone,
                         targetLength: config.targetLength === 'short' ? 800 :
@@ -202,7 +209,7 @@ export default function GenerateArticleModal({
                     saveToWebsite: domain,
                     githubConfig: {
                         token: githubToken,
-                        owner: githubUser || '218128',
+                        owner: githubUser,  // C2 FIX: No more hardcoded fallback
                         repo: domain.replace(/\./g, '-'),
                         branch: 'main'
                     }
