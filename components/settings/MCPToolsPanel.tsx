@@ -11,6 +11,7 @@ interface MCPServerConfig {
     description: string;
     requiresApiKey: boolean;
     category: 'research' | 'seo' | 'integration' | 'utility';
+    endpoint?: string;  // What this MCP server connects to
 }
 
 interface ConnectionResult {
@@ -27,35 +28,40 @@ const MCP_SERVERS: MCPServerConfig[] = [
         name: 'Web Search (Brave)',
         description: 'Real-time web search for article research',
         requiresApiKey: true,
-        category: 'research'
+        category: 'research',
+        endpoint: 'Brave Search API (cloud)',
     },
     {
         id: 'puppeteer',
         name: 'Web Scraper',
-        description: 'Fetch and analyze web pages',
+        description: 'Fetch and analyze web pages using Puppeteer',
         requiresApiKey: false,
-        category: 'research'
+        category: 'research',
+        endpoint: 'Local MCP Server (requires: npx @anthropic/mcp-puppeteer)',
     },
     {
         id: 'fetch',
         name: 'URL Fetcher',
         description: 'Fetch content from URLs',
         requiresApiKey: false,
-        category: 'seo'
+        category: 'seo',
+        endpoint: 'Local MCP Server (requires: npx @anthropic/mcp-fetch)',
     },
     {
         id: 'github',
-        name: 'GitHub',
-        description: 'Create repos, manage code',
+        name: 'GitHub MCP',
+        description: 'Create repos, manage code via MCP',
         requiresApiKey: true,
-        category: 'integration'
+        category: 'integration',
+        endpoint: 'GitHub API via MCP server',
     },
     {
         id: 'filesystem',
         name: 'File System',
         description: 'Read and write local files',
         requiresApiKey: false,
-        category: 'utility'
+        category: 'utility',
+        endpoint: 'Local MCP Server (requires: npx @anthropic/mcp-filesystem)',
     }
 ];
 
@@ -225,6 +231,11 @@ export function MCPToolsPanel() {
                                                     <div>
                                                         <div className="font-medium text-sm">{server.name}</div>
                                                         <div className="text-xs text-gray-500">{server.description}</div>
+                                                        {server.endpoint && (
+                                                            <div className="text-[10px] text-gray-400 mt-0.5">
+                                                                📡 {server.endpoint}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <button
                                                         onClick={() => handleToggleServer(server.id)}
