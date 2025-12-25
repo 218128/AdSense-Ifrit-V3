@@ -17,7 +17,8 @@ import {
     History,
     Trash2,
     TreePine,
-    Globe
+    Globe,
+    FlaskConical
 } from 'lucide-react';
 
 // Zustand store
@@ -85,6 +86,9 @@ export default function KeywordHunterV2({
     // ============ LOCAL STATE ============
 
     const [showHistory, setShowHistory] = useState(false);
+    // V5: Research trends state
+    const [researching, setResearching] = useState(false);
+    const [researchResults, setResearchResults] = useState<string[]>([]);
 
     // Computed values
     const allKeywords = getAllKeywords();
@@ -118,6 +122,50 @@ export default function KeywordHunterV2({
         const toAnalyze = allKeywords.filter(k => selectedKeywords.has(k.keyword));
         await runAnalysis(toAnalyze);
         clearSelection();
+    };
+
+    // V5: Research trends for selected keywords
+    const handleResearchTrends = async () => {
+        if (selectedCount === 0) return;
+
+        setResearching(true);
+        setResearchResults([]);
+
+        try {
+            // Get Perplexity key
+            const perplexityKey = typeof window !== 'undefined'
+                ? localStorage.getItem('ifrit_mcp_perplexity_key')
+                : null;
+
+            if (!perplexityKey) {
+                alert('Perplexity API key not configured. Go to Settings → MCP Tools.');
+                setResearching(false);
+                return;
+            }
+
+            const selectedKws = Array.from(selectedKeywords).join(', ');
+
+            const response = await fetch('/api/research', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: `Latest trends and statistics for: ${selectedKws}`,
+                    type: 'quick',
+                    tool: 'perplexity',
+                    apiKey: perplexityKey
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.keyFindings) {
+                setResearchResults(data.keyFindings);
+            }
+        } catch (err) {
+            console.error('Research failed:', err);
+        } finally {
+            setResearching(false);
+        }
     };
 
     const handleUseKeyword = (kw: AnalyzedKeyword) => {
@@ -192,14 +240,24 @@ export default function KeywordHunterV2({
                             Select Keywords to Analyze ({allKeywords.length} available)
                         </h3>
                         {hasSelection && (
-                            <button
-                                onClick={handleAnalyze}
-                                disabled={isAnalyzing || disabled}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
-                            >
-                                <Zap className="w-4 h-4" />
-                                Analyze ({selectedCount})
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleResearchTrends}
+                                    disabled={researching || disabled}
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+                                >
+                                    <FlaskConical className="w-4 h-4" />
+                                    {researching ? 'Researching...' : `Research (${selectedCount})`}
+                                </button>
+                                <button
+                                    onClick={handleAnalyze}
+                                    disabled={isAnalyzing || disabled}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+                                >
+                                    <Zap className="w-4 h-4" />
+                                    Analyze ({selectedCount})
+                                </button>
+                            </div>
                         )}
                     </div>
 
@@ -213,6 +271,32 @@ export default function KeywordHunterV2({
                             />
                         ))}
                     </div>
+                </div>
+            )}
+
+            {/* V5: Research Results */}
+            {researchResults.length > 0 && (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <FlaskConical className="w-5 h-5 text-purple-600" />
+                            <span className="font-semibold text-purple-900">Research Insights</span>
+                        </div>
+                        <button
+                            onClick={() => setResearchResults([])}
+                            className="text-xs text-purple-600 hover:underline"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                    <ul className="space-y-1">
+                        {researchResults.map((finding, i) => (
+                            <li key={i} className="text-sm text-purple-800 flex items-start gap-2">
+                                <span className="text-purple-400 mt-0.5">•</span>
+                                <span>{finding}</span>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             )}
 
