@@ -290,49 +290,59 @@ class AIServicesClass {
             hasGeminiKeys = hasDeepseekKeys = hasPerplexityKeys = hasOpenrouterKeys = true;
         }
 
-        // Register Gemini as handler for multiple capabilities
+        // All text-based capabilities that any AI provider can potentially handle
+        // User decides which provider to use for each in Settings
+        const textCapabilities = [
+            'generate', 'research', 'keywords', 'analyze',
+            'summarize', 'translate', 'reasoning', 'code'
+        ];
+
+        // Image capabilities - only some providers support
+        const imageCapabilities = ['images'];
+
+        // Register Gemini as handler for all capabilities
         this.registerHandler({
             id: 'gemini',
             name: 'Google Gemini',
             source: 'ai-provider',
             providerId: 'gemini',
-            capabilities: ['generate', 'keywords', 'analyze', 'summarize', 'translate', 'reasoning', 'code', 'images'],
+            capabilities: [...textCapabilities, ...imageCapabilities],  // All capabilities
             priority: 80,
             isAvailable: hasGeminiKeys,
             requiresApiKey: true,
         });
 
-        // DeepSeek - good for reasoning and code
+        // DeepSeek - all text capabilities
         this.registerHandler({
             id: 'deepseek',
             name: 'DeepSeek',
             source: 'ai-provider',
             providerId: 'deepseek',
-            capabilities: ['generate', 'reasoning', 'code', 'analyze'],
+            capabilities: textCapabilities,  // All text capabilities
             priority: 70,
             isAvailable: hasDeepseekKeys,
             requiresApiKey: true,
         });
 
-        // Perplexity - good for research (has web search)
+        // Perplexity - all text capabilities (especially good for research)
         this.registerHandler({
             id: 'perplexity',
             name: 'Perplexity',
             source: 'ai-provider',
             providerId: 'perplexity',
-            capabilities: ['generate', 'research', 'summarize'],
-            priority: 75,  // Higher for research
+            capabilities: textCapabilities,  // All text capabilities
+            priority: 75,
             isAvailable: hasPerplexityKeys,
             requiresApiKey: true,
         });
 
-        // OpenRouter - access to many models
+        // OpenRouter - all text capabilities (access to many models)
         this.registerHandler({
             id: 'openrouter',
             name: 'OpenRouter',
             source: 'ai-provider',
             providerId: 'openrouter',
-            capabilities: ['generate', 'reasoning', 'code', 'analyze', 'summarize'],
+            capabilities: textCapabilities,  // All text capabilities
             priority: 60,
             isAvailable: hasOpenrouterKeys,
             requiresApiKey: true,
