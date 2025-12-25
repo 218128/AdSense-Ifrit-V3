@@ -17,4 +17,7 @@ export * from './articleCrud';
 // Export all theme CRUD functions
 export * from './themeCrud';
 
-// Note: Website CRUD, Pages, Plugins, Versions, Profiles still in parent file
+// Export all plugin functions
+export * from './pluginCrud';
+
+// Note: Website CRUD, Pages, Versions, Profiles still in parent file
