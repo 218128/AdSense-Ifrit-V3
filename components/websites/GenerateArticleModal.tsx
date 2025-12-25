@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import { Loader2, Sparkles, X, Zap, BookOpen, FileText, Lightbulb, Image as ImageIcon, Play, Search } from 'lucide-react';
+import { Loader2, Sparkles, X, Zap, BookOpen, FileText, Lightbulb, Image as ImageIcon, Play, Search, Check } from 'lucide-react';
 import { addToGenerationHistory } from './GenerationHistory';
 import StockPhotoSelector, { StockPhoto } from '../shared/StockPhotoSelector';
 import StreamingArticlePreview from '../shared/StreamingArticlePreview';
@@ -245,6 +245,63 @@ export default function GenerateArticleModal({
             setStatus(null);
         } finally {
             setGenerating(false);
+        }
+    };
+
+    // U5 FIX: Save streamed/refined article to website content store
+    const [savingArticle, setSavingArticle] = useState(false);
+
+    const handleSaveStreamedArticle = async () => {
+        if (!streamedContent) return;
+
+        setSavingArticle(true);
+        setError(null);
+
+        try {
+            // Parse frontmatter from content to get title and slug
+            const frontmatterMatch = streamedContent.match(/^---\n([\s\S]*?)\n---/);
+            let title = config.keyword;
+            let description = '';
+
+            if (frontmatterMatch) {
+                const frontmatter = frontmatterMatch[1];
+                const titleMatch = frontmatter.match(/title:\s*["']?(.+?)["']?\s*$/m);
+                const descMatch = frontmatter.match(/description:\s*["']?(.+?)["']?\s*$/m);
+                if (titleMatch) title = titleMatch[1];
+                if (descMatch) description = descMatch[1];
+            }
+
+            const slug = title.toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '');
+
+            // Save to content API
+            const response = await fetch(`/api/websites/${domain}/content`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title,
+                    slug,
+                    description,
+                    content: streamedContent,
+                    articleType: config.articleType,
+                    status: 'draft'
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setStatus('Article saved! ✅');
+                onGenerated();
+                onClose();
+            } else {
+                throw new Error(data.error || 'Failed to save article');
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to save article');
+        } finally {
+            setSavingArticle(false);
         }
     };
 
@@ -546,13 +603,35 @@ export default function GenerateArticleModal({
                     <button
                         onClick={onClose}
                         className="px-4 py-2 text-neutral-600 hover:bg-neutral-100 rounded-lg"
-                        disabled={generating}
+                        disabled={generating || savingArticle}
                     >
                         Cancel
                     </button>
+
+                    {/* U5 FIX: Save Article button for streamed/refined content */}
+                    {streamedContent && !generating && (
+                        <button
+                            onClick={handleSaveStreamedArticle}
+                            disabled={savingArticle}
+                            className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {savingArticle ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <Check className="w-4 h-4" />
+                                    Save Article
+                                </>
+                            )}
+                        </button>
+                    )}
+
                     <button
                         onClick={handleGenerate}
-                        disabled={generating || !config.keyword.trim()}
+                        disabled={generating || savingArticle || !config.keyword.trim()}
                         className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {generating ? (
@@ -563,7 +642,7 @@ export default function GenerateArticleModal({
                         ) : (
                             <>
                                 <Sparkles className="w-4 h-4" />
-                                Generate Article
+                                {streamedContent ? 'Regenerate' : 'Generate Article'}
                             </>
                         )}
                     </button>
