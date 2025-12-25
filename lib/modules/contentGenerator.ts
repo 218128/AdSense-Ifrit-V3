@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { contentLogger } from '@/lib/utils/logger';
+import { aiServices } from '@/lib/ai/services';
 
 // Import humanization and template systems
 import {
@@ -51,6 +52,8 @@ export interface ArticleConfig {
     targetWordCount: number;
     includeProducts: boolean;
     includeFAQ: boolean;
+    websiteUrl?: string;  // Website domain (e.g., https://example.com) - used for Schema.org URLs
+    // Deprecated: blogUrl - use websiteUrl instead (legacy field kept for backwards compatibility)
     blogUrl?: string;
     templateType?: ArticleType;
     personaId?: string;
@@ -64,7 +67,8 @@ export interface ArticleConfig {
 }
 
 export interface UserContentConfig {
-    blogUrl?: string;
+    websiteUrl?: string;  // Website domain - preferred
+    blogUrl?: string;     // Deprecated: use websiteUrl
     templateType?: ArticleType;
     modelId?: string; // User-selected model from Settings
     adsenseConfig?: {
@@ -295,6 +299,7 @@ class EnhancedContentGenerator {
 
     /**
      * Generate Schema.org markup for the article
+     * Uses websiteUrl (preferred) or blogUrl (deprecated) for canonical URLs
      */
     private generateSchemaMarkup(
         article: EnhancedArticle,
@@ -303,8 +308,11 @@ class EnhancedContentGenerator {
     ): string {
         const schemas: object[] = [];
         const today = new Date().toISOString().split('T')[0];
-        const articleUrl = config.blogUrl
-            ? `${config.blogUrl}/${article.slug}`
+
+        // Prefer websiteUrl, fallback to blogUrl for backwards compatibility
+        const siteUrl = config.websiteUrl || config.blogUrl;
+        const articleUrl = siteUrl
+            ? `${siteUrl}/${article.slug}`
             : `https://example.com/${article.slug}`;
 
         schemas.push(generateArticleSchema({
@@ -313,7 +321,7 @@ class EnhancedContentGenerator {
             datePublished: today,
             authorName: persona.name,
             url: articleUrl,
-            publisherName: config.blogUrl ? new URL(config.blogUrl).hostname : undefined
+            publisherName: siteUrl ? new URL(siteUrl).hostname : undefined
         }));
 
         const faqs = this.extractFAQsFromBody(article.body);
