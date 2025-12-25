@@ -40,6 +40,7 @@ import {
     CapabilityHandler,
     DEFAULT_CAPABILITIES,
 } from '@/lib/ai/services';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 // Icon mapping for capabilities
 const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
@@ -71,6 +72,10 @@ export default function CapabilitiesPanel() {
     const [newCapId, setNewCapId] = useState('');
     const [newCapName, setNewCapName] = useState('');
     const [newCapDesc, setNewCapDesc] = useState('');
+
+    // Settings store for verbosity/diagnostics
+    const capabilitiesConfig = useSettingsStore(state => state.capabilitiesConfig);
+    const setCapabilitiesConfig = useSettingsStore(state => state.setCapabilitiesConfig);
 
     // Load capabilities and handlers
     const loadData = useCallback(() => {
@@ -174,7 +179,7 @@ export default function CapabilitiesPanel() {
                 </button>
             </div>
 
-            {/* Info Banner */}
+            {/* Info Banner - Essential Guidance */}
             <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                 <Info className="w-5 h-5 text-blue-400 mt-0.5" />
                 <div className="text-sm text-blue-200">
@@ -184,6 +189,46 @@ export default function CapabilitiesPanel() {
                         multiple handlers (AI providers or MCP tools). When you request a capability,
                         the system tries handlers in priority order with automatic fallback.
                     </p>
+                </div>
+            </div>
+
+            {/* Tips Section - AI Landscape Guidance (Dec 2025) */}
+            <div className="p-4 bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/20 rounded-lg">
+                <h4 className="font-medium text-purple-200 mb-3 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Configuration Tips (Dec 2025)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div className="p-3 bg-gray-800/50 rounded-lg">
+                        <p className="font-medium text-gray-200 mb-1">🎯 Capability Assignment</p>
+                        <p className="text-gray-400">
+                            Assign <strong className="text-purple-300">Gemini</strong> for general tasks,{' '}
+                            <strong className="text-purple-300">Perplexity</strong> for research (has web search),{' '}
+                            <strong className="text-purple-300">DeepSeek</strong> for complex reasoning.
+                        </p>
+                    </div>
+                    <div className="p-3 bg-gray-800/50 rounded-lg">
+                        <p className="font-medium text-gray-200 mb-1">⚡ MCP Tools Priority</p>
+                        <p className="text-gray-400">
+                            MCP tools (when available) get priority over AI providers.
+                            Configure tools like <strong className="text-purple-300">Brave Search</strong> or{' '}
+                            <strong className="text-purple-300">Firecrawl</strong> for web scraping.
+                        </p>
+                    </div>
+                    <div className="p-3 bg-gray-800/50 rounded-lg">
+                        <p className="font-medium text-gray-200 mb-1">🔄 Fallback Chains</p>
+                        <p className="text-gray-400">
+                            Set up fallback handlers so if one fails (rate limits), the system
+                            automatically tries the next handler. Essential for high availability.
+                        </p>
+                    </div>
+                    <div className="p-3 bg-gray-800/50 rounded-lg">
+                        <p className="font-medium text-gray-200 mb-1">🌐 Evolving Landscape</p>
+                        <p className="text-gray-400">
+                            AI models and MCP servers are updated frequently. Check provider dashboards
+                            for new models and the MCP registry for new tools.
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -198,8 +243,8 @@ export default function CapabilitiesPanel() {
                         <div
                             key={cap.id}
                             className={`border rounded-lg transition-colors ${cap.isEnabled
-                                    ? 'border-gray-700 bg-gray-800/50'
-                                    : 'border-gray-800 bg-gray-900/50 opacity-60'
+                                ? 'border-gray-700 bg-gray-800/50'
+                                : 'border-gray-800 bg-gray-900/50 opacity-60'
                                 }`}
                         >
                             {/* Capability Header */}
@@ -311,8 +356,8 @@ export default function CapabilitiesPanel() {
                                                             <div
                                                                 key={h.id}
                                                                 className={`flex items-center justify-between p-3 rounded-lg ${h.id === cap.defaultHandlerId
-                                                                        ? 'bg-purple-500/10 border border-purple-500/30'
-                                                                        : 'bg-gray-700/50'
+                                                                    ? 'bg-purple-500/10 border border-purple-500/30'
+                                                                    : 'bg-gray-700/50'
                                                                     }`}
                                                             >
                                                                 <div className="flex items-center gap-3">
@@ -335,8 +380,8 @@ export default function CapabilitiesPanel() {
                                                                 <button
                                                                     onClick={() => setDefaultHandler(cap.id, h.id)}
                                                                     className={`px-3 py-1 text-sm rounded-lg transition-colors ${h.id === cap.defaultHandlerId
-                                                                            ? 'text-purple-400 cursor-default'
-                                                                            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600'
+                                                                        ? 'text-purple-400 cursor-default'
+                                                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600'
                                                                         }`}
                                                                     disabled={h.id === cap.defaultHandlerId}
                                                                 >
@@ -422,6 +467,64 @@ export default function CapabilitiesPanel() {
                     </div>
                 </div>
             )}
+
+            {/* Diagnostics Settings */}
+            <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg space-y-4">
+                <h4 className="font-medium text-gray-200 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-purple-400" />
+                    Diagnostics Settings
+                </h4>
+
+                <div className="grid grid-cols-2 gap-4">
+                    {/* Verbosity Level */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Verbosity Level
+                        </label>
+                        <select
+                            value={capabilitiesConfig.verbosity}
+                            onChange={(e) => setCapabilitiesConfig({
+                                verbosity: e.target.value as 'none' | 'basic' | 'standard' | 'verbose'
+                            })}
+                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100"
+                        >
+                            <option value="none">None - No logging</option>
+                            <option value="basic">Basic - Success/fail only</option>
+                            <option value="standard">Standard - Include latency</option>
+                            <option value="verbose">Verbose - Full diagnostics</option>
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                            Controls how much detail is logged for each capability execution
+                        </p>
+                    </div>
+
+                    {/* Log Diagnostics Toggle */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Log Diagnostics
+                        </label>
+                        <div className="flex items-center gap-3">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={capabilitiesConfig.logDiagnostics}
+                                    onChange={(e) => setCapabilitiesConfig({
+                                        logDiagnostics: e.target.checked
+                                    })}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-700 peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </label>
+                            <span className="text-sm text-gray-400">
+                                {capabilitiesConfig.logDiagnostics ? 'Enabled' : 'Disabled'}
+                            </span>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                            Track latency, tokens, and errors for provider fine-tuning
+                        </p>
+                    </div>
+                </div>
+            </div>
 
             {/* Summary */}
             <div className="grid grid-cols-3 gap-4 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
