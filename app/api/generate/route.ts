@@ -29,6 +29,9 @@ interface GenerateRequest {
         persona: string;
         template: string;
         highCpcMode: boolean;
+        // U4 FIX: Add article generation options
+        tone?: 'professional' | 'casual' | 'friendly' | 'authoritative';
+        targetLength?: number;
     };
     adsenseConfig?: {
         publisherId: string;
@@ -216,13 +219,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<GenerateRespo
         }
 
         // 5. Generate article (with multi-provider key rotation if providerKeys provided)
+        // U4 FIX: Pass user options (tone, targetLength) to generator
         const article: Article = await generator.generate(
             keyword,
             selectedTrend.context,
             geminiKey!,
             {
                 blogUrl: body.blogUrl,
-                adsenseConfig: body.adsenseConfig
+                adsenseConfig: body.adsenseConfig,
+                tone: body.options?.tone,
+                targetWordCount: body.options?.targetLength
             },
             body.providerKeys
         );

@@ -58,6 +58,8 @@ export interface ArticleConfig {
     templateType?: ArticleType;
     personaId?: string;
     modelId?: string; // User-selected model from Settings
+    // U4 FIX: Add tone for article generation
+    tone?: 'professional' | 'casual' | 'friendly' | 'authoritative';
     adsenseConfig?: {
         publisherId?: string;
         leaderboardSlot?: string;
@@ -71,6 +73,9 @@ export interface UserContentConfig {
     blogUrl?: string;     // Deprecated: use websiteUrl
     templateType?: ArticleType;
     modelId?: string; // User-selected model from Settings
+    // U4 FIX: Add article generation options
+    tone?: 'professional' | 'casual' | 'friendly' | 'authoritative';
+    targetWordCount?: number;
     adsenseConfig?: {
         publisherId?: string;
         leaderboardSlot?: string;
@@ -116,12 +121,15 @@ export class ContentGenerator {
             const config: ArticleConfig = {
                 keyword,
                 context,
-                targetWordCount: 2000,
+                // U4 FIX: Use user's targetWordCount if provided, default to 2000
+                targetWordCount: userConfig?.targetWordCount || 2000,
                 includeProducts: true,
                 includeFAQ: true,
                 blogUrl: userConfig?.blogUrl,
                 templateType: userConfig?.templateType,
                 modelId,
+                // U4 FIX: Pass tone to generator
+                tone: userConfig?.tone,
                 adsenseConfig: userConfig?.adsenseConfig
             };
 

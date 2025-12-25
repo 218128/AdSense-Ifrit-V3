@@ -740,13 +740,26 @@ function ContentTab({
         if (!confirm('Delete this article?')) return;
 
         setDeleting(articleId);
+        // C1 FIX: Clear any previous messages
+        setSyncMessage(null);
+
         try {
             const response = await fetch(`/api/websites/${domain}/content/${articleId}`, {
                 method: 'DELETE'
             });
-            if (response.ok) {
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                setSyncMessage('✅ Article deleted successfully');
                 onRefresh();
+            } else {
+                // C1 FIX: Show error message to user
+                setSyncMessage(`❌ Delete failed: ${data.error || 'Unknown error'}`);
             }
+        } catch (err) {
+            // C1 FIX: Show error for network/parsing failures
+            setSyncMessage(`❌ Delete failed: ${err instanceof Error ? err.message : 'Network error'}`);
         } finally {
             setDeleting(null);
         }
