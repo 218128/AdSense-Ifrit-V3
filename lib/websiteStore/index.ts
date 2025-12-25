@@ -26,4 +26,7 @@ export * from './versionControl';
 // Export all profile functions
 export * from './profileCrud';
 
-// Note: Website CRUD, Pages, External Content, Migration, Deploy still in parent
+// Export migration functions
+export * from './migration';
+
+// Note: Website CRUD, Pages, External Content, Deploy still in parent
