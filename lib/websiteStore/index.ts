@@ -14,5 +14,7 @@ export * from './paths';
 // Export all article CRUD functions
 export * from './articleCrud';
 
-// Note: Main store functions are still in parent websiteStore.ts
-// Website CRUD, Pages, Theme, Plugins, Versions, Profiles in main file
+// Export all theme CRUD functions
+export * from './themeCrud';
+
+// Note: Website CRUD, Pages, Plugins, Versions, Profiles still in parent file
