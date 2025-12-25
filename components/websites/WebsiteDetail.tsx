@@ -34,7 +34,8 @@ import {
     Sparkles,
     RotateCcw,
     Rocket,
-    Palette
+    Palette,
+    Send
 } from 'lucide-react';
 import BuildingProgress from './BuildingProgress';
 import GenerateArticleModal from './GenerateArticleModal';
@@ -942,24 +943,31 @@ function ContentTab({
                         <Sparkles className="w-4 h-4" />
                         Generate
                     </button>
-                    {/* Publish Buttons */}
-                    <button
-                        onClick={() => handlePublish(Array.from(selectedIds))}
-                        disabled={publishing || selectedIds.size === 0}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Publish selected articles to website"
-                    >
-                        {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-                        Publish ({selectedIds.size})
-                    </button>
-                    <button
-                        onClick={() => handlePublish(readyArticleIds)}
-                        disabled={publishing || readyArticleIds.length === 0}
-                        className="flex items-center gap-2 px-4 py-2 border border-green-600 text-green-700 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Publish all draft/ready articles"
-                    >
-                        Publish All ({readyArticleIds.length})
-                    </button>
+                    {/* U9 FIX: Clarify publish buttons - Selection vs All Ready */}
+                    {/* Only show selection publish if items are selected */}
+                    {selectedIds.size > 0 && (
+                        <button
+                            onClick={() => handlePublish(Array.from(selectedIds))}
+                            disabled={publishing}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={`Publish ${selectedIds.size} selected article(s) to website`}
+                        >
+                            {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                            Publish Selected ({selectedIds.size})
+                        </button>
+                    )}
+                    {/* Always show the "Publish Ready" button if there are ready articles */}
+                    {readyArticleIds.length > 0 && (
+                        <button
+                            onClick={() => handlePublish(readyArticleIds)}
+                            disabled={publishing}
+                            className="flex items-center gap-2 px-4 py-2 border-2 border-green-600 text-green-700 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={`Publish all ${readyArticleIds.length} draft/ready articles`}
+                        >
+                            <Send className="w-4 h-4" />
+                            Publish All Ready ({readyArticleIds.length})
+                        </button>
+                    )}
                 </div>
             </div>
 

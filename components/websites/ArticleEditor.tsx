@@ -188,7 +188,8 @@ export default function ArticleEditor({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        /* U6 FIX: z-[100] ensures modal is above all content, inset-0 with items-center centers it */
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
             <div className="bg-white rounded-xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="p-4 border-b border-neutral-200 flex items-center justify-between">

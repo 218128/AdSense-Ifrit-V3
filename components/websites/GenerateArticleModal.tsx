@@ -350,7 +350,8 @@ export default function GenerateArticleModal({
                                 className={`relative w-12 h-6 rounded-full transition-colors ${researchEnabled ? 'bg-purple-600' : 'bg-neutral-300'
                                     }`}
                             >
-                                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${researchEnabled ? 'translate-x-7' : 'translate-x-1'
+                                {/* U1 FIX: translate-x-6 instead of translate-x-7 to stay inside track */}
+                                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${researchEnabled ? 'translate-x-6' : 'translate-x-1'
                                     }`} />
                             </button>
                         </div>
