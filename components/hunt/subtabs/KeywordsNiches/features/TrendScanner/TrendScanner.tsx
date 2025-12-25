@@ -26,11 +26,13 @@ import {
     Target,
     Lightbulb,
     Timer,
-    BarChart3
+    BarChart3,
+    FlaskConical
 } from 'lucide-react';
 
 // Zustand store
 import { useTrendStore } from '@/stores/trendStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 // Extracted types
 import type { TrendScannerProps } from './types';
@@ -73,6 +75,10 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
     const visibleTrends = trends.slice(0, visibleCount);
     const highCPCCount = trends.filter(t => (t.cpcScore || 0) >= CPC_THRESHOLD_MEDIUM).length;
 
+    // V5: Research state
+    const [researching, setResearching] = useState(false);
+    const [researchResults, setResearchResults] = useState<string[]>([]);
+
     // ============ EFFECTS ============
 
     // Load Brave API key from localStorage
@@ -97,6 +103,49 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
     const handleSendToAnalysis = () => {
         if (onSelectKeywords && selectedCount > 0) {
             onSelectKeywords(getSelectedTopics());
+        }
+    };
+
+    // V5: Research selected trends with Perplexity MCP
+    const handleResearchTrends = async () => {
+        if (selectedCount === 0) return;
+
+        setResearching(true);
+        setResearchResults([]);
+
+        try {
+            // Get Perplexity key from Zustand store
+            const mcpApiKeys = useSettingsStore.getState().mcpServers.apiKeys;
+            const providerKeys = useSettingsStore.getState().providerKeys;
+            const perplexityKey = mcpApiKeys?.perplexity || providerKeys?.perplexity?.[0]?.key;
+
+            if (!perplexityKey) {
+                alert('Perplexity API key not configured. Go to Settings → MCP Tools or AI Providers.');
+                setResearching(false);
+                return;
+            }
+
+            const selectedTopics = getSelectedTopics();
+            const response = await fetch('/api/research', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: `Research these trending topics for monetization potential and content opportunities: ${selectedTopics.join(', ')}`,
+                    type: 'deep',
+                    tool: 'perplexity',
+                    apiKey: perplexityKey
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.keyFindings) {
+                setResearchResults(data.keyFindings);
+            }
+        } catch (err) {
+            console.error('Trend research failed:', err);
+        } finally {
+            setResearching(false);
         }
     };
 
@@ -169,6 +218,46 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
                     actionLabel="Analyze Selected"
                     emptyMessage="Click trends to select for analysis"
                 />
+            )}
+
+            {/* V5: Research Button & Results */}
+            {hasScanned && selectedCount > 0 && (
+                <div className="flex flex-col gap-3">
+                    <button
+                        onClick={handleResearchTrends}
+                        disabled={researching}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2 self-start"
+                    >
+                        <FlaskConical className="w-4 h-4" />
+                        {researching ? 'Researching...' : `Research (${selectedCount})`}
+                    </button>
+                </div>
+            )}
+
+            {/* V5: Research Results Panel */}
+            {researchResults.length > 0 && (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                    <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-purple-900 flex items-center gap-2">
+                            <FlaskConical className="w-4 h-4" />
+                            Research Insights ({researchResults.length})
+                        </h4>
+                        <button
+                            onClick={() => setResearchResults([])}
+                            className="text-xs text-purple-600 hover:underline"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                    <ul className="space-y-2">
+                        {researchResults.map((finding, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-purple-800">
+                                <span className="text-purple-400 mt-0.5">•</span>
+                                <span>{finding}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             )}
 
             {/* Error Display */}
