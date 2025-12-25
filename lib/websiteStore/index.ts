@@ -29,4 +29,7 @@ export * from './profileCrud';
 // Export migration functions
 export * from './migration';
 
-// Note: Website CRUD, Pages, External Content, Deploy still in parent
+// Export page CRUD functions
+export * from './pageCrud';
+
+// Note: Website CRUD, External Content, Deploy still in parent
