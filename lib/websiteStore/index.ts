@@ -8,6 +8,8 @@
 // Export all types
 export * from './types';
 
-// Export all functions from the main store
-// Note: Functions are still in the parent websiteStore.ts for now
-// They will be split into separate modules in Phase 2
+// Export all path helpers
+export * from './paths';
+
+// Note: Main store functions are still in parent websiteStore.ts
+// They will be split into separate modules in future phases

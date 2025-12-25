@@ -55,107 +55,55 @@ import type {
 
 
 // ============================================
-// STORAGE PATHS
+// PATHS - Re-exported from paths.ts for backwards compatibility
 // ============================================
 
-const WEBSITES_DIR = path.join(process.cwd(), 'websites');
-const PROFILES_DIR = path.join(WEBSITES_DIR, 'profiles');
+export {
+    WEBSITES_DIR,
+    PROFILES_DIR,
+    getWebsiteDir,
+    getMetadataPath,
+    getVersionsDir,
+    getContentDir,
+    getArticlesDir,
+    getArticlePath,
+    getImagesDir,
+    getArticleImagesDir,
+    getArticleCoverDir,
+    getArticleContentImagesDir,
+    ensureArticleImageDirs,
+    getPagesDir,
+    getPagePath,
+    getThemeDir,
+    getThemeVersionsDir,
+    getPluginsDir,
+    ensureWebsitesDirs,
+    ensureWebsiteDir,
+    ensureThemeDir,
+    ensurePluginsDir
+} from './websiteStore/paths';
 
-function getWebsiteDir(domain: string): string {
-    return path.join(WEBSITES_DIR, domain.replace(/[^a-zA-Z0-9.-]/g, '_'));
-}
+import {
+    WEBSITES_DIR,
+    PROFILES_DIR,
+    getWebsiteDir,
+    getMetadataPath,
+    getVersionsDir,
+    getContentDir,
+    getArticlesDir,
+    getArticlePath,
+    getImagesDir,
+    getPagesDir,
+    getPagePath,
+    getThemeDir,
+    getThemeVersionsDir,
+    getPluginsDir,
+    ensureWebsitesDirs,
+    ensureWebsiteDir,
+    ensureThemeDir,
+    ensurePluginsDir
+} from './websiteStore/paths';
 
-function getMetadataPath(domain: string): string {
-    return path.join(getWebsiteDir(domain), 'metadata.json');
-}
-
-function getVersionsDir(domain: string): string {
-    return path.join(getWebsiteDir(domain), 'versions');
-}
-
-function getContentDir(domain: string): string {
-    return path.join(getWebsiteDir(domain), 'content');
-}
-
-function getArticlesDir(domain: string): string {
-    return path.join(getContentDir(domain), 'articles');
-}
-
-function getImagesDir(domain: string): string {
-    return path.join(getContentDir(domain), 'images');
-}
-
-/**
- * Get article-specific images directory for folder-per-article structure
- * Structure: content/images/[article-slug]/cover/ and content/images/[article-slug]/images/
- */
-export function getArticleImagesDir(domain: string, articleSlug: string): string {
-    return path.join(getImagesDir(domain), articleSlug);
-}
-
-export function getArticleCoverDir(domain: string, articleSlug: string): string {
-    return path.join(getArticleImagesDir(domain, articleSlug), 'cover');
-}
-
-export function getArticleContentImagesDir(domain: string, articleSlug: string): string {
-    return path.join(getArticleImagesDir(domain, articleSlug), 'images');
-}
-
-/**
- * Ensure article image directories exist
- */
-export function ensureArticleImageDirs(domain: string, articleSlug: string): void {
-    const dirs = [
-        getArticleImagesDir(domain, articleSlug),
-        getArticleCoverDir(domain, articleSlug),
-        getArticleContentImagesDir(domain, articleSlug)
-    ];
-    for (const dir of dirs) {
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-    }
-}
-
-function getPagesDir(domain: string): string {
-    return path.join(getContentDir(domain), 'pages');
-}
-
-// Theme paths
-export function getThemeDir(domain: string): string {
-    return path.join(getWebsiteDir(domain), 'theme');
-}
-
-function getThemeVersionsDir(domain: string): string {
-    return path.join(getVersionsDir(domain), 'theme');
-}
-
-// ============================================
-// INITIALIZATION
-// ============================================
-
-export function ensureWebsitesDirs(): void {
-    if (!fs.existsSync(WEBSITES_DIR)) {
-        fs.mkdirSync(WEBSITES_DIR, { recursive: true });
-    }
-}
-
-function ensureWebsiteDir(domain: string): void {
-    const dirs = [
-        getWebsiteDir(domain),
-        getVersionsDir(domain),
-        getContentDir(domain),
-        getArticlesDir(domain),
-        getImagesDir(domain),
-        getPagesDir(domain)
-    ];
-
-    for (const dir of dirs) {
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-    }
-}
 
 // ============================================
 // WEBSITE CRUD
@@ -360,12 +308,6 @@ export function generateArticleId(): string {
     return `art_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 }
 
-/**
- * Get article path
- */
-function getArticlePath(domain: string, articleId: string): string {
-    return path.join(getArticlesDir(domain), `${articleId}.json`);
-}
 
 /**
  * Save an article
@@ -564,9 +506,6 @@ function updateArticleStats(domain: string): void {
 // STRUCTURAL PAGES (About, Contact, Privacy, etc.)
 // ============================================
 
-function getPagePath(domain: string, pageType: StructuralPageType): string {
-    return path.join(getPagesDir(domain), `${pageType}.json`);
-}
 
 /**
  * List all structural pages for a website
@@ -729,19 +668,6 @@ export function createDefaultPages(domain: string, siteName: string, author: { n
 
 const MAX_THEME_VERSIONS = 10;
 
-/**
- * Ensure theme directory exists
- */
-function ensureThemeDir(domain: string): void {
-    const themeDir = getThemeDir(domain);
-    const themeVersionsDir = getThemeVersionsDir(domain);
-    if (!fs.existsSync(themeDir)) {
-        fs.mkdirSync(themeDir, { recursive: true });
-    }
-    if (!fs.existsSync(themeVersionsDir)) {
-        fs.mkdirSync(themeVersionsDir, { recursive: true });
-    }
-}
 
 /**
  * Parse CSS variables from globals.css content
@@ -964,16 +890,6 @@ export interface Plugin {
     description?: string;
 }
 
-function getPluginsDir(domain: string): string {
-    return path.join(getWebsiteDir(domain), 'plugins');
-}
-
-function ensurePluginsDir(domain: string): void {
-    const pluginsDir = getPluginsDir(domain);
-    if (!fs.existsSync(pluginsDir)) {
-        fs.mkdirSync(pluginsDir, { recursive: true });
-    }
-}
 
 /**
  * Get installed plugins for a website
