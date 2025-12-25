@@ -731,6 +731,21 @@ function ContentTab({
     // Get GitHub token from store
     const githubToken = useSettingsStore(state => state.integrations.githubToken);
 
+    // C7 FIX: Auto-clear sync and publish messages after 5 seconds
+    useEffect(() => {
+        if (syncMessage) {
+            const timer = setTimeout(() => setSyncMessage(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [syncMessage]);
+
+    useEffect(() => {
+        if (publishMessage) {
+            const timer = setTimeout(() => setPublishMessage(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [publishMessage]);
+
     const filteredArticles = articles.filter(a => {
         if (filter !== 'all' && a.status !== filter) return false;
         if (searchQuery && !a.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;

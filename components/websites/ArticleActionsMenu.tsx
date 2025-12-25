@@ -22,6 +22,7 @@ import {
     AlertTriangle,
     ExternalLink
 } from 'lucide-react';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 interface ArticleActionsMenuProps {
     domain: string;
@@ -54,10 +55,12 @@ export default function ArticleActionsMenu({
     const [auditResult, setAuditResult] = useState<SEOAuditResult | null>(null);
     const [showAuditModal, setShowAuditModal] = useState(false);
 
+    // C3 FIX: Get Dev.to key from Zustand store instead of localStorage
+    const devtoApiKey = useSettingsStore(state => state.integrations.devtoKey);
+
     const handleSyndicateToDevto = async () => {
-        const devtoKey = localStorage.getItem('ifrit_devto_api_key');
-        if (!devtoKey) {
-            setSyndicateResult({ success: false, error: 'Dev.to API key not configured. Add it in Settings.' });
+        if (!devtoApiKey) {
+            setSyndicateResult({ success: false, error: 'Dev.to API key not configured. Add it in Settings → Integrations.' });
             return;
         }
 
@@ -69,7 +72,7 @@ export default function ArticleActionsMenu({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    apiKey: devtoKey,
+                    apiKey: devtoApiKey,
                     action: 'publish',
                     article: {
                         title: articleTitle,
@@ -249,10 +252,10 @@ export default function ArticleActionsMenu({
                         <div className="p-4">
                             {/* Score */}
                             <div className={`text-center p-4 rounded-lg mb-4 ${auditResult.score >= 80 ? 'bg-green-50' :
-                                    auditResult.score >= 50 ? 'bg-amber-50' : 'bg-red-50'
+                                auditResult.score >= 50 ? 'bg-amber-50' : 'bg-red-50'
                                 }`}>
                                 <div className={`text-4xl font-bold ${auditResult.score >= 80 ? 'text-green-600' :
-                                        auditResult.score >= 50 ? 'text-amber-600' : 'text-red-600'
+                                    auditResult.score >= 50 ? 'text-amber-600' : 'text-red-600'
                                     }`}>
                                     {auditResult.score}/100
                                 </div>
@@ -266,8 +269,8 @@ export default function ArticleActionsMenu({
                                 ) : (
                                     auditResult.issues.map((issue, i) => (
                                         <div key={i} className={`p-3 rounded-lg ${issue.type === 'error' ? 'bg-red-50 border-l-4 border-red-500' :
-                                                issue.type === 'warning' ? 'bg-amber-50 border-l-4 border-amber-500' :
-                                                    'bg-blue-50 border-l-4 border-blue-500'
+                                            issue.type === 'warning' ? 'bg-amber-50 border-l-4 border-amber-500' :
+                                                'bg-blue-50 border-l-4 border-blue-500'
                                             }`}>
                                             <p className="text-sm font-medium">{issue.message}</p>
                                             <p className="text-xs text-neutral-600 mt-1">Fix: {issue.fix}</p>
