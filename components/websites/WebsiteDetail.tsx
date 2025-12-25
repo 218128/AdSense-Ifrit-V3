@@ -55,6 +55,9 @@ import ThemeEditor from './ThemeEditor';
 import CompetitorAnalysisPanel from './CompetitorAnalysisPanel';
 import { useSettingsStore } from '@/stores/settingsStore';
 
+// C4 FIX: Default website categories - can be extended from website config
+const DEFAULT_CATEGORIES = ['how-to', 'reviews', 'guides', 'tutorials', 'tips', 'listicles', 'comparisons'];
+
 // Types from websiteStore
 interface Website {
     id: string;
@@ -369,6 +372,7 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                         domain={domain}
                         niche={website.niche}
                         articles={articles}
+                        author={website.author}
                         onRefresh={fetchWebsite}
                     />
                 )}
@@ -703,11 +707,13 @@ function ContentTab({
     domain,
     niche,
     articles,
+    author,
     onRefresh
 }: {
     domain: string;
     niche: string;
     articles: Article[];
+    author: { name: string; role: string };
     onRefresh: () => void;
 }) {
     const [filter, setFilter] = useState<'all' | 'draft' | 'ready' | 'published'>('all');
@@ -1011,7 +1017,7 @@ function ContentTab({
                 <SmartDropZone
                     domain={domain}
                     niche={niche}
-                    websiteCategories={['how-to', 'reviews', 'guides', 'tutorials', 'tips', 'listicles', 'comparisons']}
+                    websiteCategories={DEFAULT_CATEGORIES}
                     onArticleSaved={onRefresh}
                 />
             )}
@@ -1023,7 +1029,7 @@ function ContentTab({
                     niche={niche}
                     siteName={domain.split('.')[0]}
                     template="niche-authority"
-                    author={{ name: 'Author', role: 'Expert' }}
+                    author={author}
                 />
             )}
 
@@ -1041,8 +1047,8 @@ function ContentTab({
                 <ArticleEditor
                     domain={domain}
                     niche={niche}
-                    author={{ name: 'Author', role: 'Expert' }}
-                    websiteCategories={['how-to', 'reviews', 'guides', 'tutorials', 'tips', 'listicles', 'comparisons']}
+                    author={author}
+                    websiteCategories={DEFAULT_CATEGORIES}
                     initialContent={editingArticle?.content || ''}
                     articleId={editingArticle?.id}
                     onSave={() => { setShowEditor(false); setEditingArticle(null); onRefresh(); }}

@@ -19,6 +19,7 @@ import {
     Check,
     X,
     AlertTriangle,
+    AlertCircle,
     Clock,
     FileText,
     Loader2,
@@ -76,6 +77,8 @@ export default function PendingImports({ domain, onImportComplete }: PendingImpo
     const [autoPoll, setAutoPoll] = useState(false);
     const [lastScan, setLastScan] = useState<number | null>(null);
     const [showHistory, setShowHistory] = useState(false);
+    // C6 FIX: Add error state for scan failures
+    const [scanError, setScanError] = useState<string | null>(null);
 
     // Load auto-poll preference
     useEffect(() => {
@@ -88,6 +91,7 @@ export default function PendingImports({ domain, onImportComplete }: PendingImpo
     // Scan drafts folder
     const scanDrafts = useCallback(async () => {
         setLoading(true);
+        setScanError(null); // C6 FIX: Clear previous errors
         try {
             const res = await fetch(`/api/websites/${domain}/drafts`);
             const data = await res.json();
@@ -97,9 +101,14 @@ export default function PendingImports({ domain, onImportComplete }: PendingImpo
                 setHistory(data.history || []);
                 setDraftsFolder(data.draftsFolder || '');
                 setLastScan(Date.now());
+            } else {
+                // C6 FIX: Set error from API response
+                setScanError(data.error || 'Failed to scan drafts folder');
             }
         } catch (err) {
             console.error('Failed to scan drafts:', err);
+            // C6 FIX: Set network/parse error
+            setScanError(err instanceof Error ? err.message : 'Network error');
         } finally {
             setLoading(false);
         }
@@ -204,8 +213,8 @@ export default function PendingImports({ domain, onImportComplete }: PendingImpo
                         <button
                             onClick={toggleAutoPoll}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${autoPoll
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                                 }`}
                             title={autoPoll ? 'Auto-scan every 5 min' : 'Enable auto-scan'}
                         >
@@ -231,8 +240,8 @@ export default function PendingImports({ domain, onImportComplete }: PendingImpo
                         <button
                             onClick={() => setShowHistory(!showHistory)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${showHistory
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                                 }`}
                         >
                             <History className="w-4 h-4" />
@@ -250,6 +259,20 @@ export default function PendingImports({ domain, onImportComplete }: PendingImpo
                                 • Scanned {formatTimeAgo(lastScan)}
                             </span>
                         )}
+                    </div>
+                )}
+
+                {/* C6 FIX: Error UI display */}
+                {scanError && (
+                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>{scanError}</span>
+                        <button
+                            onClick={scanDrafts}
+                            className="ml-auto text-xs underline hover:no-underline"
+                        >
+                            Retry
+                        </button>
                     </div>
                 )}
             </div>
@@ -271,8 +294,8 @@ export default function PendingImports({ domain, onImportComplete }: PendingImpo
                                 <div
                                     key={file.filename}
                                     className={`flex items-center justify-between p-3 rounded-lg border ${file.error
-                                            ? 'bg-red-50 border-red-200'
-                                            : 'bg-neutral-50 border-neutral-200'
+                                        ? 'bg-red-50 border-red-200'
+                                        : 'bg-neutral-50 border-neutral-200'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3 min-w-0">
@@ -350,10 +373,10 @@ export default function PendingImports({ domain, onImportComplete }: PendingImpo
                                 <div
                                     key={`${record.filename}-${idx}`}
                                     className={`flex items-center justify-between p-3 rounded-lg border ${record.status === 'success'
-                                            ? 'bg-green-50 border-green-200'
-                                            : record.status === 'failed'
-                                                ? 'bg-red-50 border-red-200'
-                                                : 'bg-amber-50 border-amber-200'
+                                        ? 'bg-green-50 border-green-200'
+                                        : record.status === 'failed'
+                                            ? 'bg-red-50 border-red-200'
+                                            : 'bg-amber-50 border-amber-200'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">

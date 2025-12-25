@@ -66,7 +66,10 @@ export default function PublishPanel({
                     if (configs.length > 0) {
                         setSelectedDomain(configs[0].name);
                     }
-                } catch { }
+                } catch (err) {
+                    // C5 FIX: Log parse errors instead of silently swallowing
+                    console.warn('Failed to parse domain configs:', err);
+                }
             }
         }
     }, []);
