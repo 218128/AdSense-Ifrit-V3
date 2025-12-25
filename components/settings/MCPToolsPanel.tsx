@@ -90,16 +90,10 @@ export function MCPToolsPanel() {
     // Use settings store for MCP configuration
     const { mcpServers, toggleMCPServer, setMCPApiKey, initialize } = useSettingsStore();
 
-    // Derive enabled servers and API keys from store
-    const enabledServers = new Set(
-        Object.entries(mcpServers)
-            .filter(([_, config]) => config.enabled)
-            .map(([id]) => id)
-    );
-    const apiKeys = Object.entries(mcpServers).reduce((acc, [id, config]) => {
-        if (config.apiKey) acc[id] = config.apiKey;
-        return acc;
-    }, {} as Record<string, string>);
+    // Derive enabled servers from store
+    const enabledServers = new Set(mcpServers.enabled || []);
+    // Read API keys directly from the correct store path
+    const apiKeys = mcpServers.apiKeys || {};
 
     const [expandedCategory, setExpandedCategory] = useState<string | null>('research');
     const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({});
@@ -219,7 +213,10 @@ export function MCPToolsPanel() {
 
                             {/* Servers */}
                             {isExpanded && (
-                                <div className="border-t bg-gray-50 divide-y">
+                                <div
+                                    className="border-t bg-gray-50 divide-y"
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                >
                                     {servers.map(server => {
                                         const isEnabled = enabledServers.has(server.id);
                                         const hasApiKey = !!apiKeys[server.id];
