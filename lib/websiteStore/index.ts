@@ -20,4 +20,7 @@ export * from './themeCrud';
 // Export all plugin functions
 export * from './pluginCrud';
 
-// Note: Website CRUD, Pages, Versions, Profiles still in parent file
+// Export all version control functions
+export * from './versionControl';
+
+// Note: Website CRUD, Pages, External Content, Profiles still in parent file
