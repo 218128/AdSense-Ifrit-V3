@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Wrench, Zap, Globe, Search, Github, FolderOpen, ChevronDown, Key, Loader2, CheckCircle, XCircle, PlayCircle } from 'lucide-react';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 // MCP Server configurations (client-side subset)
 interface MCPServerConfig {
@@ -80,14 +81,31 @@ const categoryLabels: Record<string, string> = {
  * Allows users to enable/disable MCP servers and configure API keys
  */
 export function MCPToolsPanel() {
-    const [enabledServers, setEnabledServers] = useState<Set<string>>(new Set());
-    const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+    // Use settings store for MCP configuration
+    const { mcpServers, toggleMCPServer, setMCPApiKey, initialize } = useSettingsStore();
+
+    // Derive enabled servers and API keys from store
+    const enabledServers = new Set(
+        Object.entries(mcpServers)
+            .filter(([_, config]) => config.enabled)
+            .map(([id]) => id)
+    );
+    const apiKeys = Object.entries(mcpServers).reduce((acc, [id, config]) => {
+        if (config.apiKey) acc[id] = config.apiKey;
+        return acc;
+    }, {} as Record<string, string>);
+
     const [expandedCategory, setExpandedCategory] = useState<string | null>('research');
     const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({});
 
     // Connection test states
     const [testingServer, setTestingServer] = useState<string | null>(null);
     const [connectionResults, setConnectionResults] = useState<Record<string, ConnectionResult>>({});
+
+    // Initialize store on mount
+    useEffect(() => {
+        initialize();
+    }, []);
 
     // Test connection function
     const testConnection = async (serverId: string) => {
@@ -122,30 +140,7 @@ export function MCPToolsPanel() {
         }
     };
 
-    // Load state from localStorage
-    useEffect(() => {
-        try {
-            const enabled = localStorage.getItem(STORAGE_KEY);
-            if (enabled) {
-                setEnabledServers(new Set(JSON.parse(enabled)));
-            }
-
-            const keys = localStorage.getItem(API_KEYS_STORAGE);
-            if (keys) {
-                setApiKeys(JSON.parse(keys));
-            }
-        } catch {
-            // Ignore
-        }
-    }, []);
-
-    // Save state to localStorage
-    const saveState = (enabled: Set<string>, keys: Record<string, string>) => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify([...enabled]));
-        localStorage.setItem(API_KEYS_STORAGE, JSON.stringify(keys));
-    };
-
-    const toggleServer = (serverId: string) => {
+    const handleToggleServer = (serverId: string) => {
         const server = MCP_SERVERS.find(s => s.id === serverId);
         if (!server) return;
 
@@ -155,20 +150,11 @@ export function MCPToolsPanel() {
             return;
         }
 
-        const newEnabled = new Set(enabledServers);
-        if (newEnabled.has(serverId)) {
-            newEnabled.delete(serverId);
-        } else {
-            newEnabled.add(serverId);
-        }
-        setEnabledServers(newEnabled);
-        saveState(newEnabled, apiKeys);
+        toggleMCPServer(serverId);
     };
 
-    const updateApiKey = (serverId: string, key: string) => {
-        const newKeys = { ...apiKeys, [serverId]: key };
-        setApiKeys(newKeys);
-        saveState(enabledServers, newKeys);
+    const handleUpdateApiKey = (serverId: string, key: string) => {
+        setMCPApiKey(serverId, key);
     };
 
     const categories = ['research', 'seo', 'integration', 'utility'];
@@ -241,7 +227,7 @@ export function MCPToolsPanel() {
                                                         <div className="text-xs text-gray-500">{server.description}</div>
                                                     </div>
                                                     <button
-                                                        onClick={() => toggleServer(server.id)}
+                                                        onClick={() => handleToggleServer(server.id)}
                                                         disabled={needsKey}
                                                         className={`
                                                             relative w-12 h-6 rounded-full transition-colors
@@ -258,20 +244,30 @@ export function MCPToolsPanel() {
 
                                                 {/* API Key Input */}
                                                 {server.requiresApiKey && (
-                                                    <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="flex items-center gap-2"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
                                                         <Key className="w-4 h-4 text-gray-400" />
                                                         <input
                                                             type={showApiKey[server.id] ? 'text' : 'password'}
                                                             value={apiKeys[server.id] || ''}
-                                                            onChange={(e) => updateApiKey(server.id, e.target.value)}
+                                                            onChange={(e) => handleUpdateApiKey(server.id, e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onKeyDown={(e) => e.stopPropagation()}
+                                                            onFocus={(e) => e.stopPropagation()}
                                                             placeholder="Enter API key..."
-                                                            className="flex-1 px-2 py-1 text-sm border rounded"
+                                                            className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            autoComplete="off"
                                                         />
                                                         <button
-                                                            onClick={() => setShowApiKey({
-                                                                ...showApiKey,
-                                                                [server.id]: !showApiKey[server.id]
-                                                            })}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setShowApiKey({
+                                                                    ...showApiKey,
+                                                                    [server.id]: !showApiKey[server.id]
+                                                                });
+                                                            }}
                                                             className="text-xs text-blue-500 hover:underline"
                                                         >
                                                             {showApiKey[server.id] ? 'Hide' : 'Show'}
@@ -309,20 +305,27 @@ export function MCPToolsPanel() {
 
                                                     {/* Connection Result */}
                                                     {connectionResults[server.id] && (
-                                                        <div className={`flex items-center gap-1 text-xs ${connectionResults[server.id].success
-                                                                ? 'text-green-600'
-                                                                : 'text-red-600'
+                                                        <div className={`flex flex-col gap-1 text-xs ${connectionResults[server.id].success
+                                                            ? 'text-green-600'
+                                                            : 'text-red-600'
                                                             }`}>
                                                             {connectionResults[server.id].success ? (
-                                                                <>
+                                                                <div className="flex items-center gap-1">
                                                                     <CheckCircle className="w-3 h-3" />
                                                                     {connectionResults[server.id].toolCount} tools found
-                                                                </>
+                                                                </div>
                                                             ) : (
-                                                                <>
-                                                                    <XCircle className="w-3 h-3" />
-                                                                    {connectionResults[server.id].error || 'Failed'}
-                                                                </>
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <div className="flex items-center gap-1">
+                                                                        <XCircle className="w-3 h-3" />
+                                                                        <span>Failed to connect to {server.name}</span>
+                                                                    </div>
+                                                                    {connectionResults[server.id].error && (
+                                                                        <span className="text-red-500 ml-4 text-[10px]">
+                                                                            {connectionResults[server.id].error}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             )}
                                                         </div>
                                                     )}

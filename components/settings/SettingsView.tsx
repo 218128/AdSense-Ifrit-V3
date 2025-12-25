@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Settings, Lock, Globe, DollarSign, Key, Zap, Link2, BarChart3, Image, Layout } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Settings, Lock, Globe, DollarSign, Key, Zap, Link2, Image, Layout, Share2 } from 'lucide-react';
 import { AIKeyManager } from './AIKeyManager';
-import CacheStatusPanel from './CacheStatusPanel';
-import { AIUsagePanel } from './AIUsagePanel';
+// Archived: CacheStatusPanel, AIUsagePanel (moved to _archive/)
 import TemplatesPanel from './TemplatesPanel';
+import RepublishPanel from './RepublishPanel';
+import { HealthStatusIndicator } from './HealthStatusIndicator';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { checkGitHubHealth, checkVercelHealth, type ServiceHealth } from '@/lib/config/healthMonitor';
 
 /**
  * Safe localStorage getter that works with SSR
@@ -128,7 +131,7 @@ export function getSelectedModel(provider: string = 'gemini'): string | undefine
 }
 
 
-type SettingsTab = 'ai' | 'usage' | 'images' | 'templates' | 'blog' | 'adsense' | 'integrations' | 'backup';
+type SettingsTab = 'ai' | 'usage' | 'images' | 'templates' | 'blog' | 'adsense' | 'integrations' | 'backup' | 'republish';
 
 interface SettingsModalProps {
     inline?: boolean;
@@ -138,114 +141,58 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
     const [isOpen, setIsOpen] = useState(inline); // Auto-open if inline
     const [activeTab, setActiveTab] = useState<SettingsTab>('ai');
 
-    // Blog settings
-    const [blogUrl, setBlogUrl] = useState(() => getStorageItem('USER_BLOG_URL'));
+    // Use store for all settings
+    const store = useSettingsStore();
+    const { integrations, adsenseConfig, blogUrl, setIntegration, setAdsenseConfig, setBlogUrl, backupToServer, restoreFromServer, exportSettings, importSettings, initialize } = store;
 
-    // AdSense settings
-    const [adsensePublisherId, setAdsensePublisherId] = useState(() => getStorageItem('ADSENSE_PUBLISHER_ID'));
-    const [adsenseLeaderboardSlot, setAdsenseLeaderboardSlot] = useState(() => getStorageItem('ADSENSE_LEADERBOARD_SLOT'));
-    const [adsenseArticleSlot, setAdsenseArticleSlot] = useState(() => getStorageItem('ADSENSE_ARTICLE_SLOT'));
-    const [adsenseMultiplexSlot, setAdsenseMultiplexSlot] = useState(() => getStorageItem('ADSENSE_MULTIPLEX_SLOT'));
-
-    // Domain API settings
-    const [spamzillaKey, setSpamzillaKey] = useState(() => getStorageItem('ifrit_spamzilla_key'));
-    const [namecheapUser, setNamecheapUser] = useState(() => getStorageItem('ifrit_namecheap_user'));
-    const [namecheapKey, setNamecheapKey] = useState(() => getStorageItem('ifrit_namecheap_key'));
-
-    // GitHub & Vercel settings
-    const [githubToken, setGithubToken] = useState(() => getStorageItem('ifrit_github_token'));
-    const [githubUser, setGithubUser] = useState(() => getStorageItem('ifrit_github_user'));
-    const [vercelToken, setVercelToken] = useState(() => getStorageItem('ifrit_vercel_token'));
-    const [vercelUser, setVercelUser] = useState(() => getStorageItem('ifrit_vercel_user'));
+    // UI-only state for testing indicators
     const [testingGithub, setTestingGithub] = useState(false);
     const [testingVercel, setTestingVercel] = useState(false);
 
-    // Stock image API settings
-    const [unsplashKey, setUnsplashKey] = useState(() => getStorageItem('ifrit_unsplash_key'));
-    const [pexelsKey, setPexelsKey] = useState(() => getStorageItem('ifrit_pexels_key'));
+    // Health status state
+    const [githubHealth, setGithubHealth] = useState<ServiceHealth | undefined>();
+    const [vercelHealth, setVercelHealth] = useState<ServiceHealth | undefined>();
 
-    // Load settings from server backup on mount (if localStorage is empty)
+    // Health check callbacks
+    const handleCheckGitHubHealth = useCallback(async () => {
+        const health = await checkGitHubHealth(integrations.githubToken);
+        setGithubHealth(health);
+        store.setHealthStatus('integration:github', health);
+        return health;
+    }, [integrations.githubToken, store]);
+
+    const handleCheckVercelHealth = useCallback(async () => {
+        const health = await checkVercelHealth(integrations.vercelToken);
+        setVercelHealth(health);
+        store.setHealthStatus('integration:vercel', health);
+        return health;
+    }, [integrations.vercelToken, store]);
+
+    // Initialize store and restore from server on mount (if needed)
     useEffect(() => {
-        const loadBackup = async () => {
-            // Only load if we have no settings in localStorage
-            const hasLocalSettings = localStorage.getItem('ADSENSE_PUBLISHER_ID') ||
-                localStorage.getItem('ifrit_github_token');
-            if (hasLocalSettings) return;
-
-            try {
-                const res = await fetch('/api/settings/backup');
-                const data = await res.json();
-                if (data.success && data.hasBackup && data.backup?.settings) {
-                    const { integrations, blog, adsense } = data.backup.settings;
-
-                    // Restore to state
-                    if (blog?.url) setBlogUrl(blog.url);
-                    if (adsense?.publisherId) setAdsensePublisherId(adsense.publisherId);
-                    if (adsense?.leaderboardSlot) setAdsenseLeaderboardSlot(adsense.leaderboardSlot);
-                    if (adsense?.articleSlot) setAdsenseArticleSlot(adsense.articleSlot);
-                    if (adsense?.multiplexSlot) setAdsenseMultiplexSlot(adsense.multiplexSlot);
-                    if (integrations?.githubToken) setGithubToken(integrations.githubToken);
-                    if (integrations?.githubUser) setGithubUser(integrations.githubUser);
-                    if (integrations?.vercelToken) setVercelToken(integrations.vercelToken);
-                    if (integrations?.vercelUser) setVercelUser(integrations.vercelUser);
-
-                    console.log('Settings restored from server backup');
-                }
-            } catch (err) {
-                console.error('Failed to load backup:', err);
-            }
-        };
-        loadBackup();
+        initialize();
+        // Try server restore if store is empty
+        if (!integrations.githubToken && !adsenseConfig.publisherId) {
+            restoreFromServer();
+        }
     }, []);
 
-    const handleSave = async () => {
-        // Blog Configuration
-        localStorage.setItem('USER_BLOG_URL', blogUrl);
-
-        // AdSense Configuration
-        localStorage.setItem('ADSENSE_PUBLISHER_ID', adsensePublisherId);
-        localStorage.setItem('ADSENSE_LEADERBOARD_SLOT', adsenseLeaderboardSlot);
-        localStorage.setItem('ADSENSE_ARTICLE_SLOT', adsenseArticleSlot);
-        localStorage.setItem('ADSENSE_MULTIPLEX_SLOT', adsenseMultiplexSlot);
-
-        // Domain API Configuration
-        localStorage.setItem('ifrit_spamzilla_key', spamzillaKey);
-        localStorage.setItem('ifrit_namecheap_user', namecheapUser);
-        localStorage.setItem('ifrit_namecheap_key', namecheapKey);
-
-        // GitHub & Vercel Configuration (already saved via test buttons, but save again)
-        if (githubToken) localStorage.setItem('ifrit_github_token', githubToken);
-        if (vercelToken) localStorage.setItem('ifrit_vercel_token', vercelToken);
-
-        // Backup to server for persistence
-        try {
-            await fetch('/api/settings/backup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    settings: {
-                        integrations: {
-                            githubToken,
-                            githubUser,
-                            vercelToken,
-                            vercelUser,
-                        },
-                        blog: {
-                            url: blogUrl,
-                        },
-                        adsense: {
-                            publisherId: adsensePublisherId,
-                            leaderboardSlot: adsenseLeaderboardSlot,
-                            articleSlot: adsenseArticleSlot,
-                            multiplexSlot: adsenseMultiplexSlot,
-                        },
-                    }
-                })
-            });
-        } catch (err) {
-            console.error('Failed to backup settings to server:', err);
+    // Auto-check health status on mount when tokens exist
+    useEffect(() => {
+        // Auto-check GitHub health if token exists but no current health status
+        if (integrations.githubToken && !githubHealth) {
+            handleCheckGitHubHealth();
         }
 
+        // Auto-check Vercel health if token exists but no current health status
+        if (integrations.vercelToken && !vercelHealth) {
+            handleCheckVercelHealth();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [integrations.githubToken, integrations.vercelToken]);
+
+    const handleSave = async () => {
+        await backupToServer();
         if (!inline) {
             setIsOpen(false);
         }
@@ -254,50 +201,23 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
 
     const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
         { id: 'ai', label: 'AI Providers', icon: <Zap className="w-4 h-4" /> },
-        { id: 'usage', label: 'AI Usage', icon: <BarChart3 className="w-4 h-4" /> },
+        // Archived: usage tab (replaced by external dashboard links in AI Providers)
         { id: 'images', label: 'Images', icon: <Image className="w-4 h-4" /> },
         { id: 'templates', label: 'Templates', icon: <Layout className="w-4 h-4" /> },
         { id: 'integrations', label: 'Integrations', icon: <Link2 className="w-4 h-4" /> },
-        { id: 'blog', label: 'Blog', icon: <Globe className="w-4 h-4" /> },
+        { id: 'republish', label: 'Republish', icon: <Share2 className="w-4 h-4" /> },
+        // Archived: blog tab (legacy single-blog setting, not needed for multi-website architecture)
         { id: 'adsense', label: 'AdSense', icon: <DollarSign className="w-4 h-4" /> },
         { id: 'backup', label: 'Backup', icon: <Key className="w-4 h-4" /> },
     ];
 
     // Export all settings to downloadable file
     const handleExportSettings = () => {
-        // Collect all localStorage keys
-        const allKeys = [
-            'ifrit_gemini_keys', 'ifrit_deepseek_keys', 'ifrit_openrouter_keys',
-            'ifrit_vercel_keys', 'ifrit_perplexity_keys', 'ifrit_enabled_providers',
-            'GEMINI_API_KEY', 'ifrit_gemini_key',
-            'ifrit_github_token', 'ifrit_github_user', 'ifrit_vercel_token', 'ifrit_vercel_user',
-            'ADSENSE_PUBLISHER_ID', 'ADSENSE_LEADERBOARD_SLOT', 'ADSENSE_ARTICLE_SLOT', 'ADSENSE_MULTIPLEX_SLOT',
-            'USER_BLOG_URL',
-            'ifrit_namecheap_user', 'ifrit_namecheap_key', 'ifrit_spamzilla_key', 'ifrit_cloudflare_token',
-            'ifrit_expireddomains_user', 'ifrit_expireddomains_pass',
-            'ifrit_devto_api_key', 'devto_api_key',
-            'ifrit_unsplash_key', 'ifrit_pexels_key',
-        ];
-
-        const settings: Record<string, string> = {};
-        for (const key of allKeys) {
-            const value = localStorage.getItem(key);
-            if (value) settings[key] = value;
-        }
-
-        if (Object.keys(settings).length === 0) {
+        const exportData = exportSettings();
+        if (Object.keys(exportData.settings).length === 0) {
             alert('No settings to export. Please configure some API keys first.');
             return;
         }
-
-        const exportData = {
-            version: '2.0.0',
-            exportedAt: new Date().toISOString(),
-            app: 'AdSense Ifrit V3',
-            settings,
-        };
-
-        // Standard file download
         const jsonString = JSON.stringify(exportData, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -316,34 +236,17 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
         input.onchange = async (e) => {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (!file) return;
-
             try {
                 const text = await file.text();
                 const data = JSON.parse(text);
-
-                if (!data.settings || !data.version) {
+                const result = importSettings(data);
+                if (result.success) {
+                    await backupToServer();
+                    alert(`Restored ${result.restored} settings! Please refresh the page.`);
+                    window.location.reload();
+                } else {
                     alert('Invalid settings file format');
-                    return;
                 }
-
-                // Restore all keys to localStorage
-                let restored = 0;
-                for (const [key, value] of Object.entries(data.settings)) {
-                    if (value) {
-                        localStorage.setItem(key, value as string);
-                        restored++;
-                    }
-                }
-
-                // Save to server too
-                await fetch('/api/settings/export', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ clientSettings: data.settings }),
-                });
-
-                alert(`Restored ${restored} settings! Please refresh the page.`);
-                window.location.reload();
             } catch (err) {
                 console.error('Import failed:', err);
                 alert('Failed to import settings. Invalid file format.');
@@ -365,20 +268,7 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                 </div>
             )}
 
-            {/* AI Usage Tab */}
-            {activeTab === 'usage' && (
-                <div>
-                    <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4" />
-                        AI Usage & Cost Tracking
-                    </h3>
-                    <AIUsagePanel />
-                    {/* V4: Cache Status */}
-                    <div className="mt-6">
-                        <CacheStatusPanel />
-                    </div>
-                </div>
-            )}
+            {/* Archived: usage tab (CacheStatusPanel, AIUsagePanel, BarChart3) - use external dashboards */}
 
             {/* Images Tab */}
             {activeTab === 'images' && (
@@ -401,8 +291,8 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                             <label className="block text-xs text-neutral-400 mb-1">Access Key</label>
                             <input
                                 type="password"
-                                value={unsplashKey}
-                                onChange={(e) => setUnsplashKey(e.target.value)}
+                                value={integrations.unsplashKey}
+                                onChange={(e) => setIntegration('unsplashKey', e.target.value)}
                                 placeholder="Enter Unsplash Access Key"
                                 className="w-full p-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-white"
                             />
@@ -423,8 +313,8 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                             <label className="block text-xs text-neutral-400 mb-1">API Key</label>
                             <input
                                 type="password"
-                                value={pexelsKey}
-                                onChange={(e) => setPexelsKey(e.target.value)}
+                                value={integrations.pexelsKey}
+                                onChange={(e) => setIntegration('pexelsKey', e.target.value)}
                                 placeholder="Enter Pexels API Key"
                                 className="w-full p-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-white"
                             />
@@ -434,8 +324,7 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                     {/* Save Button */}
                     <button
                         onClick={() => {
-                            if (unsplashKey) localStorage.setItem('ifrit_unsplash_key', unsplashKey);
-                            if (pexelsKey) localStorage.setItem('ifrit_pexels_key', pexelsKey);
+                            backupToServer();
                             alert('Image API settings saved!');
                         }}
                         className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
@@ -470,34 +359,40 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                             <div className="p-3 bg-neutral-700 rounded-lg">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="font-medium text-sm">GitHub</span>
-                                    {githubUser && (
-                                        <span className="ml-auto text-xs text-green-400 flex items-center gap-1">
-                                            ✓ @{githubUser}
-                                        </span>
-                                    )}
+                                    <div className="ml-auto">
+                                        {integrations.githubToken ? (
+                                            <HealthStatusIndicator
+                                                serviceId="integration:github"
+                                                serviceName="GitHub"
+                                                health={githubHealth}
+                                                onCheck={handleCheckGitHubHealth}
+                                                size="sm"
+                                            />
+                                        ) : (
+                                            <span className="text-xs text-gray-400">Not configured</span>
+                                        )}
+                                    </div>
                                 </div>
                                 <input
                                     type="password"
-                                    value={githubToken}
-                                    onChange={(e) => setGithubToken(e.target.value)}
+                                    value={integrations.githubToken}
+                                    onChange={(e) => setIntegration('githubToken', e.target.value)}
                                     placeholder="ghp_xxxx or github_pat_xxxx"
                                     className="w-full px-3 py-2 bg-neutral-600 border border-neutral-500 rounded-lg text-sm text-white placeholder-neutral-400 mb-2"
                                 />
                                 <button
                                     onClick={async () => {
-                                        if (!githubToken) return;
+                                        if (!integrations.githubToken) return;
                                         setTestingGithub(true);
                                         try {
                                             const res = await fetch('/api/github-setup', {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ action: 'validate', token: githubToken })
+                                                body: JSON.stringify({ action: 'validate', token: integrations.githubToken })
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                setGithubUser(data.user.username);
-                                                localStorage.setItem('ifrit_github_token', githubToken);
-                                                localStorage.setItem('ifrit_github_user', data.user.username);
+                                                setIntegration('githubUser', data.user.username);
                                             } else {
                                                 alert(data.error || 'GitHub connection failed');
                                             }
@@ -505,44 +400,50 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                                             setTestingGithub(false);
                                         }
                                     }}
-                                    disabled={!githubToken || testingGithub}
+                                    disabled={!integrations.githubToken || testingGithub}
                                     className="w-full px-3 py-2 bg-white text-neutral-800 rounded-lg text-sm disabled:opacity-50"
                                 >
-                                    {testingGithub ? 'Testing...' : githubUser ? 'Update' : 'Connect'}
+                                    {testingGithub ? 'Testing...' : integrations.githubUser ? 'Update' : 'Connect'}
                                 </button>
                             </div>
                             {/* Vercel */}
                             <div className="p-3 bg-neutral-700 rounded-lg">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="font-medium text-sm">Vercel</span>
-                                    {vercelUser && (
-                                        <span className="ml-auto text-xs text-green-400 flex items-center gap-1">
-                                            ✓ @{vercelUser}
-                                        </span>
-                                    )}
+                                    <div className="ml-auto">
+                                        {integrations.vercelToken ? (
+                                            <HealthStatusIndicator
+                                                serviceId="integration:vercel"
+                                                serviceName="Vercel"
+                                                health={vercelHealth}
+                                                onCheck={handleCheckVercelHealth}
+                                                size="sm"
+                                            />
+                                        ) : (
+                                            <span className="text-xs text-gray-400">Not configured</span>
+                                        )}
+                                    </div>
                                 </div>
                                 <input
                                     type="password"
-                                    value={vercelToken}
-                                    onChange={(e) => setVercelToken(e.target.value)}
+                                    value={integrations.vercelToken}
+                                    onChange={(e) => setIntegration('vercelToken', e.target.value)}
                                     placeholder="vercel_xxxx"
                                     className="w-full px-3 py-2 bg-neutral-600 border border-neutral-500 rounded-lg text-sm text-white placeholder-neutral-400 mb-2"
                                 />
                                 <button
                                     onClick={async () => {
-                                        if (!vercelToken) return;
+                                        if (!integrations.vercelToken) return;
                                         setTestingVercel(true);
                                         try {
                                             const res = await fetch('/api/vercel-setup', {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ action: 'validate', token: vercelToken })
+                                                body: JSON.stringify({ action: 'validate', token: integrations.vercelToken })
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                setVercelUser(data.user.username);
-                                                localStorage.setItem('ifrit_vercel_token', vercelToken);
-                                                localStorage.setItem('ifrit_vercel_user', data.user.username);
+                                                setIntegration('vercelUser', data.user.username);
                                             } else {
                                                 alert(data.error || 'Vercel connection failed');
                                             }
@@ -550,10 +451,10 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                                             setTestingVercel(false);
                                         }
                                     }}
-                                    disabled={!vercelToken || testingVercel}
+                                    disabled={!integrations.vercelToken || testingVercel}
                                     className="w-full px-3 py-2 bg-black text-white rounded-lg text-sm disabled:opacity-50"
                                 >
-                                    {testingVercel ? 'Testing...' : vercelUser ? 'Update' : 'Connect'}
+                                    {testingVercel ? 'Testing...' : integrations.vercelUser ? 'Update' : 'Connect'}
                                 </button>
                             </div>
                         </div>
@@ -569,8 +470,8 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                         </p>
                         <input
                             type="password"
-                            value={spamzillaKey}
-                            onChange={(e) => setSpamzillaKey(e.target.value)}
+                            value={integrations.spamzillaKey}
+                            onChange={(e) => setIntegration('spamzillaKey', e.target.value)}
                             className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                             placeholder="Your Spamzilla API Key"
                         />
@@ -616,24 +517,95 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                         <div className="grid grid-cols-2 gap-3">
                             <input
                                 type="text"
-                                value={namecheapUser}
-                                onChange={(e) => setNamecheapUser(e.target.value)}
+                                value={integrations.namecheapUser}
+                                onChange={(e) => setIntegration('namecheapUser', e.target.value)}
                                 className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
                                 placeholder="API User"
                             />
                             <input
                                 type="password"
-                                value={namecheapKey}
-                                onChange={(e) => setNamecheapKey(e.target.value)}
+                                value={integrations.namecheapKey}
+                                onChange={(e) => setIntegration('namecheapKey', e.target.value)}
                                 className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
                                 placeholder="API Key"
                             />
                         </div>
                     </div>
+
+                    {/* Cloudflare */}
+                    <div className="p-4 bg-orange-50 rounded-xl border border-orange-200">
+                        <h4 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
+                            ☁️ Cloudflare Registrar (At-Cost Renewals)
+                        </h4>
+                        <p className="text-xs text-orange-600 mb-3">
+                            Transfer domains to Cloudflare for at-cost renewals (.com = $10.11/yr). Get API token from{' '}
+                            <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer" className="underline">Cloudflare Dashboard</a>
+                        </p>
+                        <input
+                            type="password"
+                            value={integrations.cloudflareToken}
+                            onChange={(e) => setIntegration('cloudflareToken', e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
+                            placeholder="Cloudflare API Token"
+                        />
+                    </div>
+
+                    {/* GoDaddy */}
+                    <div className="p-4 bg-teal-50 rounded-xl border border-teal-200">
+                        <h4 className="font-semibold text-teal-900 mb-3 flex items-center gap-2">
+                            🌐 GoDaddy API (Domain Auctions)
+                        </h4>
+                        <p className="text-xs text-teal-600 mb-3">
+                            Access GoDaddy Auctions for expired domains. Get API credentials from{' '}
+                            <a href="https://developer.godaddy.com/keys" target="_blank" rel="noopener noreferrer" className="underline">GoDaddy Developer Portal</a>
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <input
+                                type="password"
+                                value={integrations.godaddyKey}
+                                onChange={(e) => setIntegration('godaddyKey', e.target.value)}
+                                className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm"
+                                placeholder="API Key"
+                            />
+                            <input
+                                type="password"
+                                value={integrations.godaddySecret}
+                                onChange={(e) => setIntegration('godaddySecret', e.target.value)}
+                                className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm"
+                                placeholder="API Secret"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Umami Analytics */}
+                    <div className="p-4 bg-violet-50 rounded-xl border border-violet-200">
+                        <h4 className="font-semibold text-violet-900 mb-3 flex items-center gap-2">
+                            📊 Umami Analytics (Privacy-Focused)
+                        </h4>
+                        <p className="text-xs text-violet-600 mb-3">
+                            Self-hosted analytics for your websites. Enter Website ID from your{' '}
+                            <a href="https://umami.is/docs/getting-started" target="_blank" rel="noopener noreferrer" className="underline">Umami dashboard</a>
+                        </p>
+                        <input
+                            type="text"
+                            value={integrations.umamiId}
+                            onChange={(e) => setIntegration('umamiId', e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm"
+                            placeholder="Umami Website ID"
+                        />
+                        <p className="text-xs text-violet-500 mt-2">
+                            Used when deploying websites - embeds tracking script automatically
+                        </p>
+                    </div>
                 </div>
             )}
 
-            {/* Blog Tab */}
+            {/* Republish/Syndication Tab */}
+            {activeTab === 'republish' && (
+                <RepublishPanel />
+            )}
+
+            {/* Archived: Blog Tab (legacy single-blog setting, not needed for multi-website architecture)
             {activeTab === 'blog' && (
                 <div>
                     <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -657,65 +629,112 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                     </div>
                 </div>
             )}
+            */}
 
             {/* AdSense Tab */}
             {activeTab === 'adsense' && (
-                <div>
-                    <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="space-y-6">
+                    {/* Header */}
+                    <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider flex items-center gap-2">
                         <DollarSign className="w-4 h-4" />
                         Google AdSense Configuration
                     </h3>
-                    <div className="space-y-4">
+
+                    {/* Policy Guidance */}
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                        <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                            💡 AdSense Policy (Dec 2025)
+                        </h4>
+                        <ul className="text-sm text-green-800 space-y-1">
+                            <li>• <strong>One account per person</strong> — Google allows only 1 AdSense account per individual</li>
+                            <li>• <strong>Multiple sites allowed</strong> — You can monetize unlimited websites with the same Publisher ID</li>
+                            <li>• <strong>These settings apply to all websites</strong> created in Ifrit (used during deploy)</li>
+                        </ul>
+                    </div>
+
+                    {/* Publisher ID */}
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-1">
+                            Publisher ID
+                        </label>
+                        <input
+                            type="text"
+                            value={adsenseConfig.publisherId}
+                            onChange={(e) => setAdsenseConfig({ publisherId: e.target.value })}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            placeholder="pub-1234567890123456"
+                        />
+                        <p className="text-xs text-neutral-500 mt-1">
+                            Format: <code className="bg-neutral-100 px-1 rounded">pub-</code> followed by 16 digits.
+                            Find in AdSense → Account → Account information
+                        </p>
+                    </div>
+
+                    {/* Ad Slots */}
+                    <div className="grid md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-neutral-700 mb-1">
-                                Publisher ID
+                                Leaderboard Ad Slot
                             </label>
                             <input
                                 type="text"
-                                value={adsensePublisherId}
-                                onChange={(e) => setAdsensePublisherId(e.target.value)}
+                                value={adsenseConfig.leaderboardSlot}
+                                onChange={(e) => setAdsenseConfig({ leaderboardSlot: e.target.value })}
                                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                                placeholder="pub-1234567890123456"
+                                placeholder="1234567890"
                             />
+                            <p className="text-xs text-neutral-500 mt-1">728×90 banner at page top</p>
                         </div>
-                        <div className="grid md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                                    Leaderboard Ad Slot ID
-                                </label>
-                                <input
-                                    type="text"
-                                    value={adsenseLeaderboardSlot}
-                                    onChange={(e) => setAdsenseLeaderboardSlot(e.target.value)}
-                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                                    placeholder="1234567890"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                                    In-Article Ad Slot ID
-                                </label>
-                                <input
-                                    type="text"
-                                    value={adsenseArticleSlot}
-                                    onChange={(e) => setAdsenseArticleSlot(e.target.value)}
-                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                                    placeholder="0987654321"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                                    Multiplex Ad Slot ID
-                                </label>
-                                <input
-                                    type="text"
-                                    value={adsenseMultiplexSlot}
-                                    onChange={(e) => setAdsenseMultiplexSlot(e.target.value)}
-                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                                    placeholder="1122334455"
-                                />
-                            </div>
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1">
+                                In-Article Ad Slot
+                            </label>
+                            <input
+                                type="text"
+                                value={adsenseConfig.articleSlot}
+                                onChange={(e) => setAdsenseConfig({ articleSlot: e.target.value })}
+                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                placeholder="0987654321"
+                            />
+                            <p className="text-xs text-neutral-500 mt-1">Responsive ad within content</p>
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1">
+                                Multiplex Ad Slot
+                            </label>
+                            <input
+                                type="text"
+                                value={adsenseConfig.multiplexSlot}
+                                onChange={(e) => setAdsenseConfig({ multiplexSlot: e.target.value })}
+                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                placeholder="1122334455"
+                            />
+                            <p className="text-xs text-neutral-500 mt-1">Grid-style ads at page bottom</p>
+                        </div>
+                    </div>
+
+                    <p className="text-xs text-neutral-500">
+                        Slot IDs are 10 digits. Create ad units in AdSense → Ads → By ad unit → Create new ad unit
+                    </p>
+
+                    {/* Verification Link */}
+                    <div className="flex gap-3 pt-2">
+                        <a
+                            href="https://www.google.com/adsense/new/u/0/pub-selector"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                            📊 AdSense Dashboard
+                        </a>
+                        <a
+                            href="https://support.google.com/adsense/answer/2659101"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                            📖 Ad Unit Setup Guide
+                        </a>
                     </div>
                 </div>
             )}
@@ -744,11 +763,14 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                                 </div>
                             </div>
                             <ul className="text-xs text-neutral-600 space-y-1 mb-4">
-                                <li>✓ AI Provider Keys (Gemini, DeepSeek, etc.)</li>
-                                <li>✓ GitHub & Vercel Tokens</li>
-                                <li>✓ AdSense Configuration</li>
-                                <li>✓ Domain API Keys (Namecheap, Spamzilla)</li>
-                                <li>✓ Dev.to & Blog Settings</li>
+                                <li>✓ AI Provider Keys (Gemini, DeepSeek, OpenRouter, Perplexity)</li>
+                                <li>✓ GitHub & Vercel Deployment Tokens</li>
+                                <li>✓ AdSense Configuration (Publisher ID, Slots)</li>
+                                <li>✓ Domain APIs (Namecheap, Spamzilla, Cloudflare)</li>
+                                <li>✓ Stock Images (Unsplash, Pexels)</li>
+                                <li>✓ Analytics & Publishing (Umami, Dev.to)</li>
+                                <li>✓ MCP Server Configuration</li>
+                                <li>✓ Capabilities & Handler Settings</li>
                             </ul>
                             <button
                                 onClick={handleExportSettings}
@@ -819,15 +841,17 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                     {renderTabContent()}
                 </div>
 
-                {/* Save Button */}
-                <div className="flex justify-end pt-4 border-t">
-                    <button
-                        onClick={handleSave}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                    >
-                        Save Settings
-                    </button>
-                </div>
+                {/* Save Button - hidden on info-only tabs like Templates */}
+                {activeTab !== 'templates' && (
+                    <div className="flex justify-end pt-4 border-t">
+                        <button
+                            onClick={handleSave}
+                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        >
+                            Save Settings
+                        </button>
+                    </div>
+                )}
             </div>
         );
     }
@@ -874,21 +898,23 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                             {renderTabContent()}
                         </div>
 
-                        {/* Footer */}
+                        {/* Footer - Save button hidden on info-only tabs */}
                         <div className="p-6 pt-4 border-t">
                             <div className="flex justify-end gap-3">
                                 <button
                                     onClick={() => setIsOpen(false)}
                                     className="px-4 py-2 text-neutral-500 hover:text-neutral-700"
                                 >
-                                    Cancel
+                                    {activeTab === 'templates' ? 'Close' : 'Cancel'}
                                 </button>
-                                <button
-                                    onClick={handleSave}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                                >
-                                    Save Settings
-                                </button>
+                                {activeTab !== 'templates' && (
+                                    <button
+                                        onClick={handleSave}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                                    >
+                                        Save Settings
+                                    </button>
+                                )}
                             </div>
                             <p className="mt-4 text-xs text-neutral-400 text-center">
                                 All settings are stored locally in your browser + backed up to server.
