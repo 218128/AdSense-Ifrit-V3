@@ -347,6 +347,32 @@ class AIServicesClass {
             isAvailable: hasOpenrouterKeys,
             requiresApiKey: true,
         });
+
+        // ============================================
+        // IMAGE INTEGRATION HANDLERS
+        // ============================================
+
+        // Unsplash - stock photos for images capability
+        this.registerHandler({
+            id: 'unsplash',
+            name: 'Unsplash',
+            source: 'integration',
+            capabilities: ['images'],
+            priority: 85,  // High priority for images
+            isAvailable: true,  // Free tier available
+            requiresApiKey: false,  // Optional API key for higher rate limits
+        });
+
+        // Pexels - free stock photos
+        this.registerHandler({
+            id: 'pexels',
+            name: 'Pexels',
+            source: 'integration',
+            capabilities: ['images'],
+            priority: 80,
+            isAvailable: true,
+            requiresApiKey: false,
+        });
     }
 
     // ============================================

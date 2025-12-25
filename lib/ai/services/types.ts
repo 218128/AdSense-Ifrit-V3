@@ -112,7 +112,7 @@ export const DEFAULT_CAPABILITIES: Omit<Capability, 'isEnabled' | 'defaultHandle
 export interface CapabilityHandler {
     id: string;                      // Unique ID, e.g., 'gemini-generate', 'brave-search'
     name: string;                    // Human-readable
-    source: 'ai-provider' | 'mcp' | 'local';  // Where this handler comes from
+    source: 'ai-provider' | 'mcp' | 'local' | 'integration';  // Where this handler comes from
     providerId?: string;             // For AI providers: 'gemini', 'deepseek', etc.
     mcpServerId?: string;            // For MCP: server ID
     mcpToolName?: string;            // For MCP: tool name within server
@@ -157,7 +157,7 @@ export interface ExecuteResult {
 
     // Execution metadata
     handlerUsed: string;             // Which handler fulfilled the request
-    source: 'ai-provider' | 'mcp' | 'local';
+    source: 'ai-provider' | 'mcp' | 'local' | 'integration';
     latencyMs: number;
     fallbacksAttempted?: string[];   // Handlers tried before success
 
