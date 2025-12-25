@@ -22,6 +22,15 @@
 // Main service
 export { aiServices } from './AIServices';
 
+// Executor (provider-agnostic execution layer)
+export {
+    CapabilityExecutor,
+    getCapabilityExecutor,
+    type ProviderDiagnostics,
+    type VerbosityLevel,
+    type ExecutorConfig,
+} from './CapabilityExecutor';
+
 // Types
 export type {
     Capability,
@@ -37,3 +46,4 @@ export {
     DEFAULT_CONFIG,
     AI_SERVICES_STORAGE,
 } from './types';
+
