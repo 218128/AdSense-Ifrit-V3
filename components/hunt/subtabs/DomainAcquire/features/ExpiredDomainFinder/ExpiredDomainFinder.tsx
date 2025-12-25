@@ -202,12 +202,14 @@ export default function ExpiredDomainFinder({
         setNicheResearchResults(null);
 
         try {
-            const perplexityKey = typeof window !== 'undefined'
-                ? localStorage.getItem('ifrit_mcp_perplexity_key')
-                : null;
+            // Get Perplexity key from Zustand store
+            const { useSettingsStore } = await import('@/stores/settingsStore');
+            const mcpApiKeys = useSettingsStore.getState().mcpServers.apiKeys;
+            const providerKeys = useSettingsStore.getState().providerKeys;
+            const perplexityKey = mcpApiKeys?.perplexity || providerKeys?.perplexity?.[0]?.key;
 
             if (!perplexityKey) {
-                alert('Perplexity API key not configured. Go to Settings → MCP Tools.');
+                alert('Perplexity API key not configured. Go to Settings → MCP Tools or AI Providers.');
                 return;
             }
 

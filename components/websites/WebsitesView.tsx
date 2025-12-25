@@ -28,6 +28,7 @@ import {
     Key
 } from 'lucide-react';
 import WebsiteDetail from './WebsiteDetail';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 // Types matching websiteStore
 interface Website {
@@ -75,31 +76,19 @@ export default function WebsitesDashboard({ articles = [] }: WebsitesDashboardPr
     const [migrating, setMigrating] = useState(false);
     const [migrationMessage, setMigrationMessage] = useState<string | null>(null);
 
-    // Token configuration
-    const [hasTokens, setHasTokens] = useState(false);
-    const [showTokenConfig, setShowTokenConfig] = useState(false);
-    const [githubToken, setGithubToken] = useState('');
-    const [vercelToken, setVercelToken] = useState('');
-    const [githubUser, setGithubUser] = useState<string | null>(null);
-    const [vercelUser, setVercelUser] = useState<string | null>(null);
+    // Get tokens from settings store
+    const integrations = useSettingsStore(state => state.integrations);
+    const setIntegration = useSettingsStore(state => state.setIntegration);
+
+    const githubToken = integrations.githubToken;
+    const vercelToken = integrations.vercelToken;
+    const githubUser = integrations.githubUser;
+    const vercelUser = integrations.vercelUser;
+    const hasTokens = !!(githubToken && vercelToken);
+
+    // Token testing states
     const [testingGithub, setTestingGithub] = useState(false);
     const [testingVercel, setTestingVercel] = useState(false);
-
-    // Check tokens on mount
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const gh = localStorage.getItem('ifrit_github_token');
-            const vc = localStorage.getItem('ifrit_vercel_token');
-            const ghUser = localStorage.getItem('ifrit_github_user');
-            const vcUser = localStorage.getItem('ifrit_vercel_user');
-
-            setHasTokens(!!(gh && vc));
-            setGithubToken(gh || '');
-            setVercelToken(vc || '');
-            setGithubUser(ghUser);
-            setVercelUser(vcUser);
-        }
-    }, []);
 
     const testGithub = async () => {
         if (!githubToken) return;
@@ -112,15 +101,12 @@ export default function WebsitesDashboard({ articles = [] }: WebsitesDashboardPr
             });
             const data = await res.json();
             if (data.success) {
-                setGithubUser(data.user.username);
-                localStorage.setItem('ifrit_github_token', githubToken);
-                localStorage.setItem('ifrit_github_user', data.user.username);
+                setIntegration('githubUser', data.user.username);
             } else {
                 alert(data.error || 'GitHub connection failed');
             }
         } finally {
             setTestingGithub(false);
-            checkTokensSet();
         }
     };
 
@@ -135,22 +121,13 @@ export default function WebsitesDashboard({ articles = [] }: WebsitesDashboardPr
             });
             const data = await res.json();
             if (data.success) {
-                setVercelUser(data.user.username);
-                localStorage.setItem('ifrit_vercel_token', vercelToken);
-                localStorage.setItem('ifrit_vercel_user', data.user.username);
+                setIntegration('vercelUser', data.user.username);
             } else {
                 alert(data.error || 'Vercel connection failed');
             }
         } finally {
             setTestingVercel(false);
-            checkTokensSet();
         }
-    };
-
-    const checkTokensSet = () => {
-        const gh = localStorage.getItem('ifrit_github_token');
-        const vc = localStorage.getItem('ifrit_vercel_token');
-        setHasTokens(!!(gh && vc));
     };
 
     // Fetch websites from unified API
@@ -456,6 +433,11 @@ function SetupWizard({
     const [step, setStep] = useState(1);
     const [domain, setDomain] = useState('');
     const [niche, setNiche] = useState('');
+
+    // Get tokens and keys from settings store
+    const integrations = useSettingsStore(state => state.integrations);
+    const providerKeys = useSettingsStore(state => state.providerKeys);
+    const enabledProviders = useSettingsStore(state => state.enabledProviders);
     const [umamiId, setUmamiId] = useState('');
     const [template, setTemplate] = useState<'niche-authority' | 'topical-magazine' | 'expert-hub'>('niche-authority');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -520,10 +502,8 @@ function SetupWizard({
         setCreationStatus('Creating website...');
 
         try {
-            // Get tokens from the correct storage keys
-            const githubToken = localStorage.getItem('ifrit_github_token');
-            const vercelToken = localStorage.getItem('ifrit_vercel_token');
-            const githubUser = localStorage.getItem('ifrit_github_user');
+            // Get tokens from settings store
+            const { githubToken, vercelToken, githubUser } = integrations;
 
             if (!githubToken || !vercelToken) {
                 throw new Error('Please configure GitHub and Vercel tokens first (click "Connect" button).');
@@ -558,23 +538,17 @@ function SetupWizard({
             // Step 2: Start content generation job (async - runs in background)
             setCreationStatus('Starting content generation...');
 
-            // Get AI provider keys
-            const getProviderKeys = () => {
+            // Get AI provider keys from store
+            const getStoreProviderKeys = () => {
                 const result: Record<string, string[]> = {};
-                const providers = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
+                const providers = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'] as const;
 
                 for (const provider of providers) {
-                    const stored = localStorage.getItem(`ifrit_${provider}_keys`);
-                    const enabled = localStorage.getItem(`ifrit_${provider}_enabled`);
-                    const isEnabled = enabled !== null ? enabled === 'true' : provider === 'gemini';
+                    const isEnabled = enabledProviders.includes(provider);
+                    const keys = providerKeys[provider] || [];
 
-                    if (isEnabled && stored) {
-                        try {
-                            const keys = JSON.parse(stored) as Array<{ key: string }>;
-                            result[provider] = keys.map(k => k.key);
-                        } catch {
-                            result[provider] = [];
-                        }
+                    if (isEnabled && keys.length > 0) {
+                        result[provider] = keys.map(k => k.key);
                     } else {
                         result[provider] = [];
                     }
@@ -582,8 +556,8 @@ function SetupWizard({
                 return result;
             };
 
-            const providerKeys = getProviderKeys();
-            const hasAnyKeys = Object.values(providerKeys).some(keys => keys.length > 0);
+            const apiProviderKeys = getStoreProviderKeys();
+            const hasAnyKeys = Object.values(apiProviderKeys).some(keys => keys.length > 0);
 
             if (hasAnyKeys) {
                 // Build pillars from profile keywords if available
@@ -623,7 +597,7 @@ function SetupWizard({
                                 questions: loadedProfile.questionKeywords
                             } : undefined
                         },
-                        providerKeys,
+                        providerKeys: apiProviderKeys,
                         githubConfig: {
                             token: githubToken,
                             owner: githubUser || '218128',

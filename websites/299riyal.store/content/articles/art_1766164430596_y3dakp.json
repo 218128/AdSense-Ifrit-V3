@@ -17,6 +17,18 @@
       "alt": "img 001",
       "source": "manual",
       "caption": ""
+    },
+    {
+      "id": "img_1766672404443",
+      "url": "/images/xiaomi-vs-realme-budget/images/img-002.jpg",
+      "alt": "pexels-zeleboba-34190305",
+      "source": "manual"
+    },
+    {
+      "id": "img_1766672522071",
+      "url": "/images/xiaomi-vs-realme-budget/images/img-003.jpg",
+      "alt": "pexels-zeleboba-34190305",
+      "source": "manual"
     }
   ],
   "contentType": "external",
@@ -28,7 +40,7 @@
   "isExternal": true,
   "source": "external",
   "status": "published",
-  "lastModifiedAt": 1766186898368,
+  "lastModifiedAt": 1766672522071,
   "versions": [
     {
       "id": "ver_1766164618021",
@@ -39,5 +51,5 @@
       "wordCount": 733
     }
   ],
-  "publishedAt": 1766233074287
+  "publishedAt": 1766672425204
 }

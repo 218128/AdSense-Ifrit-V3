@@ -1,0 +1,38 @@
+{
+  "id": "art_1766671809711_sbu00l",
+  "slug": "test-article",
+  "title": "How to Save Money on Electronics",
+  "description": "# How to Save Money on Electronics\n\nFinding great deals on electronics doesn't have to be complicated. Here are some proven strategies to help you save money on...",
+  "content": "# How to Save Money on Electronics\n\nFinding great deals on electronics doesn't have to be complicated. Here are some proven strategies to help you save money on your next purchase.\n\n## 1. Compare Prices Across Retailers\n\nAlways check multiple retailers before making a purchase. Use price comparison tools and browser extensions to find the best deals.\n\n## 2. Wait for Sales Events\n\nMajor sales events like Black Friday, Prime Day, and holiday sales can offer significant discounts on electronics.\n\n## 3. Consider Refurbished Options\n\nCertified refurbished electronics often come with warranties and can save you 20-40% compared to new items.\n\n## Conclusion\n\nWith a little patience and research, you can find great deals on electronics without sacrificing quality.",
+  "category": "how-to",
+  "tags": [
+    "electronics",
+    "shopping",
+    "savings"
+  ],
+  "contentType": "external",
+  "pageType": "article",
+  "wordCount": 119,
+  "readingTime": 1,
+  "eeatSignals": [],
+  "aiOverviewBlocks": [],
+  "isExternal": true,
+  "source": "external",
+  "status": "published",
+  "lastModifiedAt": 1766672604498,
+  "publishedAt": 1766671839580,
+  "contentImages": [
+    {
+      "id": "img_1766672586668",
+      "url": "/images/test-article/images/img-001.jpg",
+      "alt": "pexels-zeleboba-34190305",
+      "source": "manual"
+    },
+    {
+      "id": "img_1766672604498",
+      "url": "/images/test-article/images/img-002.jpg",
+      "alt": "pexels-zeleboba-34190305",
+      "source": "manual"
+    }
+  ]
+}

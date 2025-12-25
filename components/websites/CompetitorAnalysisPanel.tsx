@@ -116,12 +116,14 @@ export default function CompetitorAnalysisPanel({
         setError(null);
 
         try {
-            const perplexityKey = typeof window !== 'undefined'
-                ? localStorage.getItem('ifrit_mcp_perplexity_key')
-                : null;
+            // Get Perplexity key from Zustand store
+            const { useSettingsStore } = await import('@/stores/settingsStore');
+            const mcpApiKeys = useSettingsStore.getState().mcpServers.apiKeys;
+            const providerKeys = useSettingsStore.getState().providerKeys;
+            const perplexityKey = mcpApiKeys?.perplexity || providerKeys?.perplexity?.[0]?.key;
 
             if (!perplexityKey) {
-                setError('Perplexity API key not configured. Go to Settings → MCP Tools.');
+                setError('Perplexity API key not configured. Go to Settings → MCP Tools or AI Providers.');
                 return;
             }
 
@@ -281,8 +283,8 @@ export default function CompetitorAnalysisPanel({
                                     {results.headings.map((h, i) => (
                                         <li key={i} className="flex items-center gap-2">
                                             <span className={`px-1.5 py-0.5 text-xs rounded font-mono ${h.level === 'H1' ? 'bg-indigo-100 text-indigo-700' :
-                                                    h.level === 'H2' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-neutral-100 text-neutral-700'
+                                                h.level === 'H2' ? 'bg-blue-100 text-blue-700' :
+                                                    'bg-neutral-100 text-neutral-700'
                                                 }`}>
                                                 {h.level}
                                             </span>

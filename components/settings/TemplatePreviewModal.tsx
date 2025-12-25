@@ -138,132 +138,301 @@ export default function TemplatePreviewModal({ template, onClose }: TemplatePrev
         }
     };
 
-    // Get the template preview component - static mockup for consistent rendering
+    // Get the template preview component - renders template-specific mockup
     const renderPreview = () => {
         const featured = getFeaturedArticle();
         const recent = getRecentArticles(4);
         const siteInfo = MOCK_SITE_INFO;
 
-        // Static mockup that works for all templates
+        // Template-specific styles and layouts
+        const templateStyles: Record<string, { headerGradient: string; accent: string; layout: string }> = {
+            'niche-authority': {
+                headerGradient: 'from-indigo-600 to-purple-600',
+                accent: 'indigo',
+                layout: 'sidebar'
+            },
+            'topical-magazine': {
+                headerGradient: 'from-rose-500 to-orange-500',
+                accent: 'rose',
+                layout: 'magazine'
+            },
+            'expert-hub': {
+                headerGradient: 'from-emerald-500 to-teal-500',
+                accent: 'emerald',
+                layout: 'hub'
+            }
+        };
+
+        const style = templateStyles[template.id] || templateStyles['niche-authority'];
+
+        // Niche Authority Blog - Sidebar layout, reading-focused
+        if (template.id === 'niche-authority') {
+            return (
+                <div className="font-sans">
+                    <header className={`bg-gradient-to-r ${style.headerGradient} text-white p-4`}>
+                        <div className="max-w-5xl mx-auto flex items-center justify-between">
+                            <div className="font-bold text-xl">{siteInfo.name}</div>
+                            <nav className="hidden md:flex gap-6 text-sm">
+                                {siteInfo.categories.slice(0, 4).map(cat => (
+                                    <span key={cat} className="hover:opacity-80 cursor-pointer">{cat}</span>
+                                ))}
+                            </nav>
+                        </div>
+                    </header>
+
+                    {previewPage === 'home' ? (
+                        <div className="max-w-5xl mx-auto p-6 flex gap-8">
+                            {/* Main Content */}
+                            <div className="flex-1">
+                                <h2 className="text-2xl font-bold text-gray-900 mb-6">Latest Articles</h2>
+                                <div className="space-y-6">
+                                    {[featured, ...recent.slice(0, 2)].map((article, i) => (
+                                        <div key={i} className="p-6 bg-white rounded-xl shadow-sm border hover:shadow-md transition-shadow">
+                                            <span className="text-xs font-semibold text-indigo-600 uppercase">{article.category}</span>
+                                            <h3 className="text-xl font-bold text-gray-900 mt-2">{article.title}</h3>
+                                            <p className="text-gray-600 mt-2">{article.excerpt}</p>
+                                            <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+                                                <span>By {article.author.name}</span>
+                                                <span>•</span>
+                                                <span>{article.readTime} min read</span>
+                                            </div>
+                                            {i === 0 && (
+                                                <div className="mt-4 flex gap-2">
+                                                    <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">📖 Reading Progress Bar</span>
+                                                    <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full">📑 Table of Contents</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            {/* Sidebar - Niche Authority specific */}
+                            <aside className="w-72 hidden lg:block">
+                                <div className="sticky top-6 space-y-6">
+                                    <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                                        <h4 className="font-semibold text-indigo-900 mb-3">📧 Newsletter</h4>
+                                        <p className="text-xs text-indigo-600 mb-3">Get weekly insights</p>
+                                        <input type="email" placeholder="Your email" className="w-full px-3 py-2 text-sm border rounded-lg mb-2" />
+                                        <button className="w-full px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg">Subscribe</button>
+                                    </div>
+                                    <div className="p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300">
+                                        <span className="text-xs text-gray-500 font-medium">📢 SIDEBAR AD</span>
+                                    </div>
+                                    <div className="p-4 bg-white rounded-xl border">
+                                        <h4 className="font-semibold text-gray-900 mb-3">🔗 Related Articles</h4>
+                                        {recent.slice(2).map((a, i) => (
+                                            <div key={i} className="py-2 border-b border-gray-100 last:border-0">
+                                                <p className="text-sm text-gray-700 font-medium">{a.title}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+                    ) : (
+                        <div className="max-w-3xl mx-auto p-6">
+                            <article>
+                                <h1 className="text-3xl font-bold text-gray-900 mb-4">{featured.title}</h1>
+                                <div className="flex items-center gap-3 py-4 border-y border-gray-200 mb-6">
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400" />
+                                    <div>
+                                        <div className="font-semibold text-gray-900">{featured.author.name}</div>
+                                        <div className="text-sm text-gray-500">{featured.publishedAt}</div>
+                                    </div>
+                                </div>
+                                <p className="text-gray-700 leading-relaxed">{featured.excerpt}</p>
+                            </article>
+                        </div>
+                    )}
+
+                    <footer className="bg-gray-900 text-white p-8 mt-12">
+                        <div className="max-w-4xl mx-auto text-center">
+                            <div className="font-bold text-lg mb-2">{siteInfo.name}</div>
+                            <p className="text-gray-400 text-sm">{siteInfo.tagline}</p>
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        // Topical Magazine - Multi-column, news-style layout
+        if (template.id === 'topical-magazine') {
+            return (
+                <div className="font-sans">
+                    {/* Breaking News Banner */}
+                    <div className="bg-red-600 text-white text-xs py-1 px-4">
+                        <span className="font-bold mr-2">🔴 BREAKING:</span>
+                        Latest updates and trending topics
+                    </div>
+                    <header className={`bg-gradient-to-r ${style.headerGradient} text-white p-4`}>
+                        <div className="max-w-6xl mx-auto">
+                            <div className="flex items-center justify-between">
+                                <div className="font-bold text-2xl tracking-tight">{siteInfo.name}</div>
+                                <span className="text-xs opacity-80">{new Date().toLocaleDateString()}</span>
+                            </div>
+                            <nav className="flex gap-4 text-sm mt-3 border-t border-white/20 pt-3">
+                                {siteInfo.categories.map(cat => (
+                                    <span key={cat} className="hover:opacity-80 cursor-pointer font-medium">{cat}</span>
+                                ))}
+                            </nav>
+                        </div>
+                    </header>
+
+                    {previewPage === 'home' ? (
+                        <div className="max-w-6xl mx-auto p-6">
+                            {/* Featured Carousel */}
+                            <div className="mb-8 p-6 bg-gradient-to-br from-rose-50 to-orange-50 rounded-2xl border border-rose-200">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <span className="px-3 py-1 bg-rose-500 text-white text-xs font-bold rounded">FEATURED</span>
+                                    <span className="text-xs text-rose-600">🔥 Trending Now</span>
+                                </div>
+                                <h2 className="text-3xl font-bold text-gray-900">{featured.title}</h2>
+                                <p className="text-gray-600 mt-2 text-lg">{featured.excerpt}</p>
+                            </div>
+
+                            {/* Magazine Grid */}
+                            <div className="grid md:grid-cols-3 gap-6">
+                                <div className="md:col-span-2 space-y-4">
+                                    {recent.slice(0, 3).map((article, i) => (
+                                        <div key={i} className="flex gap-4 p-4 bg-white rounded-lg border hover:shadow-md transition-shadow">
+                                            <div className="w-32 h-24 bg-gradient-to-br from-rose-200 to-orange-200 rounded-lg flex-shrink-0" />
+                                            <div>
+                                                <span className="text-xs font-medium text-rose-600">{article.category}</span>
+                                                <h3 className="font-semibold text-gray-900 mt-1">{article.title}</h3>
+                                                <p className="text-sm text-gray-500 mt-1">{article.readTime} min read</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Trending Sidebar */}
+                                <div className="bg-gray-50 rounded-xl p-4 border">
+                                    <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        📈 Trending
+                                    </h4>
+                                    {recent.map((a, i) => (
+                                        <div key={i} className="flex items-center gap-3 py-3 border-b border-gray-200 last:border-0">
+                                            <span className="text-2xl font-bold text-rose-300">{i + 1}</span>
+                                            <p className="text-sm font-medium text-gray-700">{a.title}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="max-w-4xl mx-auto p-6">
+                            <article>
+                                <span className="px-3 py-1 bg-rose-500 text-white text-xs font-bold rounded">{featured.category}</span>
+                                <h1 className="text-4xl font-bold text-gray-900 mt-4 mb-4">{featured.title}</h1>
+                                <p className="text-xl text-gray-600">{featured.excerpt}</p>
+                            </article>
+                        </div>
+                    )}
+
+                    <footer className="bg-gray-900 text-white p-8 mt-12">
+                        <div className="max-w-4xl mx-auto text-center">
+                            <div className="font-bold text-lg mb-2">{siteInfo.name}</div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        // Expert Hub - Documentation/learning-style layout
         return (
             <div className="font-sans">
-                {/* Header Mock */}
-                <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4">
-                    <div className="max-w-4xl mx-auto flex items-center justify-between">
-                        <div className="font-bold text-xl">{siteInfo.name}</div>
+                <header className={`bg-gradient-to-r ${style.headerGradient} text-white p-4`}>
+                    <div className="max-w-6xl mx-auto flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="p-2 bg-white/20 rounded-lg">📚</div>
+                            <div>
+                                <div className="font-bold text-xl">{siteInfo.name}</div>
+                                <div className="text-xs opacity-80">Knowledge Hub</div>
+                            </div>
+                        </div>
                         <nav className="hidden md:flex gap-6 text-sm">
-                            {siteInfo.categories.slice(0, 4).map(cat => (
-                                <span key={cat} className="hover:opacity-80 cursor-pointer">{cat}</span>
-                            ))}
+                            <span className="hover:opacity-80 cursor-pointer">Pillar Topics</span>
+                            <span className="hover:opacity-80 cursor-pointer">Resources</span>
+                            <span className="hover:opacity-80 cursor-pointer">Learning Paths</span>
                         </nav>
                     </div>
                 </header>
 
-                {/* Hero/Featured */}
                 {previewPage === 'home' ? (
-                    <div className="max-w-4xl mx-auto p-6">
-                        {/* Hero */}
-                        <div className="text-center py-8 mb-8 bg-gradient-to-br from-gray-50 to-indigo-50 rounded-xl">
-                            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">{siteInfo.name}</h1>
-                            <p className="text-gray-600">{siteInfo.tagline}</p>
-                        </div>
-
-                        {/* Featured Article */}
-                        <div className="mb-8 p-6 bg-white rounded-xl shadow-sm border">
-                            <span className="text-xs font-semibold text-indigo-600 uppercase">Featured</span>
-                            <h2 className="text-2xl font-bold text-gray-900 mt-2">{featured.title}</h2>
-                            <p className="text-gray-600 mt-2">{featured.excerpt}</p>
-                            <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
-                                <span>By {featured.author.name}</span>
-                                <span>•</span>
-                                <span>{featured.readTime} min read</span>
+                    <div className="max-w-6xl mx-auto p-6">
+                        {/* Learning Path Progress */}
+                        <div className="mb-8 p-6 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-bold text-emerald-900">📖 Your Learning Progress</h3>
+                                <span className="text-sm text-emerald-600">3/10 Topics Completed</span>
+                            </div>
+                            <div className="w-full bg-emerald-200 rounded-full h-2">
+                                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: '30%' }} />
                             </div>
                         </div>
 
-                        {/* Article Grid */}
-                        <div className="grid md:grid-cols-2 gap-6">
-                            {recent.slice(1).map(article => (
-                                <div key={article.slug} className="p-4 bg-white rounded-lg shadow-sm border">
-                                    <span className="text-xs text-indigo-600 font-medium">{article.category}</span>
-                                    <h3 className="font-semibold text-gray-900 mt-1 line-clamp-2">{article.title}</h3>
-                                    <p className="text-sm text-gray-600 mt-2 line-clamp-2">{article.excerpt}</p>
-                                    <div className="text-xs text-gray-500 mt-3">{article.readTime} min read</div>
+                        {/* Pillar Pages Grid */}
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">🎯 Pillar Topics</h2>
+                        <div className="grid md:grid-cols-3 gap-6 mb-8">
+                            {['Beginner Guide', 'Advanced Topics', 'Expert Resources'].map((pillar, i) => (
+                                <div key={i} className="p-6 bg-white rounded-xl border-2 border-emerald-200 hover:border-emerald-400 transition-colors">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-xl mb-4 flex items-center justify-center text-white text-xl">
+                                        {i + 1}
+                                    </div>
+                                    <h3 className="font-bold text-gray-900">{pillar}</h3>
+                                    <p className="text-sm text-gray-600 mt-2">Comprehensive guide with {5 + i * 3} articles</p>
+                                    <div className="mt-4 flex items-center gap-2 text-emerald-600 text-sm font-medium">
+                                        <span>Start Learning</span>
+                                        <span>→</span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Ad Zone Placeholder */}
-                        <div className="mt-8 p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 text-center">
-                            <span className="text-xs text-gray-500 font-medium">📢 AD ZONE - Responsive Ad Unit</span>
+                        {/* Resource Library */}
+                        <div className="p-6 bg-gray-50 rounded-xl border">
+                            <h3 className="font-bold text-gray-900 mb-4">📚 Resource Library</h3>
+                            <div className="grid md:grid-cols-2 gap-4">
+                                {['Downloadable Templates', 'Checklists', 'Case Studies', 'Video Tutorials'].map((resource, i) => (
+                                    <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                                        <div className="w-8 h-8 bg-emerald-100 rounded flex items-center justify-center text-emerald-600">
+                                            {['📄', '✅', '📊', '🎬'][i]}
+                                        </div>
+                                        <span className="font-medium text-gray-700">{resource}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 ) : (
-                    /* Article Page */
-                    <div className="max-w-3xl mx-auto p-6">
-                        {/* Breadcrumb */}
-                        <div className="text-sm text-gray-500 mb-4">
-                            Home / {featured.category} / Article
-                        </div>
-
-                        {/* Article Header */}
-                        <article>
-                            <span className="text-indigo-600 font-semibold text-sm">{featured.category}</span>
-                            <h1 className="text-3xl font-bold text-gray-900 mt-2 mb-4">{featured.title}</h1>
-
-                            {/* Author */}
-                            <div className="flex items-center gap-3 py-4 border-y border-gray-200 mb-6">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400" />
-                                <div>
-                                    <div className="font-semibold text-gray-900">{featured.author.name}</div>
-                                    <div className="text-sm text-gray-500">{featured.author.role} • {featured.publishedAt}</div>
-                                </div>
+                    <div className="max-w-4xl mx-auto p-6 flex gap-8">
+                        {/* Article Content */}
+                        <article className="flex-1">
+                            <div className="flex items-center gap-2 mb-4 text-sm text-gray-500">
+                                <span>Pillar Topic</span>
+                                <span>›</span>
+                                <span className="text-emerald-600">{featured.category}</span>
                             </div>
-
-                            {/* Content Preview */}
-                            <div className="prose prose-lg max-w-none">
-                                <p className="text-gray-700 leading-relaxed">{featured.excerpt}</p>
-                                <div className="my-6 p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 text-center">
-                                    <span className="text-xs text-gray-500 font-medium">📢 IN-ARTICLE AD</span>
-                                </div>
-                                <h2 className="text-xl font-bold text-gray-900 mt-6">Key Takeaways</h2>
-                                <ul className="list-disc pl-5 text-gray-700 space-y-2">
-                                    <li>First important point from the article</li>
-                                    <li>Second key insight for readers</li>
-                                    <li>Third actionable tip</li>
-                                </ul>
-                            </div>
-
-                            {/* E-E-A-T Signals */}
-                            <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                                <div className="flex items-center gap-2 text-blue-800 font-semibold mb-2">
-                                    <Shield className="w-4 h-4" />
-                                    About the Author
-                                </div>
-                                <p className="text-sm text-blue-700">{featured.author.bio}</p>
-                                <div className="flex gap-2 mt-2">
-                                    {MOCK_AUTHORS[0].credentials.map(cred => (
-                                        <span key={cred} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                                            ✓ {cred}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
+                            <h1 className="text-3xl font-bold text-gray-900 mb-4">{featured.title}</h1>
+                            <p className="text-gray-700 leading-relaxed">{featured.excerpt}</p>
                         </article>
+                        {/* Hub Navigation */}
+                        <aside className="w-64 hidden lg:block">
+                            <div className="sticky top-6 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                <h4 className="font-semibold text-emerald-900 mb-3">In This Section</h4>
+                                {['Introduction', 'Key Concepts', 'Examples', 'Next Steps'].map((item, i) => (
+                                    <div key={i} className="py-2 text-sm text-emerald-700 border-l-2 border-emerald-300 pl-3 hover:border-emerald-500 cursor-pointer">
+                                        {item}
+                                    </div>
+                                ))}
+                            </div>
+                        </aside>
                     </div>
                 )}
 
-                {/* Footer Mock */}
                 <footer className="bg-gray-900 text-white p-8 mt-12">
                     <div className="max-w-4xl mx-auto text-center">
                         <div className="font-bold text-lg mb-2">{siteInfo.name}</div>
-                        <p className="text-gray-400 text-sm mb-4">{siteInfo.tagline}</p>
-                        <div className="flex justify-center gap-4 text-sm text-gray-400">
-                            <span>Privacy Policy</span>
-                            <span>•</span>
-                            <span>Terms of Service</span>
-                            <span>•</span>
-                            <span>Contact</span>
-                        </div>
+                        <p className="text-gray-400 text-sm">Expert Knowledge Hub</p>
                     </div>
                 </footer>
             </div>

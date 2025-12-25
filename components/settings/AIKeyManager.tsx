@@ -12,13 +12,13 @@ import {
     Zap,
     Download,
     Upload,
-    CloudUpload,
     Shield
 } from 'lucide-react';
-import { UsageStatsPanel } from './UsageStatsPanel';
+// Archived: UsageStatsPanel (usage tracking replaced by external dashboard links)
 import { TaskModelsPanel } from './TaskModelsPanel';
 import { MCPToolsPanel } from './MCPToolsPanel';
 import CapabilitiesPanel from './CapabilitiesPanel';
+import { useSettingsStore, type StoredKey, type ProviderId } from '@/stores/settingsStore';
 
 interface ProviderInfo {
     id: string;
@@ -30,19 +30,27 @@ interface ProviderInfo {
     models: string[];
 }
 
-interface StoredKey {
-    key: string;
-    label?: string;
-    validated?: boolean;
-    validatedAt?: number;
-}
-
-type ProviderKeys = Record<string, StoredKey[]>;
-
 export function AIKeyManager() {
+    // Use settings store for all key management
+    const store = useSettingsStore();
+    const {
+        providerKeys,
+        enabledProviders,
+        selectedModels,
+        addProviderKey,
+        removeProviderKey,
+        updateProviderKey,
+        toggleProvider,
+        setSelectedModel,
+        getProviderKeys,
+        exportSettings,
+        importSettings,
+        backupToServer,
+        restoreFromServer,
+        initialize
+    } = store;
+
     const [providers, setProviders] = useState<ProviderInfo[]>([]);
-    const [keys, setKeys] = useState<ProviderKeys>({});
-    const [enabled, setEnabled] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(true);
     const [testingKey, setTestingKey] = useState<string | null>(null);
     const [testResult, setTestResult] = useState<{
@@ -53,18 +61,22 @@ export function AIKeyManager() {
     } | null>(null);
     const [newKeyInputs, setNewKeyInputs] = useState<Record<string, string>>({});
     const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
-    // V4: Model selection state
+    // V4: Available models from validation
     const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({});
-    const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
 
-    // Functions defined before useEffect to avoid access-before-declaration
+    const PROVIDER_IDS: ProviderId[] = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
+
+    // Convert store's enabledProviders array to a Record for easier UI access
+    const enabled = PROVIDER_IDS.reduce((acc, id) => {
+        acc[id] = enabledProviders.includes(id);
+        return acc;
+    }, {} as Record<string, boolean>);
 
     const loadProviders = async () => {
         try {
             const res = await fetch('/api/ai-providers');
             const data = await res.json();
             if (data.success && Array.isArray(data.providers)) {
-                // Ensure each provider has required fields with defaults
                 const safeProviders = data.providers.map((p: Partial<ProviderInfo>) => ({
                     id: p.id || 'unknown',
                     name: p.name || p.id || 'Unknown Provider',
@@ -82,77 +94,10 @@ export function AIKeyManager() {
         setLoading(false);
     };
 
-    const loadKeys = () => {
-        const storedKeys: ProviderKeys = {};
-        const providerIds = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
-
-        // Legacy key mappings - the OLD format before ifrit_* prefix
-        const legacyKeyMappings: Record<string, string> = {
-            gemini: 'GEMINI_API_KEY',
-            deepseek: 'DEEPSEEK_API_KEY',
-            openrouter: 'OPENROUTER_API_KEY',
-            vercel: 'VERCEL_AI_KEY',
-            perplexity: 'PERPLEXITY_API_KEY'
-        };
-
-        for (const id of providerIds) {
-            storedKeys[id] = [];
-
-            // 1. Check new format: ifrit_{provider}_keys (JSON array)
-            const stored = localStorage.getItem(`ifrit_${id}_keys`);
-            if (stored) {
-                try {
-                    storedKeys[id] = JSON.parse(stored);
-                } catch {
-                    storedKeys[id] = [];
-                }
-            }
-
-            // 2. Check intermediate format: ifrit_{provider}_key (single string)
-            const legacyIfritKey = localStorage.getItem(`ifrit_${id}_key`);
-            if (legacyIfritKey && !storedKeys[id].some(k => k.key === legacyIfritKey)) {
-                storedKeys[id].push({ key: legacyIfritKey, label: 'Migrated' });
-            }
-
-            // 3. Check OLD format: GEMINI_API_KEY, DEEPSEEK_API_KEY, etc.
-            const oldFormatKey = legacyKeyMappings[id];
-            if (oldFormatKey) {
-                const oldKey = localStorage.getItem(oldFormatKey);
-                if (oldKey && !storedKeys[id].some(k => k.key === oldKey)) {
-                    storedKeys[id].push({ key: oldKey, label: 'Legacy (Original)' });
-                    // Auto-migrate: save to new format so it persists
-                    localStorage.setItem(`ifrit_${id}_keys`, JSON.stringify(storedKeys[id]));
-                    console.log(`[AIKeyManager] Migrated ${oldFormatKey} to ifrit_${id}_keys`);
-                }
-            }
-        }
-
-        setKeys(storedKeys);
-    };
-
-    const loadEnabled = () => {
-        const providerIds = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
-        const enabledState: Record<string, boolean> = {};
-
-        for (const id of providerIds) {
-            const stored = localStorage.getItem(`ifrit_${id}_enabled`);
-            // Default: Only Gemini is enabled
-            enabledState[id] = stored !== null ? stored === 'true' : id === 'gemini';
-        }
-
-        setEnabled(enabledState);
-    };
-
-    // V4: Load saved model selections
-    const loadSelectedModels = () => {
-        const providerIds = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
-        const savedModels: Record<string, string> = {};
+    // Load available models from localStorage (set during validation)
+    const loadAvailableModels = () => {
         const savedAvailable: Record<string, string[]> = {};
-
-        for (const id of providerIds) {
-            const model = localStorage.getItem(`ifrit_${id}_model`);
-            if (model) savedModels[id] = model;
-
+        for (const id of PROVIDER_IDS) {
             const available = localStorage.getItem(`ifrit_${id}_available_models`);
             if (available) {
                 try {
@@ -162,158 +107,47 @@ export function AIKeyManager() {
                 }
             }
         }
-
-        setSelectedModels(savedModels);
         setAvailableModels(savedAvailable);
     };
 
     // V4: Save model selection AND auto-enable provider
-    const selectModel = (providerId: string, modelId: string) => {
-        localStorage.setItem(`ifrit_${providerId}_model`, modelId);
-        setSelectedModels(prev => ({ ...prev, [providerId]: modelId }));
-        // Auto-enable provider when model is selected
-        localStorage.setItem(`ifrit_${providerId}_enabled`, 'true');
-        setEnabled(prev => ({ ...prev, [providerId]: true }));
-        setTimeout(() => backupToServer(), 100);
+    const selectModel = (providerId: ProviderId, modelId: string) => {
+        setSelectedModel(providerId, modelId);
+        // Backup is handled automatically by the store's persist middleware
     };
 
-    const toggleEnabled = (providerId: string) => {
-        const newValue = !enabled[providerId];
-
+    const handleToggleEnabled = (providerId: ProviderId) => {
         // V4 Hard Rule: Cannot enable provider without a model selected
-        if (newValue && !selectedModels[providerId]) {
+        if (!enabled[providerId] && !selectedModels[providerId]) {
             alert(`⚠️ Cannot enable ${providerId.toUpperCase()}!\n\nModel not selected. Please select a model first.`);
             return;
         }
-
-        localStorage.setItem(`ifrit_${providerId}_enabled`, String(newValue));
-        setEnabled(prev => ({ ...prev, [providerId]: newValue }));
-        // Auto-backup after change
-        setTimeout(() => backupToServer(), 100);
+        toggleProvider(providerId);
     };
 
-    // Load providers and keys on mount (useEffect after function definitions)
+    // Load providers and restore on mount
     useEffect(() => {
+        initialize();
         loadProviders();
-        loadKeys();
-        loadEnabled();
-        loadSelectedModels(); // V4: Load saved model selections
-        // Try to restore from server if localStorage is empty
-        restoreFromServerIfNeeded();
+        loadAvailableModels();
+        // Try to restore from server if store is empty
+        const hasAnyKeys = PROVIDER_IDS.some(id => getProviderKeys(id).length > 0);
+        if (!hasAnyKeys) {
+            restoreFromServer();
+        }
     }, []);
 
-    // Auto-backup all settings to server
-    const backupToServer = async () => {
-        try {
-            const settings = {
-                aiProviders: {} as Record<string, { keys: StoredKey[]; enabled: boolean }>,
-                integrations: {
-                    githubToken: localStorage.getItem('ifrit_github_token'),
-                    githubUser: localStorage.getItem('ifrit_github_user'),
-                    vercelToken: localStorage.getItem('ifrit_vercel_token'),
-                    vercelUser: localStorage.getItem('ifrit_vercel_user'),
-                },
-                blog: {
-                    url: localStorage.getItem('USER_BLOG_URL'),
-                },
-                adsense: {
-                    publisherId: localStorage.getItem('ADSENSE_PUBLISHER_ID'),
-                    leaderboardSlot: localStorage.getItem('ADSENSE_LEADERBOARD_SLOT'),
-                    articleSlot: localStorage.getItem('ADSENSE_ARTICLE_SLOT'),
-                    multiplexSlot: localStorage.getItem('ADSENSE_MULTIPLEX_SLOT'),
-                }
-            };
+    // File input ref for import
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-            const providerIds = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
-            for (const id of providerIds) {
-                const stored = localStorage.getItem(`ifrit_${id}_keys`);
-                const enabledStr = localStorage.getItem(`ifrit_${id}_enabled`);
-                settings.aiProviders[id] = {
-                    keys: stored ? JSON.parse(stored) : [],
-                    enabled: enabledStr === 'true'
-                };
-            }
-
-            await fetch('/api/settings/backup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ settings })
-            });
-            console.log('[AIKeyManager] Settings backed up to server');
-        } catch (error) {
-            console.warn('[AIKeyManager] Failed to backup to server:', error);
+    // Handle export - downloads a JSON file
+    const handleExportSettings = () => {
+        const exportData = exportSettings();
+        if (Object.keys(exportData.settings).length === 0) {
+            alert('No settings to export.');
+            return;
         }
-    };
-
-    // Restore from server if localStorage is empty
-    const restoreFromServerIfNeeded = async () => {
-        const hasAnyKeys = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'].some(
-            id => localStorage.getItem(`ifrit_${id}_keys`)
-        );
-
-        if (hasAnyKeys) return; // localStorage has data, don't overwrite
-
-        try {
-            const res = await fetch('/api/settings/backup');
-            const data = await res.json();
-
-            if (data.success && data.hasBackup && data.backup?.settings) {
-                const { settings } = data.backup;
-
-                // Restore AI provider keys
-                if (settings.aiProviders) {
-                    for (const [id, provider] of Object.entries(settings.aiProviders)) {
-                        const p = provider as { keys: StoredKey[]; enabled: boolean };
-                        if (p.keys?.length > 0) {
-                            localStorage.setItem(`ifrit_${id}_keys`, JSON.stringify(p.keys));
-                        }
-                        localStorage.setItem(`ifrit_${id}_enabled`, String(p.enabled));
-                    }
-                }
-
-                // Restore integrations
-                if (settings.integrations) {
-                    const { githubToken, githubUser, vercelToken, vercelUser } = settings.integrations;
-                    if (githubToken) localStorage.setItem('ifrit_github_token', githubToken);
-                    if (githubUser) localStorage.setItem('ifrit_github_user', githubUser);
-                    if (vercelToken) localStorage.setItem('ifrit_vercel_token', vercelToken);
-                    if (vercelUser) localStorage.setItem('ifrit_vercel_user', vercelUser);
-                }
-
-                console.log('[AIKeyManager] Restored settings from server backup');
-                loadKeys();
-                loadEnabled();
-            }
-        } catch (error) {
-            console.warn('[AIKeyManager] Failed to restore from server:', error);
-        }
-    };
-
-    // Export all settings to JSON file
-    const exportSettings = () => {
-        const settings = {
-            version: '1.0.0',
-            exportedAt: new Date().toISOString(),
-            aiProviders: {} as Record<string, { keys: StoredKey[]; enabled: boolean }>,
-            integrations: {
-                githubToken: localStorage.getItem('ifrit_github_token'),
-                githubUser: localStorage.getItem('ifrit_github_user'),
-                vercelToken: localStorage.getItem('ifrit_vercel_token'),
-                vercelUser: localStorage.getItem('ifrit_vercel_user'),
-            }
-        };
-
-        const providerIds = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
-        for (const id of providerIds) {
-            const stored = localStorage.getItem(`ifrit_${id}_keys`);
-            const enabledStr = localStorage.getItem(`ifrit_${id}_enabled`);
-            settings.aiProviders[id] = {
-                keys: stored ? JSON.parse(stored) : [],
-                enabled: enabledStr === 'true'
-            };
-        }
-
-        const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -322,84 +156,47 @@ export function AIKeyManager() {
         URL.revokeObjectURL(url);
     };
 
-    // Import settings from JSON file
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const importSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Handle import - reads a JSON file
+    const handleImportSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
-                const settings = JSON.parse(e.target?.result as string);
-
-                if (!settings.aiProviders) {
+                const data = JSON.parse(e.target?.result as string);
+                const result = importSettings(data);
+                if (result.success) {
+                    await backupToServer();
+                    alert(`Imported ${result.restored} settings! Refresh to see all changes.`);
+                } else {
                     alert('Invalid settings file');
-                    return;
                 }
-
-                // Import AI provider keys
-                for (const [id, provider] of Object.entries(settings.aiProviders)) {
-                    const p = provider as { keys: StoredKey[]; enabled: boolean };
-                    if (p.keys?.length > 0) {
-                        localStorage.setItem(`ifrit_${id}_keys`, JSON.stringify(p.keys));
-                    }
-                    localStorage.setItem(`ifrit_${id}_enabled`, String(p.enabled));
-                }
-
-                // Import integrations
-                if (settings.integrations) {
-                    const { githubToken, githubUser, vercelToken, vercelUser } = settings.integrations;
-                    if (githubToken) localStorage.setItem('ifrit_github_token', githubToken);
-                    if (githubUser) localStorage.setItem('ifrit_github_user', githubUser);
-                    if (vercelToken) localStorage.setItem('ifrit_vercel_token', vercelToken);
-                    if (vercelUser) localStorage.setItem('ifrit_vercel_user', vercelUser);
-                }
-
-                // Reload state
-                loadKeys();
-                loadEnabled();
-
-                // Backup to server
-                backupToServer();
-
-                alert('Settings imported successfully! Refresh to see all changes.');
-            } catch (error) {
+            } catch {
                 alert('Failed to parse settings file');
             }
         };
         reader.readAsText(file);
-
-        // Reset input
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const saveKeys = (providerId: string, newKeys: StoredKey[]) => {
-        localStorage.setItem(`ifrit_${providerId}_keys`, JSON.stringify(newKeys));
-        setKeys(prev => ({ ...prev, [providerId]: newKeys }));
-        // Auto-backup after saving
-        setTimeout(() => backupToServer(), 100);
-    };
-
-    const addKey = (providerId: string) => {
+    const addKey = (providerId: ProviderId) => {
         const newKey = newKeyInputs[providerId]?.trim();
         if (!newKey) return;
 
-        const currentKeys = keys[providerId] || [];
+        const currentKeys = getProviderKeys(providerId);
         if (currentKeys.some(k => k.key === newKey)) {
             alert('This key already exists');
             return;
         }
 
         const label = `Key ${currentKeys.length + 1}`;
-        saveKeys(providerId, [...currentKeys, { key: newKey, label }]);
+        addProviderKey(providerId, { key: newKey, label });
         setNewKeyInputs(prev => ({ ...prev, [providerId]: '' }));
     };
 
-    const removeKey = (providerId: string, keyToRemove: string) => {
-        const currentKeys = keys[providerId] || [];
-        saveKeys(providerId, currentKeys.filter(k => k.key !== keyToRemove));
+    const handleRemoveKey = (providerId: ProviderId, keyToRemove: string) => {
+        removeProviderKey(providerId, keyToRemove);
     };
 
     const testKey = async (providerId: string, key: string) => {
@@ -416,31 +213,20 @@ export function AIKeyManager() {
             const data = await res.json();
 
             if (data.valid) {
-                // Update key as validated
-                const currentKeys = keys[providerId] || [];
-                const updatedKeys = currentKeys.map(k =>
-                    k.key === key
-                        ? { ...k, validated: true, validatedAt: Date.now() }
-                        : k
-                );
-                saveKeys(providerId, updatedKeys);
+                // Update key as validated using store
+                updateProviderKey(providerId as ProviderId, key, {
+                    validated: true,
+                    validatedAt: Date.now()
+                });
 
                 // V4: Save available models (user MUST select one manually)
                 if (data.models?.length > 0) {
                     localStorage.setItem(`ifrit_${providerId}_available_models`, JSON.stringify(data.models));
                     setAvailableModels(prev => ({ ...prev, [providerId]: data.models }));
-
-                    // NO AUTO-SELECT - user must explicitly choose a model
-                    // Provider stays disabled until model is selected
-                    if (!selectedModels[providerId]) {
-                        // Force disable provider until model is selected
-                        localStorage.setItem(`ifrit_${providerId}_enabled`, 'false');
-                        setEnabled(prev => ({ ...prev, [providerId]: false }));
-                    }
                 }
 
                 // Build models message with warning if no model selected
-                const noModelWarning = !selectedModels[providerId]
+                const noModelWarning = !selectedModels[providerId as ProviderId]
                     ? '\n⚠️ AI Provider is disabled, Model not selected!'
                     : '';
                 const modelsText = data.models?.length > 0
@@ -511,7 +297,7 @@ export function AIKeyManager() {
                 </div>
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={exportSettings}
+                        onClick={handleExportSettings}
                         className="flex items-center gap-1 px-3 py-1.5 text-xs bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-colors"
                         title="Export all settings to JSON file"
                     >
@@ -530,7 +316,7 @@ export function AIKeyManager() {
                         ref={fileInputRef}
                         type="file"
                         accept=".json"
-                        onChange={importSettings}
+                        onChange={handleImportSettings}
                         className="hidden"
                     />
                 </div>
@@ -547,9 +333,8 @@ export function AIKeyManager() {
             </p>
 
             {providers.map(provider => {
-                const providerKeys = keys[provider.id] || [];
+                const providerKeys = getProviderKeys(provider.id as ProviderId);
                 const isExpanded = expandedProvider === provider.id;
-                const validatedCount = providerKeys.filter(k => k.validated).length;
 
                 return (
                     <div
@@ -583,7 +368,7 @@ export function AIKeyManager() {
                                                 Key ✓
                                             </span>
                                         )}
-                                        {selectedModels[provider.id] && (
+                                        {selectedModels[provider.id as ProviderId] && (
                                             <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
                                                 Model ✓
                                             </span>
@@ -602,16 +387,16 @@ export function AIKeyManager() {
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        toggleEnabled(provider.id);
+                                        handleToggleEnabled(provider.id as ProviderId);
                                     }}
-                                    disabled={!selectedModels[provider.id]}
-                                    className={`relative w-12 h-6 rounded-full transition-colors ${!selectedModels[provider.id]
+                                    disabled={!selectedModels[provider.id as ProviderId]}
+                                    className={`relative w-12 h-6 rounded-full transition-colors ${!selectedModels[provider.id as ProviderId]
                                         ? 'bg-gray-200 cursor-not-allowed opacity-50'
                                         : enabled[provider.id]
                                             ? 'bg-green-500'
                                             : 'bg-gray-300'
                                         }`}
-                                    title={!selectedModels[provider.id]
+                                    title={!selectedModels[provider.id as ProviderId]
                                         ? 'Test key and select model first'
                                         : enabled[provider.id]
                                             ? 'Enabled - click to disable'
@@ -663,8 +448,8 @@ export function AIKeyManager() {
                                             Default Model for Generation
                                         </label>
                                         <select
-                                            value={selectedModels[provider.id] || ''}
-                                            onChange={(e) => selectModel(provider.id, e.target.value)}
+                                            value={selectedModels[provider.id as ProviderId] || ''}
+                                            onChange={(e) => selectModel(provider.id as ProviderId, e.target.value)}
                                             className="w-full px-3 py-2 bg-white border border-blue-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         >
                                             <option value="" disabled>⚠️ Select a model to enable provider...</option>
@@ -675,7 +460,7 @@ export function AIKeyManager() {
                                             ))}
                                         </select>
                                         <p className="text-xs text-blue-600 mt-1">
-                                            {selectedModels[provider.id]
+                                            {selectedModels[provider.id as ProviderId]
                                                 ? '✓ Model selected - provider can be enabled'
                                                 : '⚠️ Select a model to enable this provider'}
                                         </p>
@@ -708,7 +493,7 @@ export function AIKeyManager() {
                                                     }
                                                 </button>
                                                 <button
-                                                    onClick={() => removeKey(provider.id, storedKey.key)}
+                                                    onClick={() => handleRemoveKey(provider.id as ProviderId, storedKey.key)}
                                                     className="p-1 text-red-500 hover:bg-red-50 rounded"
                                                     title="Remove key"
                                                 >
@@ -742,7 +527,7 @@ export function AIKeyManager() {
                                         className="flex-1 px-3 py-2 border rounded text-sm"
                                     />
                                     <button
-                                        onClick={() => addKey(provider.id)}
+                                        onClick={() => addKey(provider.id as ProviderId)}
                                         disabled={!newKeyInputs[provider.id]?.trim()}
                                         className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                                     >
@@ -761,7 +546,8 @@ export function AIKeyManager() {
                                     </div>
                                 )}
                             </div>
-                        )}
+                        )
+                        }
                     </div>
                 );
             })}
@@ -772,15 +558,15 @@ export function AIKeyManager() {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                     <div>
                         <span className="text-gray-500">Total Keys:</span>{' '}
-                        {Object.values(keys).flat().length}
+                        {PROVIDER_IDS.reduce((sum, id) => sum + getProviderKeys(id).length, 0)}
                     </div>
                     <div>
                         <span className="text-gray-500">Validated:</span>{' '}
-                        {Object.values(keys).flat().filter(k => k.validated).length}
+                        {PROVIDER_IDS.reduce((sum, id) => sum + getProviderKeys(id).filter(k => k.validated).length, 0)}
                     </div>
                     <div>
                         <span className="text-gray-500">Providers:</span>{' '}
-                        {Object.entries(keys).filter(([_providerId, ks]) => ks.length > 0).length}/5
+                        {PROVIDER_IDS.filter(id => getProviderKeys(id).length > 0).length}/5
                     </div>
                 </div>
             </div>
@@ -809,8 +595,27 @@ export function AIKeyManager() {
             {/* Divider */}
             <hr className="my-6 border-gray-200" />
 
-            {/* Usage Statistics */}
-            <UsageStatsPanel />
-        </div>
+            {/* Usage Statistics - External Dashboard Links */}
+            <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200">
+                <h4 className="font-semibold text-neutral-800 mb-3">📊 View Usage on Provider Dashboards</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border hover:bg-neutral-100 text-sm text-neutral-700">
+                        <ExternalLink className="w-3 h-3" /> Gemini
+                    </a>
+                    <a href="https://platform.deepseek.com/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border hover:bg-neutral-100 text-sm text-neutral-700">
+                        <ExternalLink className="w-3 h-3" /> DeepSeek
+                    </a>
+                    <a href="https://openrouter.ai/usage" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border hover:bg-neutral-100 text-sm text-neutral-700">
+                        <ExternalLink className="w-3 h-3" /> OpenRouter
+                    </a>
+                    <a href="https://www.perplexity.ai/settings" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border hover:bg-neutral-100 text-sm text-neutral-700">
+                        <ExternalLink className="w-3 h-3" /> Perplexity
+                    </a>
+                    <a href="https://vercel.com/account/usage" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border hover:bg-neutral-100 text-sm text-neutral-700">
+                        <ExternalLink className="w-3 h-3" /> Vercel
+                    </a>
+                </div>
+            </div>
+        </div >
     );
 }

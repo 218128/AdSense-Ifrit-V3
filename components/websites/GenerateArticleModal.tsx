@@ -316,9 +316,12 @@ export default function GenerateArticleModal({
                                         )}
                                     </button>
                                 ) : (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-xs font-medium text-green-700">✓ Research complete</span>
+                                            <span className="text-sm font-medium text-green-700 flex items-center gap-1">
+                                                ✓ Research Complete
+                                                <span className="text-xs text-green-600">({researchResults.keyFindings.length} insights)</span>
+                                            </span>
                                             <button
                                                 onClick={() => setResearchResults(null)}
                                                 className="text-xs text-purple-600 hover:underline"
@@ -327,13 +330,23 @@ export default function GenerateArticleModal({
                                             </button>
                                         </div>
                                         {researchResults.keyFindings.length > 0 && (
-                                            <div className="p-2 bg-white rounded border border-purple-100">
-                                                <p className="text-xs font-medium text-neutral-700 mb-1">Key Findings:</p>
-                                                <ul className="text-xs text-neutral-600 space-y-1">
-                                                    {researchResults.keyFindings.slice(0, 3).map((finding, i) => (
-                                                        <li key={i} className="truncate">• {finding}</li>
+                                            <div className="p-3 bg-white rounded-lg border border-green-200 max-h-40 overflow-y-auto">
+                                                <p className="text-xs font-semibold text-neutral-800 mb-2 flex items-center gap-1">
+                                                    🔍 Key Findings (will enhance your article):
+                                                </p>
+                                                <ul className="text-sm text-neutral-700 space-y-2">
+                                                    {researchResults.keyFindings.map((finding, i) => (
+                                                        <li key={i} className="flex items-start gap-2">
+                                                            <span className="text-green-500 mt-0.5">•</span>
+                                                            <span>{finding}</span>
+                                                        </li>
                                                     ))}
                                                 </ul>
+                                            </div>
+                                        )}
+                                        {researchResults.suggestedContext && (
+                                            <div className="p-2 bg-blue-50 rounded border border-blue-100 text-xs text-blue-700">
+                                                <strong>Context:</strong> {researchResults.suggestedContext}
                                             </div>
                                         )}
                                     </div>

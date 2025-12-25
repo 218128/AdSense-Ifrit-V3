@@ -14,6 +14,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Send, Loader2, RefreshCw, Sparkles, Copy, Check, MessageSquare } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 interface RefineArticleModalProps {
     articleContent: string;
@@ -52,6 +53,11 @@ export default function RefineArticleModal({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatRef = useRef<ReturnType<InstanceType<typeof GoogleGenAI>['chats']['create']> | null>(null);
 
+    // Get Gemini keys and settings from store
+    const providerKeys = useSettingsStore(state => state.providerKeys);
+    const enabledProviders = useSettingsStore(state => state.enabledProviders);
+    const selectedModels = useSettingsStore(state => state.selectedModels);
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -61,12 +67,12 @@ export default function RefineArticleModal({
     }, [messages]);
 
     const initializeChat = async () => {
-        // Get API key and model
-        const geminiKeys = localStorage.getItem('ifrit_gemini_keys');
-        const selectedModel = localStorage.getItem('ifrit_gemini_model');
-        const geminiEnabled = localStorage.getItem('ifrit_gemini_enabled');
+        // Get Gemini settings from store
+        const geminiKeys = providerKeys.gemini || [];
+        const selectedModel = selectedModels.gemini;
+        const geminiEnabled = enabledProviders.includes('gemini');
 
-        if (geminiEnabled !== 'true') {
+        if (!geminiEnabled) {
             setError('AI Provider is disabled. Enable Gemini in Settings.');
             return null;
         }
@@ -76,17 +82,7 @@ export default function RefineArticleModal({
             return null;
         }
 
-        let apiKey = '';
-        if (geminiKeys) {
-            try {
-                const keys = JSON.parse(geminiKeys);
-                if (keys.length > 0) {
-                    apiKey = keys[0].key;
-                }
-            } catch {
-                // Ignore
-            }
-        }
+        const apiKey = geminiKeys.length > 0 ? geminiKeys[0].key : '';
 
         if (!apiKey) {
             setError('No API key configured. Add a Gemini key in Settings.');
@@ -269,8 +265,8 @@ What would you like me to change?` }]
                                     >
                                         <div
                                             className={`max-w-[80%] p-3 rounded-lg ${msg.role === 'user'
-                                                    ? 'bg-indigo-600 text-white'
-                                                    : 'bg-neutral-100 text-neutral-800'
+                                                ? 'bg-indigo-600 text-white'
+                                                : 'bg-neutral-100 text-neutral-800'
                                                 }`}
                                         >
                                             <p className="text-sm whitespace-pre-wrap">{msg.text}</p>

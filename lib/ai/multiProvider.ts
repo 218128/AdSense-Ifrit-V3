@@ -17,7 +17,7 @@ import {
     PROVIDER_ADAPTERS,
     PROVIDER_STORAGE_KEYS
 } from './providers';
-import { recordUsage } from './usageStats';
+// Archived: usageStats (usage tracking disabled)
 
 // Re-export types for backward compatibility
 export type AIProvider = ProviderId;
@@ -358,17 +358,7 @@ export class MultiProviderAI {
                     });
                 }
 
-                // Track usage
-                recordUsage({
-                    timestamp: Date.now(),
-                    providerId,
-                    modelId: usedModel,
-                    inputTokens: result.usage?.inputTokens || 0,
-                    outputTokens: result.usage?.outputTokens || 0,
-                    latencyMs: Date.now() - startTime,
-                    success: result.success,
-                    error: result.error
-                });
+                // Usage tracking disabled - use external provider dashboards
 
                 if (result.success) {
                     return {
@@ -380,17 +370,7 @@ export class MultiProviderAI {
                 }
                 console.warn(`Provider ${providerId} failed:`, result.error);
             } catch (error) {
-                // Track failed usage
-                recordUsage({
-                    timestamp: Date.now(),
-                    providerId,
-                    modelId: usedModel,
-                    inputTokens: 0,
-                    outputTokens: 0,
-                    latencyMs: Date.now() - startTime,
-                    success: false,
-                    error: error instanceof Error ? error.message : 'Unknown error'
-                });
+                // Usage tracking disabled - use external provider dashboards
                 console.error(`Provider ${providerId} error:`, error);
             }
         }

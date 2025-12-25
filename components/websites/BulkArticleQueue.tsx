@@ -15,6 +15,7 @@ import {
     Plus, X, Play, Pause, Trash2, Check, AlertTriangle,
     Loader2, FileText, Clock, ChevronDown, ChevronUp
 } from 'lucide-react';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 interface BulkArticleQueueProps {
     domain: string;
@@ -42,6 +43,11 @@ export default function BulkArticleQueue({
     const [isPaused, setIsPaused] = useState(false);
     const [showQueue, setShowQueue] = useState(true);
     const [currentIndex, setCurrentIndex] = useState(0);
+
+    // Get tokens and provider keys from store
+    const integrations = useSettingsStore(state => state.integrations);
+    const storeProviderKeys = useSettingsStore(state => state.providerKeys);
+    const enabledProviders = useSettingsStore(state => state.enabledProviders);
 
     const addToQueue = () => {
         const newKeywords = keywords
@@ -74,27 +80,20 @@ export default function BulkArticleQueue({
     };
 
     const generateArticle = async (item: QueueItem): Promise<boolean> => {
-        // Get tokens
-        const githubToken = localStorage.getItem('ifrit_github_token');
-        const githubUser = localStorage.getItem('ifrit_github_user');
+        // Get tokens from store
+        const { githubToken, githubUser } = integrations;
 
-        // Get AI provider keys
+        // Get AI provider keys from store
         const getProviderKeys = () => {
             const result: Record<string, string[]> = {};
-            const providers = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
+            const providers = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'] as const;
 
             for (const provider of providers) {
-                const stored = localStorage.getItem(`ifrit_${provider}_keys`);
-                const enabled = localStorage.getItem(`ifrit_${provider}_enabled`);
-                const isEnabled = enabled !== null ? enabled === 'true' : provider === 'gemini';
+                const isEnabled = enabledProviders.includes(provider);
+                const keys = storeProviderKeys[provider] || [];
 
-                if (isEnabled && stored) {
-                    try {
-                        const keys = JSON.parse(stored) as Array<{ key: string }>;
-                        result[provider] = keys.map(k => k.key);
-                    } catch {
-                        result[provider] = [];
-                    }
+                if (isEnabled && keys.length > 0) {
+                    result[provider] = keys.map(k => k.key);
                 } else {
                     result[provider] = [];
                 }
@@ -306,9 +305,9 @@ export default function BulkArticleQueue({
                                 <div className="flex items-center gap-3">
                                     {getStatusIcon(item.status)}
                                     <span className={`text-sm ${item.status === 'completed' ? 'text-green-700' :
-                                            item.status === 'error' ? 'text-red-700' :
-                                                item.status === 'generating' ? 'text-indigo-700 font-medium' :
-                                                    'text-neutral-700'
+                                        item.status === 'error' ? 'text-red-700' :
+                                            item.status === 'generating' ? 'text-indigo-700 font-medium' :
+                                                'text-neutral-700'
                                         }`}>
                                         {item.keyword}
                                     </span>
