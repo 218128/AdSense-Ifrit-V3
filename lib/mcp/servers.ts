@@ -35,6 +35,16 @@ export const MCP_SERVERS: MCPServerConfig[] = [
         category: 'research'
     },
     {
+        id: 'perplexity',
+        name: 'AI Research (Perplexity)',
+        description: 'Deep research, reasoning, and web search with AI',
+        command: 'npx',
+        args: ['-y', '@perplexity-ai/mcp-server'],
+        requiresApiKey: true,
+        apiKeyEnvVar: 'PERPLEXITY_API_KEY',
+        category: 'research'
+    },
+    {
         id: 'playwright',
         name: 'Browser Automation (Playwright)',
         description: 'Navigate, scrape, and automate web pages',

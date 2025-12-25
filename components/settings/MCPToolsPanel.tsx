@@ -32,6 +32,14 @@ const MCP_SERVERS: MCPServerConfig[] = [
         endpoint: 'Brave Search API (cloud)',
     },
     {
+        id: 'perplexity',
+        name: 'AI Research (Perplexity)',
+        description: 'Deep research, reasoning, and web search with AI',
+        requiresApiKey: true,
+        category: 'research',
+        endpoint: 'Perplexity API (uses same key as AI Provider)',
+    },
+    {
         id: 'playwright',
         name: 'Browser Automation (Playwright)',
         description: 'Navigate, scrape, and automate web pages',
