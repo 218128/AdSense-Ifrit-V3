@@ -18,7 +18,8 @@ import {
     Bookmark,
     BookmarkCheck,
     FileText,
-    Loader2
+    Loader2,
+    FlaskConical
 } from 'lucide-react';
 import type { DomainItem } from '@/lib/domains/types';
 
@@ -39,6 +40,10 @@ export interface DomainRowProps {
     onGenerateProfile: () => void;
     /** Whether profile is being generated */
     isGeneratingProfile: boolean;
+    /** Research niche callback (optional V5) */
+    onResearchNiche?: () => void;
+    /** Whether research is in progress */
+    isResearchingNiche?: boolean;
 }
 
 // ============ HELPERS ============
@@ -91,6 +96,8 @@ export function DomainRow({
     onToggleWatchlist,
     onGenerateProfile,
     isGeneratingProfile,
+    onResearchNiche,
+    isResearchingNiche,
 }: DomainRowProps) {
     return (
         <div
@@ -169,6 +176,23 @@ export function DomainRow({
                         </div>
                     )}
 
+                    {/* Research Niche (V5) */}
+                    {onResearchNiche && (
+                        <button
+                            onClick={onResearchNiche}
+                            disabled={isResearchingNiche}
+                            className="px-3 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg text-sm flex items-center gap-1 disabled:opacity-50"
+                            title="Research niche with Perplexity"
+                        >
+                            {isResearchingNiche ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <FlaskConical className="w-4 h-4" />
+                            )}
+                            Research
+                        </button>
+                    )}
+
                     {/* Generate Profile */}
                     <button
                         onClick={onGenerateProfile}
@@ -188,8 +212,8 @@ export function DomainRow({
                     <button
                         onClick={onToggleWatchlist}
                         className={`p-2 rounded-lg transition-colors ${isWatched
-                                ? 'bg-yellow-100 text-yellow-600'
-                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                            ? 'bg-yellow-100 text-yellow-600'
+                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                             }`}
                         title={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
                     >

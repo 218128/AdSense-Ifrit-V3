@@ -117,6 +117,13 @@ export default function ExpiredDomainFinder({
     const [generatedProfile, setGeneratedProfile] = useState<DomainProfile | null>(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
 
+    // V5: Niche research
+    const [researchingNiche, setResearchingNiche] = useState<string | null>(null);
+    const [nicheResearchResults, setNicheResearchResults] = useState<{
+        domain: string;
+        findings: string[];
+    } | null>(null);
+
     // ============ COMPUTED ============
 
     const totalPages = Math.ceil(filteredDomains.length / PAGE_SIZE);
@@ -186,6 +193,47 @@ export default function ExpiredDomainFinder({
             alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
             setGeneratingProfile(null);
+        }
+    }, []);
+
+    // V5: Research niche for a domain
+    const handleResearchNiche = useCallback(async (domain: DomainItem) => {
+        setResearchingNiche(domain.domain);
+        setNicheResearchResults(null);
+
+        try {
+            const perplexityKey = typeof window !== 'undefined'
+                ? localStorage.getItem('ifrit_mcp_perplexity_key')
+                : null;
+
+            if (!perplexityKey) {
+                alert('Perplexity API key not configured. Go to Settings → MCP Tools.');
+                return;
+            }
+
+            const response = await fetch('/api/research', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: `What niche and content topics would work best for the domain "${domain.domain}"? Include monetization potential and competition analysis.`,
+                    type: 'deep',
+                    tool: 'perplexity',
+                    apiKey: perplexityKey
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.keyFindings) {
+                setNicheResearchResults({
+                    domain: domain.domain,
+                    findings: data.keyFindings
+                });
+            }
+        } catch (err) {
+            console.error('Niche research failed:', err);
+        } finally {
+            setResearchingNiche(null);
         }
     }, []);
 
@@ -351,6 +399,8 @@ export default function ExpiredDomainFinder({
                                 onSelect={() => toggleSelection(domain.domain)}
                                 isWatched={isWatched(domain.domain)}
                                 onToggleWatchlist={() => toggleWatchlist(domain)}
+                                onResearchNiche={() => handleResearchNiche(domain)}
+                                isResearchingNiche={researchingNiche === domain.domain}
                                 onGenerateProfile={() => handleGenerateProfile(domain)}
                                 isGeneratingProfile={generatingProfile === domain.domain}
                             />
