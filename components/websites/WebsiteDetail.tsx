@@ -51,6 +51,8 @@ import BatchOperationsPanel from './BatchOperationsPanel';
 import ImageGallery from './ImageGallery';
 import SiteDecisionsPanel from './SiteDecisionsPanel';
 import ThemeEditor from './ThemeEditor';
+import CompetitorAnalysisPanel from './CompetitorAnalysisPanel';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 // Types from websiteStore
 interface Website {
@@ -144,6 +146,10 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
     const [deployMessage, setDeployMessage] = useState<string | null>(null);
     const [showGenerateModal, setShowGenerateModal] = useState(false);
 
+    // Get tokens and settings from store
+    const integrations = useSettingsStore(state => state.integrations);
+    const adsenseConfig = useSettingsStore(state => state.adsenseConfig);
+
     // Fetch website data
     const fetchWebsite = useCallback(async () => {
         try {
@@ -169,7 +175,7 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
 
     // Handle verified deployment
     const handleDeploy = async () => {
-        const githubToken = localStorage.getItem('ifrit_github_token');
+        const { githubToken } = integrations;
         if (!githubToken) {
             setDeployMessage('❌ GitHub token required. Configure in Settings.');
             return;
@@ -179,8 +185,8 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
         setDeployMessage(null);
 
         try {
-            const adsensePublisherId = localStorage.getItem('ADSENSE_PUBLISHER_ID');
-            const umamiId = localStorage.getItem('UMAMI_WEBSITE_ID');
+            const adsensePublisherId = adsenseConfig.publisherId;
+            const umamiId = integrations.umamiId;
 
             const response = await fetch(`/api/websites/${domain}/deploy`, {
                 method: 'POST',
@@ -718,6 +724,11 @@ function ContentTab({
     const [syncMessage, setSyncMessage] = useState<string | null>(null);
     const [publishing, setPublishing] = useState(false);
     const [publishMessage, setPublishMessage] = useState<string | null>(null);
+    // V5: Competitor Analysis
+    const [showCompetitorAnalysis, setShowCompetitorAnalysis] = useState(false);
+
+    // Get GitHub token from store
+    const githubToken = useSettingsStore(state => state.integrations.githubToken);
 
     const filteredArticles = articles.filter(a => {
         if (filter !== 'all' && a.status !== filter) return false;
@@ -742,9 +753,7 @@ function ContentTab({
     };
 
     const handleSync = async () => {
-        // Get GitHub token from the correct storage key (matches AutoConfigureWizard)
-        const githubToken = localStorage.getItem('ifrit_github_token');
-
+        // Use GitHub token from store
         if (!githubToken) {
             setSyncMessage('⚠️ GitHub token required. Configure in Settings → Integrations.');
             return;
@@ -779,8 +788,7 @@ function ContentTab({
 
     // Publish articles to GitHub
     const handlePublish = async (articleIds: string[]) => {
-        const githubToken = localStorage.getItem('ifrit_github_token');
-
+        // Use GitHub token from store
         if (!githubToken) {
             setPublishMessage('⚠️ GitHub token required. Configure in Settings → Integrations.');
             return;
@@ -941,6 +949,27 @@ function ContentTab({
                     </button>
                 </div>
             </div>
+
+            {/* V5: Competitor Analysis Panel */}
+            {showCompetitorAnalysis && (
+                <CompetitorAnalysisPanel
+                    domain={domain}
+                    niche={niche}
+                    onClose={() => setShowCompetitorAnalysis(false)}
+                />
+            )}
+
+            {/* Competitor Analysis Toggle Button (when not expanded) */}
+            {!showCompetitorAnalysis && (
+                <button
+                    onClick={() => setShowCompetitorAnalysis(true)}
+                    className="w-full p-4 border border-dashed border-indigo-200 bg-indigo-50/50 rounded-xl text-indigo-700 hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
+                >
+                    <Globe className="w-5 h-5" />
+                    <span className="font-medium">Competitor Analysis</span>
+                    <span className="text-xs text-indigo-500">(Playwright MCP)</span>
+                </button>
+            )}
 
             {showDropZone && (
                 <SmartDropZone
