@@ -81,18 +81,29 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
 
     // ============ EFFECTS ============
 
-    // Load Brave API key from localStorage
+    // C9 FIX: Get Brave API key from Zustand store instead of localStorage
+    const braveApiKeyFromStore = useSettingsStore(state => {
+        const braveKey = state.mcpServers.apiKeys?.['brave-search'];
+        if (typeof braveKey === 'string') return braveKey;
+        if (braveKey && typeof braveKey === 'object') {
+            return (braveKey as { key?: string }).key || '';
+        }
+
+        // Fallback to perplexity
+        const perplexityKey = state.providerKeys?.perplexity?.[0];
+        if (typeof perplexityKey === 'string') return perplexityKey;
+        if (perplexityKey && typeof perplexityKey === 'object') {
+            return (perplexityKey as { key?: string }).key || '';
+        }
+
+        return '';
+    });
+
     useEffect(() => {
-        try {
-            const keys = localStorage.getItem('ifrit_mcp_api_keys');
-            if (keys) {
-                const parsed = JSON.parse(keys);
-                if (parsed['brave-search']) {
-                    setBraveApiKey(parsed['brave-search']);
-                }
-            }
-        } catch { }
-    }, []);
+        if (braveApiKeyFromStore) {
+            setBraveApiKey(braveApiKeyFromStore);
+        }
+    }, [braveApiKeyFromStore]);
 
     // ============ HANDLERS ============
 

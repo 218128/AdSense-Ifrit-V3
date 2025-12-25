@@ -980,7 +980,12 @@ function ContentTab({
                     {/* Always show the "Publish Ready" button if there are ready articles */}
                     {readyArticleIds.length > 0 && (
                         <button
-                            onClick={() => handlePublish(readyArticleIds)}
+                            onClick={() => {
+                                // C15 FIX: Add confirmation before bulk publish
+                                if (confirm(`Publish all ${readyArticleIds.length} draft/ready articles? This will push changes to GitHub.`)) {
+                                    handlePublish(readyArticleIds);
+                                }
+                            }}
                             disabled={publishing}
                             className="flex items-center gap-2 px-4 py-2 border-2 border-green-600 text-green-700 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
                             title={`Publish all ${readyArticleIds.length} draft/ready articles`}
