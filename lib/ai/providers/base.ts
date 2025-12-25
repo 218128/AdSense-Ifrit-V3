@@ -145,6 +145,67 @@ export interface ProviderAdapter {
      * @returns Content with reasoning trace
      */
     reason?(apiKey: string, options: GenerateOptions): Promise<GenerateResult>;
+
+    /**
+     * Generate images (optional)
+     * For providers that support image generation (e.g., Gemini with image models)
+     * 
+     * @param apiKey - API key
+     * @param options - Generation options with prompt
+     * @returns Image data (base64 or URL)
+     */
+    generateImage?(apiKey: string, options: GenerateOptions): Promise<GenerateResult>;
+}
+
+// ============================================
+// DATA PROVIDER INTERFACE (for CapabilityExecutor)
+// ============================================
+
+/**
+ * Capability request - what the executor sends to providers
+ */
+export interface CapabilityRequest {
+    capability: string;           // e.g., 'generate', 'research', 'images'
+    prompt: string;
+    context?: Record<string, unknown>;
+    options?: {
+        model?: string;
+        maxTokens?: number;
+        temperature?: number;
+        systemPrompt?: string;
+    };
+}
+
+/**
+ * Capability result - what providers return
+ */
+export interface CapabilityDataResult {
+    success: boolean;
+    data?: unknown;               // Raw data (varies by capability)
+    text?: string;                // Text result
+    error?: string;
+    usage?: {
+        inputTokens: number;
+        outputTokens: number;
+    };
+}
+
+/**
+ * DataProvider - Unified interface for CapabilityExecutor
+ * 
+ * This wraps the specific provider methods (chat, reason, generateImage)
+ * into a single execute() method that the CapabilityExecutor can call.
+ */
+export interface DataProvider {
+    id: ProviderId;
+    name: string;
+    supportedCapabilities: string[];
+
+    /**
+     * Execute a capability request
+     * Internally maps to appropriate provider method (chat, reason, etc.)
+     */
+    execute(apiKey: string, request: CapabilityRequest): Promise<CapabilityDataResult>;
 }
 
 // ============================================

@@ -32,7 +32,11 @@ export type {
     GenerateResult,
     KeyTestResult,
     ProviderState,
-    ProviderAdapter
+    ProviderAdapter,
+    // DataProvider types for CapabilityExecutor
+    DataProvider,
+    CapabilityRequest,
+    CapabilityDataResult,
 } from './base';
 
 export { parseModelModes, errorResult } from './base';
