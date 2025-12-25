@@ -7,8 +7,17 @@ Quick reference for key files in AdSense Ifrit.
 | File | Lines | Purpose |
 |------|-------|---------|
 | `lib/websiteStore.ts` | ~1100 | Data layer - all CRUD operations |
-| `components/websites/WebsiteDetail.tsx` | ~1100 | Main website management UI |
+| `components/websites/WebsiteDetail.tsx` | ~1600 | Main website management UI |
 | `app/api/websites/create/route.ts` | ~150 | Website creation orchestrator |
+| `app/api/research/route.ts` | ~180 | MCP research endpoint (Perplexity, Brave) |
+
+## State Management (Zustand)
+
+| Store | Purpose |
+|-------|---------|
+| `stores/settingsStore.ts` | API keys, MCP config, integrations (⚠️ USE THIS) |
+| `stores/websiteStore.ts` | Website state management |
+| `stores/trendStore.ts` | Trend scanner state |
 
 ## Components
 

@@ -128,6 +128,27 @@ Body: { action: 'validate'|'create-project'|'add-domain', token, projectName?, d
 
 ---
 
+## Research API (Added Dec 2025)
+
+### POST /api/research
+MCP-powered research using Perplexity or Brave Search.
+```json
+Body: { query, perplexityKey?, braveKey? }
+Response: { success: true, findings: string[], source: 'perplexity'|'brave' }
+```
+
+---
+
+## Static Assets API (Added Dec 2025)
+
+### GET /api/websites/[domain]/static/images/[...path]
+Serves uploaded images from website's content/images folder.
+```
+Returns: Image file (PNG, JPG, GIF, WebP)
+```
+
+---
+
 ## Response Pattern
 
 All APIs return:
@@ -139,3 +160,11 @@ All APIs return:
     message?: string;  // Optional info
 }
 ```
+
+---
+
+## ⚠️ Important Notes (Dec 2025)
+
+1. **API Keys**: Pass `geminiKey` and `providerKeys` in request body for `/api/generate`
+2. **GitHub User**: Always validate `githubUser` before operations (don't use hardcoded fallbacks)
+3. **Research**: Use `/api/research` with Perplexity key from Settings store

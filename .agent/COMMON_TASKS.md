@@ -85,9 +85,10 @@ cat websites/{domain}/metadata.json
 | Generate site files | `lib/templates/*.ts` |
 | Push to GitHub | `lib/integrations/github.ts` |
 | Deploy to Vercel | `lib/integrations/vercel.ts` |
-| Generate AI content | `app/api/generate-site-content/route.ts` |
+| Generate AI content | `app/api/generate/route.ts` |
 | Manage website UI | `components/websites/WebsiteDetail.tsx` |
-| Settings storage | `localStorage` (client-side) |
+| Settings/API keys | `stores/settingsStore.ts` (Zustand - ⚠️ NOT localStorage) |
+| MCP Research | `app/api/research/route.ts` |
 
 ---
 
