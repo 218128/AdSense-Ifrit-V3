@@ -124,3 +124,32 @@ export default function ComponentName({ ... }: Props) {
     // Render
 }
 ```
+
+## State Management
+
+The app uses **Zustand** for global state management:
+
+| Store | Purpose | File |
+|-------|---------|------|
+| `settingsStore` | API keys, integrations, MCP config | `stores/settingsStore.ts` |
+| `websiteStore` | Website metadata, articles | `stores/websiteStore.ts` |
+| `trendStore` | Trend scanner state | `stores/trendStore.ts` |
+
+> **Important**: Use Zustand stores instead of `localStorage` for consistency. See bug fixes C3, C9.
+
+## Recent Updates (Dec 2025)
+
+### Bug Fix Initiative
+20 bugs fixed across 5 phases:
+- **Phase 1**: MCP research format, API key detection, static images route
+- **Phase 2**: Save refined articles, article settings, delete feedback
+- **Phase 3**: Toggle CSS, editor z-index, publish buttons UX
+- **Phase 4**: localStorage→Zustand migration, error UI, auto-clear messages
+- **Phase 5**: Brave key store, publish confirmation
+
+### Key Patterns Established
+1. **API Keys**: Always get from `useSettingsStore`, not localStorage
+2. **Error Feedback**: Use state (e.g., `syncMessage`) with auto-clear after 5s
+3. **Bulk Actions**: Always show confirmation dialog (`confirm()`)
+4. **Modals**: Use `z-[100]` for proper stacking above other content
+5. **Props**: Pass website-level config (author, categories) to child components
