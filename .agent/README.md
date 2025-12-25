@@ -10,6 +10,7 @@ This folder contains structured documentation to help AI coding agents understan
 |-----|---------|----------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | System overview, patterns, recent updates | ⭐ Read First |
 | [SETTINGS_ARCHITECTURE.md](./SETTINGS_ARCHITECTURE.md) | Zustand store, API keys, capabilities | ⭐ Critical |
+| [CAPABILITIES_ARCHITECTURE.md](./CAPABILITIES_ARCHITECTURE.md) | AI capability system, DataProvider | Important |
 | [WEBSITES_ARCHITECTURE.md](./WEBSITES_ARCHITECTURE.md) | Content generation, deployment | Important |
 | [DATA_MODELS.md](./DATA_MODELS.md) | TypeScript interfaces | Reference |
 | [API_REFERENCE.md](./API_REFERENCE.md) | Endpoint documentation | Reference |
@@ -70,9 +71,8 @@ useEffect(() => {
 }, [syncMessage]);
 ```
 
-## 📁 Archived Docs
+## 📁 Implementation Notes
 
-The following docs are kept for historical context but may contain outdated patterns:
-- `COMMON_TASKS.md` - Some patterns outdated (localStorage references)
-- `FILE_INDEX.md` - May not include recent additions
-- `CAPABILITIES_ARCHITECTURE.md` - Conceptual, not fully implemented
+- `COMMON_TASKS.md` - Updated Dec 2025 (Zustand references)
+- `FILE_INDEX.md` - Updated Dec 2025 (added Stores section)
+- `CAPABILITIES_ARCHITECTURE.md` - ✅ Implemented in `lib/ai/services/CapabilityExecutor.ts`
