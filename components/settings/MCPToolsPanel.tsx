@@ -32,12 +32,12 @@ const MCP_SERVERS: MCPServerConfig[] = [
         endpoint: 'Brave Search API (cloud)',
     },
     {
-        id: 'puppeteer',
-        name: 'Web Scraper',
-        description: 'Fetch and analyze web pages using Puppeteer',
+        id: 'playwright',
+        name: 'Browser Automation (Playwright)',
+        description: 'Navigate, scrape, and automate web pages',
         requiresApiKey: false,
         category: 'research',
-        endpoint: 'Local MCP Server (npx @modelcontextprotocol/server-puppeteer)',
+        endpoint: 'Microsoft Playwright MCP (npx @playwright/mcp@latest)',
     },
     {
         id: 'fetch',

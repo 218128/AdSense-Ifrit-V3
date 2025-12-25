@@ -35,11 +35,11 @@ export const MCP_SERVERS: MCPServerConfig[] = [
         category: 'research'
     },
     {
-        id: 'puppeteer',
-        name: 'Web Scraper',
-        description: 'Fetch and analyze web pages for competitor research',
+        id: 'playwright',
+        name: 'Browser Automation (Playwright)',
+        description: 'Navigate, scrape, and automate web pages',
         command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-puppeteer'],
+        args: ['-y', '@playwright/mcp@latest'],
         requiresApiKey: false,
         category: 'research'
     },
