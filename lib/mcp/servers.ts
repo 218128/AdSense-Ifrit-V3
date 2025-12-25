@@ -39,7 +39,7 @@ export const MCP_SERVERS: MCPServerConfig[] = [
         name: 'Web Scraper',
         description: 'Fetch and analyze web pages for competitor research',
         command: 'npx',
-        args: ['-y', '@anthropic-ai/mcp-puppeteer'],
+        args: ['-y', '@modelcontextprotocol/server-puppeteer'],
         requiresApiKey: false,
         category: 'research'
     },
@@ -50,7 +50,7 @@ export const MCP_SERVERS: MCPServerConfig[] = [
         name: 'URL Fetcher',
         description: 'Fetch content from URLs for analysis',
         command: 'npx',
-        args: ['-y', '@anthropic-ai/mcp-fetch'],
+        args: ['-y', '@modelcontextprotocol/server-fetch'],
         requiresApiKey: false,
         category: 'seo'
     },
@@ -61,7 +61,7 @@ export const MCP_SERVERS: MCPServerConfig[] = [
         name: 'GitHub',
         description: 'Create repos, manage code, push changes',
         command: 'npx',
-        args: ['-y', '@anthropic-ai/mcp-github'],
+        args: ['-y', '@modelcontextprotocol/server-github'],
         requiresApiKey: true,
         apiKeyEnvVar: 'GITHUB_TOKEN',
         category: 'integration'
@@ -71,7 +71,7 @@ export const MCP_SERVERS: MCPServerConfig[] = [
         name: 'File System',
         description: 'Read and write local files',
         command: 'npx',
-        args: ['-y', '@anthropic-ai/mcp-filesystem', '/tmp'],
+        args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'],
         requiresApiKey: false,
         category: 'utility'
     }

@@ -37,7 +37,7 @@ const MCP_SERVERS: MCPServerConfig[] = [
         description: 'Fetch and analyze web pages using Puppeteer',
         requiresApiKey: false,
         category: 'research',
-        endpoint: 'Local MCP Server (requires: npx @anthropic/mcp-puppeteer)',
+        endpoint: 'Local MCP Server (npx @modelcontextprotocol/server-puppeteer)',
     },
     {
         id: 'fetch',
@@ -45,7 +45,7 @@ const MCP_SERVERS: MCPServerConfig[] = [
         description: 'Fetch content from URLs',
         requiresApiKey: false,
         category: 'seo',
-        endpoint: 'Local MCP Server (requires: npx @anthropic/mcp-fetch)',
+        endpoint: 'Local MCP Server (npx @modelcontextprotocol/server-fetch)',
     },
     {
         id: 'github',
@@ -61,7 +61,7 @@ const MCP_SERVERS: MCPServerConfig[] = [
         description: 'Read and write local files',
         requiresApiKey: false,
         category: 'utility',
-        endpoint: 'Local MCP Server (requires: npx @anthropic/mcp-filesystem)',
+        endpoint: 'Local MCP Server (npx @modelcontextprotocol/server-filesystem)',
     }
 ];
 
