@@ -300,11 +300,7 @@ export const useSettingsStore = create<SettingsStore>()(
             // ============ ADSENSE ACTIONS ============
 
             setAdsenseConfig: (config) => set((state) => {
-                // Validate publisher ID format if provided
-                if (config.publisherId !== undefined && !isValidAdsensePublisherId(config.publisherId)) {
-                    console.warn('Invalid AdSense publisher ID format');
-                    return state;
-                }
+                // Allow any input - validation happens at save/use time, not during typing
                 return {
                     adsenseConfig: { ...state.adsenseConfig, ...config }
                 };
