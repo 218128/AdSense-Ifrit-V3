@@ -11,11 +11,12 @@
  */
 
 import { useState } from 'react';
-import { Loader2, Sparkles, X, Zap, BookOpen, FileText, Lightbulb, Image as ImageIcon, Play } from 'lucide-react';
+import { Loader2, Sparkles, X, Zap, BookOpen, FileText, Lightbulb, Image as ImageIcon, Play, Search } from 'lucide-react';
 import { addToGenerationHistory } from './GenerationHistory';
 import StockPhotoSelector, { StockPhoto } from '../shared/StockPhotoSelector';
 import StreamingArticlePreview from '../shared/StreamingArticlePreview';
 import RefineArticleModal from './RefineArticleModal';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 interface GenerateArticleModalProps {
     domain: string;
@@ -69,6 +70,68 @@ export default function GenerateArticleModal({
     const [streamedContent, setStreamedContent] = useState<string | null>(null);
     const [showRefineModal, setShowRefineModal] = useState(false);
 
+    // V5: Research before generation
+    const [researchEnabled, setResearchEnabled] = useState(false);
+    const [researching, setResearching] = useState(false);
+    const [researchResults, setResearchResults] = useState<{
+        keyFindings: string[];
+        suggestedContext: string;
+    } | null>(null);
+
+    // Get tokens and provider keys from store
+    const integrations = useSettingsStore(state => state.integrations);
+    const storeProviderKeys = useSettingsStore(state => state.providerKeys);
+    const enabledProviders = useSettingsStore(state => state.enabledProviders);
+    const mcpApiKeys = useSettingsStore(state => state.mcpServers.apiKeys);
+
+    // V5: Research topic before generating
+    const handleResearch = async () => {
+        if (!config.keyword.trim()) {
+            setError('Please enter a keyword or topic first');
+            return;
+        }
+
+        setResearching(true);
+        setError(null);
+
+        try {
+            // Get Perplexity API key from MCP settings
+            const perplexityKey = mcpApiKeys?.perplexity || storeProviderKeys?.perplexity?.[0]?.key;
+
+            if (!perplexityKey) {
+                setError('Perplexity API key not configured. Go to Settings → MCP Tools.');
+                setResearching(false);
+                return;
+            }
+
+            const response = await fetch('/api/research', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: `${config.keyword} ${niche} - latest trends, statistics, and expert insights`,
+                    type: 'quick',
+                    tool: 'perplexity',
+                    apiKey: perplexityKey
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setResearchResults({
+                    keyFindings: data.keyFindings || [],
+                    suggestedContext: data.suggestedContext || ''
+                });
+            } else {
+                setError(data.error || 'Research failed');
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Research failed');
+        } finally {
+            setResearching(false);
+        }
+    };
+
     const handleGenerate = async () => {
         if (!config.keyword.trim()) {
             setError('Please enter a keyword or topic');
@@ -86,31 +149,24 @@ export default function GenerateArticleModal({
         }
 
         try {
-            // Get tokens
-            const githubToken = localStorage.getItem('ifrit_github_token');
-            const githubUser = localStorage.getItem('ifrit_github_user');
+            // Get tokens from store
+            const { githubToken, githubUser } = integrations;
 
             if (!githubToken) {
                 throw new Error('GitHub token required. Configure in Settings.');
             }
 
-            // Get AI provider keys
+            // Get AI provider keys from store
             const getProviderKeys = () => {
                 const result: Record<string, string[]> = {};
-                const providers = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
+                const providers = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'] as const;
 
                 for (const provider of providers) {
-                    const stored = localStorage.getItem(`ifrit_${provider}_keys`);
-                    const enabled = localStorage.getItem(`ifrit_${provider}_enabled`);
-                    const isEnabled = enabled !== null ? enabled === 'true' : provider === 'gemini';
+                    const isEnabled = enabledProviders.includes(provider);
+                    const keys = storeProviderKeys[provider] || [];
 
-                    if (isEnabled && stored) {
-                        try {
-                            const keys = JSON.parse(stored) as Array<{ key: string }>;
-                            result[provider] = keys.map(k => k.key);
-                        } catch {
-                            result[provider] = [];
-                        }
+                    if (isEnabled && keys.length > 0) {
+                        result[provider] = keys.map(k => k.key);
                     } else {
                         result[provider] = [];
                     }
@@ -216,6 +272,74 @@ export default function GenerateArticleModal({
                             className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             autoFocus
                         />
+                    </div>
+
+                    {/* V5: Research Before Writing Toggle */}
+                    <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <Search className="w-5 h-5 text-purple-600" />
+                                <span className="font-medium text-purple-900">Research Before Writing</span>
+                            </div>
+                            <button
+                                onClick={() => setResearchEnabled(!researchEnabled)}
+                                className={`relative w-12 h-6 rounded-full transition-colors ${researchEnabled ? 'bg-purple-600' : 'bg-neutral-300'
+                                    }`}
+                            >
+                                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${researchEnabled ? 'translate-x-7' : 'translate-x-1'
+                                    }`} />
+                            </button>
+                        </div>
+
+                        {researchEnabled && (
+                            <div className="space-y-3">
+                                <p className="text-xs text-purple-700">
+                                    Use Perplexity AI to research your topic before generating the article.
+                                </p>
+
+                                {!researchResults ? (
+                                    <button
+                                        onClick={handleResearch}
+                                        disabled={researching || !config.keyword.trim()}
+                                        className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
+                                    >
+                                        {researching ? (
+                                            <>
+                                                <span className="animate-spin">⏳</span>
+                                                Researching...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Search className="w-4 h-4" />
+                                                Research Topic
+                                            </>
+                                        )}
+                                    </button>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-medium text-green-700">✓ Research complete</span>
+                                            <button
+                                                onClick={() => setResearchResults(null)}
+                                                className="text-xs text-purple-600 hover:underline"
+                                            >
+                                                Re-research
+                                            </button>
+                                        </div>
+                                        {researchResults.keyFindings.length > 0 && (
+                                            <div className="p-2 bg-white rounded border border-purple-100">
+                                                <p className="text-xs font-medium text-neutral-700 mb-1">Key Findings:</p>
+                                                <ul className="text-xs text-neutral-600 space-y-1">
+                                                    {researchResults.keyFindings.slice(0, 3).map((finding, i) => (
+                                                        <li key={i} className="truncate">• {finding}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Article Type */}
