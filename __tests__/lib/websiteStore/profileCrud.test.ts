@@ -16,7 +16,7 @@ import * as fs from 'fs';
 import {
     createMockDomainProfile,
     createMockProfileCrudDeps
-} from './_testUtils';
+} from './testUtils';
 
 import {
     saveDomainProfile,

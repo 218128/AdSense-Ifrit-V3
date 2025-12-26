@@ -16,7 +16,7 @@ import {
     createMockWebsite,
     createMockArticle,
     createMockVersionControlDeps
-} from './_testUtils';
+} from './testUtils';
 
 import {
     addVersion,

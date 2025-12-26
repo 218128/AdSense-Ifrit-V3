@@ -18,7 +18,7 @@ import * as fs from 'fs';
 import {
     createMockTheme,
     createMockThemeVersion
-} from './_testUtils';
+} from './testUtils';
 
 import {
     saveTheme,

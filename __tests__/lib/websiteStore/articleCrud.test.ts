@@ -21,7 +21,7 @@ import {
     createMockArticle,
     createMockArticleCrudDeps,
     createMockWebsite
-} from './_testUtils';
+} from './testUtils';
 
 import {
     saveArticle,

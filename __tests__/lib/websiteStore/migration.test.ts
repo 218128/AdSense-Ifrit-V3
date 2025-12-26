@@ -14,7 +14,7 @@ jest.mock('fs', () => ({
 import * as fs from 'fs';
 import {
     createMockMigrationDeps
-} from './_testUtils';
+} from './testUtils';
 
 import {
     migrateFromLegacy,

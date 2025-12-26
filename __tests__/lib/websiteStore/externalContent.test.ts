@@ -4,7 +4,7 @@
 
 import {
     createMockExternalContentDeps
-} from './_testUtils';
+} from './testUtils';
 
 import {
     importExternalContent,

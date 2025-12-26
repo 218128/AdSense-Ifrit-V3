@@ -19,7 +19,7 @@ import * as path from 'path';
 import {
     createMockArticle,
     createMockPageCrudDeps
-} from './_testUtils';
+} from './testUtils';
 
 import {
     listPages,

@@ -7,7 +7,7 @@ import {
     createMockArticle,
     createMockTheme,
     createMockSelectiveDeployDeps
-} from './_testUtils';
+} from './testUtils';
 
 import {
     getPendingChanges,
