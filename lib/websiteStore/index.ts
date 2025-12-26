@@ -35,4 +35,7 @@ export * from './pageCrud';
 // Export external content functions
 export * from './externalContent';
 
-// Note: Website CRUD, Deploy still in parent
+// Export selective deploy functions
+export * from './selectiveDeploy';
+
+// Note: Website CRUD still in parent
