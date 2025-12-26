@@ -196,13 +196,13 @@ export function createMockHandler(overrides: Partial<CapabilityHandler> = {}): C
         source: 'ai-provider',
         capabilities: ['generate', 'research'],
         priority: 1,
-        enabled: true,
+        isEnabled: true,
         execute: jest.fn().mockResolvedValue({
             success: true,
             data: 'Test result'
         }),
         ...overrides
-    };
+    } as unknown as CapabilityHandler;
 }
 
 /**
@@ -210,18 +210,12 @@ export function createMockHandler(overrides: Partial<CapabilityHandler> = {}): C
  */
 export function createMockCapabilitiesConfig(overrides: Partial<CapabilitiesConfig> = {}): CapabilitiesConfig {
     return {
-        handlers: {
-            generate: 'test-handler',
-            research: 'test-handler'
-        },
-        fallbackChains: {
-            generate: ['test-handler', 'fallback-handler'],
-            research: ['test-handler']
-        },
+        defaultHandlerId: 'test-handler',
+        fallbackHandlerIds: ['test-handler', 'fallback-handler'],
         maxRetries: 2,
         timeout: 30000,
         ...overrides
-    };
+    } as unknown as CapabilitiesConfig;
 }
 
 /**

@@ -188,10 +188,10 @@ describe('versionControl.ts', () => {
                     name: 'New',
                     version: '2.0.0',
                     installedAt: Date.now(),
-                    upgradeAvailable: false,
+                    upgradeAvailable: 'false',
                     features: [],
                     category: 'general'
-                }
+                } as any
             });
             const snapshot = {
                 template: {

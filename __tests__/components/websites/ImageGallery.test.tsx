@@ -18,7 +18,7 @@ describe('ImageGallery', () => {
         domain: 'test-domain.com'
     };
 
-    const createImagesResponse = (images = []) => ({
+    const createImagesResponse = (images: any[] = []) => ({
         images: images.length ? images : [
             {
                 id: 'img-1',

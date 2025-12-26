@@ -65,7 +65,7 @@ describe('Settings Store', () => {
                 namecheapKey: '',
                 unsplashKey: '',
                 pexelsKey: '',
-            },
+            } as any,
             adsenseConfig: {
                 publisherId: '',
                 leaderboardSlot: '',

@@ -179,10 +179,10 @@ describe('selectiveDeploy.ts', () => {
                     name: 'starter',
                     version: '1.0.0',
                     installedAt: Date.now(),
-                    upgradeAvailable: true,
+                    upgradeAvailable: 'true', // String to match type
                     features: [],
                     category: 'general'
-                }
+                } as any
             }));
             mockDeps.listArticles.mockReturnValue([]);
             mockDeps.listPages.mockReturnValue([]);

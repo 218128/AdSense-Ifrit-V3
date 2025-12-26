@@ -137,7 +137,7 @@ describe('SpamZilla Parser', () => {
 
     describe('determineQualityTier', () => {
         it('should classify domain as Gold with excellent metrics', () => {
-            const domain: SpamZillaDomain = {
+            const domain = {
                 domain: 'premium.com',
                 tld: 'com',
                 trustFlow: 15,
@@ -151,7 +151,7 @@ describe('SpamZilla Parser', () => {
                 auctionSource: 'Dynadot',
                 qualityTier: 'avoid', // Will be updated
                 adsenseReady: false
-            };
+            } as SpamZillaDomain;
 
             const tier = determineQualityTier(domain);
 
@@ -159,7 +159,7 @@ describe('SpamZilla Parser', () => {
         });
 
         it('should classify domain as Silver with good metrics', () => {
-            const domain: SpamZillaDomain = {
+            const domain = {
                 domain: 'decent.com',
                 tld: 'com',
                 trustFlow: 9,
@@ -173,7 +173,7 @@ describe('SpamZilla Parser', () => {
                 auctionSource: 'GoDaddy',
                 qualityTier: 'avoid',
                 adsenseReady: false
-            };
+            } as SpamZillaDomain;
 
             const tier = determineQualityTier(domain);
 
@@ -181,7 +181,7 @@ describe('SpamZilla Parser', () => {
         });
 
         it('should classify domain as Bronze with minimal acceptable metrics', () => {
-            const domain: SpamZillaDomain = {
+            const domain = {
                 domain: 'basic.net',
                 tld: 'net',
                 trustFlow: 6,
@@ -195,7 +195,7 @@ describe('SpamZilla Parser', () => {
                 auctionSource: 'NameJet',
                 qualityTier: 'avoid',
                 adsenseReady: false
-            };
+            } as SpamZillaDomain;
 
             const tier = determineQualityTier(domain);
 
@@ -203,7 +203,7 @@ describe('SpamZilla Parser', () => {
         });
 
         it('should classify domain as Avoid with poor metrics', () => {
-            const domain: SpamZillaDomain = {
+            const domain = {
                 domain: 'spam.xyz',
                 tld: 'xyz',
                 trustFlow: 2,
@@ -217,7 +217,7 @@ describe('SpamZilla Parser', () => {
                 auctionSource: 'DropCatch',
                 qualityTier: 'avoid',
                 adsenseReady: false
-            };
+            } as SpamZillaDomain;
 
             const tier = determineQualityTier(domain);
 
@@ -225,7 +225,7 @@ describe('SpamZilla Parser', () => {
         });
 
         it('should mark high SZ Score domains as Avoid', () => {
-            const domain: SpamZillaDomain = {
+            const domain = {
                 domain: 'spammy.com',
                 tld: 'com',
                 trustFlow: 15,
@@ -239,7 +239,7 @@ describe('SpamZilla Parser', () => {
                 auctionSource: 'Dynadot',
                 qualityTier: 'avoid',
                 adsenseReady: false
-            };
+            } as SpamZillaDomain;
 
             const tier = determineQualityTier(domain);
 
@@ -247,7 +247,7 @@ describe('SpamZilla Parser', () => {
         });
 
         it('should mark low TF:CF ratio domains as Avoid', () => {
-            const domain: SpamZillaDomain = {
+            const domain = {
                 domain: 'unbalanced.com',
                 tld: 'com',
                 trustFlow: 5,
@@ -261,7 +261,7 @@ describe('SpamZilla Parser', () => {
                 auctionSource: 'Dynadot',
                 qualityTier: 'avoid',
                 adsenseReady: false
-            };
+            } as SpamZillaDomain;
 
             const tier = determineQualityTier(domain);
 

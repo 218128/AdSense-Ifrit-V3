@@ -23,7 +23,7 @@ describe('CapabilityExecutor', () => {
     const createMockHandler = (overrides: Partial<CapabilityHandler> = {}): CapabilityHandler => ({
         id: 'test-handler',
         name: 'Test Handler',
-        type: 'ai-provider',
+        source: 'ai-provider',
         providerId: 'test-provider',
         capabilities: ['generate', 'research'],
         priority: 1,
@@ -37,18 +37,22 @@ describe('CapabilityExecutor', () => {
             latencyMs: 100
         } as ExecuteResult),
         ...overrides
-    });
+    } as unknown as CapabilityHandler);
 
     const createMockConfig = (overrides: Partial<CapabilitiesConfig> = {}): CapabilitiesConfig => ({
+        customCapabilities: [],
         capabilitySettings: {
             generate: {
                 defaultHandlerId: 'test-handler',
                 fallbackHandlerIds: [],
-                enabled: true
+                isEnabled: true
             }
         },
+        preferMCP: true,
+        autoFallback: true,
+        logUsage: false,
         ...overrides
-    });
+    } as unknown as CapabilitiesConfig);
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -136,7 +140,7 @@ describe('CapabilityExecutor', () => {
                     generate: {
                         defaultHandlerId: 'primary',
                         fallbackHandlerIds: ['fallback'],
-                        enabled: true
+                        isEnabled: true
                     }
                 }
             });
@@ -245,7 +249,7 @@ describe('CapabilityExecutor', () => {
                     generate: {
                         defaultHandlerId: 'handler1', // Lower priority but preferred
                         fallbackHandlerIds: [],
-                        enabled: true
+                        isEnabled: true
                     }
                 }
             });

@@ -112,14 +112,9 @@ export function createMockArticle(overrides: Partial<Article> = {}): Article {
 export function createMockTheme(overrides: Partial<ThemeConfig> = {}): ThemeConfig {
     return {
         globals: ':root { --primary: blue; }',
-        components: {
-            header: '.header { background: white; }',
-            footer: '.footer { background: gray; }',
-            article: '.article { max-width: 800px; }'
-        },
         overrides: '',
         ...overrides
-    };
+    } as unknown as ThemeConfig;
 }
 
 /**
@@ -130,14 +125,13 @@ export function createMockDomainProfile(overrides: Partial<DomainProfile> = {}):
     return {
         domain: 'test-domain.com',
         niche: 'technology',
-        targetKeywords: ['tech', 'software'],
         competitorDomains: ['competitor.com'],
         monetizationStrategy: 'adsense',
         notes: 'Test notes',
         researchedAt: now,
         transferredToWebsite: false,
         ...overrides
-    };
+    } as unknown as DomainProfile;
 }
 
 /**
@@ -146,14 +140,14 @@ export function createMockDomainProfile(overrides: Partial<DomainProfile> = {}):
 export function createMockArticleVersion(overrides: Partial<ArticleVersion> = {}): ArticleVersion {
     const now = Date.now();
     return {
-        versionId: `v_${now}`,
+        version: `v_${now}`,
         articleId: `art_${now}`,
         title: 'Test Article Version',
         content: '# Versioned Content',
         createdAt: now,
         note: 'Test version',
         ...overrides
-    };
+    } as unknown as ArticleVersion;
 }
 
 /**
@@ -162,12 +156,12 @@ export function createMockArticleVersion(overrides: Partial<ArticleVersion> = {}
 export function createMockThemeVersion(overrides: Partial<ThemeVersion> = {}): ThemeVersion {
     const now = Date.now();
     return {
-        versionId: `tv_${now}`,
+        version: `tv_${now}`,
         theme: createMockTheme(),
         createdAt: now,
         note: 'Test theme version',
         ...overrides
-    };
+    } as unknown as ThemeVersion;
 }
 
 /**
@@ -176,13 +170,13 @@ export function createMockThemeVersion(overrides: Partial<ThemeVersion> = {}): T
 export function createMockWebsiteVersion(overrides: Partial<WebsiteVersion> = {}): WebsiteVersion {
     const now = Date.now();
     return {
-        versionId: `wv_${now}`,
+        version: `wv_${now}`,
         createdAt: now,
         note: 'Test website version',
         metadata: createMockWebsite(),
         articleIds: [],
         ...overrides
-    };
+    } as unknown as WebsiteVersion;
 }
 
 /**

@@ -183,8 +183,9 @@ describe('externalContent.ts', () => {
             const domain = 'test-site.com';
             const coverImage = {
                 url: 'https://example.com/image.jpg',
-                alt: 'Cover image'
-            };
+                alt: 'Cover image',
+                source: 'external'
+            } as any;
 
             const result = importExternalContent(domain, {
                 title: 'Test',
@@ -198,9 +199,9 @@ describe('externalContent.ts', () => {
         it('should include content images if provided', () => {
             const domain = 'test-site.com';
             const contentImages = [
-                { url: 'https://example.com/img1.jpg', alt: 'Image 1' },
-                { url: 'https://example.com/img2.jpg', alt: 'Image 2' }
-            ];
+                { id: 'img-1', url: 'https://example.com/img1.jpg', alt: 'Image 1', source: 'external' },
+                { id: 'img-2', url: 'https://example.com/img2.jpg', alt: 'Image 2', source: 'external' }
+            ] as any;
 
             const result = importExternalContent(domain, {
                 title: 'Test',
