@@ -32,4 +32,7 @@ export * from './migration';
 // Export page CRUD functions
 export * from './pageCrud';
 
-// Note: Website CRUD, External Content, Deploy still in parent
+// Export external content functions
+export * from './externalContent';
+
+// Note: Website CRUD, Deploy still in parent
