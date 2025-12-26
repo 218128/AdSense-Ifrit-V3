@@ -69,6 +69,7 @@ export function createMockWebsite(overrides: Partial<Website> = {}): Website {
             totalWords: 0,
             lastPublishedAt: undefined
         },
+        versions: [],
         linkedDomainProfile: undefined,
         ...overrides
     } as Website;

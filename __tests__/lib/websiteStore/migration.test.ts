@@ -8,17 +8,11 @@ jest.mock('fs', () => ({
     readFileSync: jest.fn(),
     writeFileSync: jest.fn(),
     mkdirSync: jest.fn(),
-    readdirSync: jest.fn(),
-    unlinkSync: jest.fn(),
-    rmSync: jest.fn(),
-    renameSync: jest.fn(),
-    copyFileSync: jest.fn(),
-    statSync: jest.fn()
+    readdirSync: jest.fn()
 }));
 
 import * as fs from 'fs';
 import {
-    createMockWebsite,
     createMockMigrationDeps
 } from './_testUtils';
 
@@ -34,131 +28,130 @@ describe('migration.ts', () => {
         jest.clearAllMocks();
         mockDeps = createMockMigrationDeps();
         _initMigrationDeps(mockDeps);
+        (fs.readdirSync as jest.Mock).mockReturnValue([]);
     });
 
     describe('migrateFromLegacy()', () => {
-        it('should return false if legacy data does not exist', () => {
-            const domain = 'test-site.com';
-
+        it('should return empty arrays when no legacy data exists', () => {
             (fs.existsSync as jest.Mock).mockReturnValue(false);
 
-            const result = migrateFromLegacy(domain);
+            const result = migrateFromLegacy();
 
-            expect(result.success).toBe(false);
             expect(result.migrated).toEqual([]);
+            expect(result.errors).toEqual([]);
         });
 
-        it('should create new website from legacy data', () => {
-            const domain = 'test-site.com';
-            const legacyData = {
-                name: 'Legacy Site',
-                description: 'Old description',
-                articles: []
-            };
-
-            // First call checks websites dir, second checks legacy dir
-            (fs.existsSync as jest.Mock)
-                .mockReturnValueOnce(false) // New website doesn't exist
-                .mockReturnValueOnce(true)  // Legacy data exists
-                .mockReturnValue(true);     // Any other checks
-
-            (fs.readdirSync as jest.Mock).mockReturnValue([]);
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(legacyData));
-            (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
-
-            const result = migrateFromLegacy(domain);
-
-            // Migration may succeed or fail depending on legacy structure
-            expect(result).toHaveProperty('success');
-            expect(result).toHaveProperty('migrated');
-        });
-
-        it('should not overwrite existing website', () => {
-            const domain = 'test-site.com';
-            const existingWebsite = createMockWebsite({ domain });
-
-            mockDeps.getWebsite.mockReturnValue(existingWebsite);
-
-            const result = migrateFromLegacy(domain);
-
-            expect(result.success).toBe(false);
-            expect(result.error).toContain('exists');
-        });
-
-        it('should migrate articles from legacy structure', () => {
-            const domain = 'test-site.com';
-            const legacyArticle = {
-                id: 'legacy_1',
-                title: 'Old Article',
-                content: 'Old content'
-            };
-
-            mockDeps.getWebsite.mockReturnValue(null);
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readdirSync as jest.Mock)
-                .mockReturnValueOnce(['legacy_1.json']) // Articles in legacy
-                .mockReturnValue([]);
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(legacyArticle));
-            (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => false });
-
-            const result = migrateFromLegacy(domain);
-
-            expect(result).toHaveProperty('migrated');
-        });
-
-        it('should handle migration errors gracefully', () => {
-            const domain = 'test-site.com';
-
-            mockDeps.getWebsite.mockReturnValue(null);
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readFileSync as jest.Mock).mockImplementation(() => {
-                throw new Error('Read error');
-            });
-
-            const result = migrateFromLegacy(domain);
-
-            expect(result.success).toBe(false);
-            expect(result.error).toBeDefined();
-        });
-
-        it('should migrate job store data if present', () => {
-            const domain = 'test-site.com';
-            const jobStoreData = {
-                currentJob: null,
-                history: []
-            };
-
-            mockDeps.getWebsite.mockReturnValue(null);
+        it('should migrate websites from templates folder', () => {
+            // Templates dir exists
             (fs.existsSync as jest.Mock).mockImplementation((path: string) => {
-                return path.includes('job-store') || path.includes('legacy');
+                return path.includes('templates') || path.includes('site-config.yaml');
             });
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(jobStoreData));
-            (fs.readdirSync as jest.Mock).mockReturnValue([]);
 
-            const result = migrateFromLegacy(domain);
+            // Return template folders
+            (fs.readdirSync as jest.Mock).mockReturnValue([
+                { name: 'my-blog', isDirectory: () => true }
+            ]);
 
-            // Job store migration is optional
-            expect(result).toHaveProperty('success');
+            // YAML content
+            const yamlContent = `
+domain: my-blog.com
+name: My Blog
+category: technology
+author:
+  name: John Doe
+`;
+            (fs.readFileSync as jest.Mock).mockReturnValue(yamlContent);
+            mockDeps.getWebsite.mockReturnValue(null); // Not already migrated
+
+            const result = migrateFromLegacy();
+
+            expect(result.migrated).toContain('my-blog.com');
+            expect(mockDeps.saveWebsite).toHaveBeenCalled();
         });
 
-        it('should preserve original timestamps during migration', () => {
-            const domain = 'test-site.com';
-            const oldTimestamp = Date.now() - 86400000; // 1 day ago
-            const legacyData = {
-                name: 'Legacy',
-                createdAt: oldTimestamp
+        it('should skip already migrated websites', () => {
+            // Only templates folder exists
+            (fs.existsSync as jest.Mock).mockImplementation((path: string) => {
+                return path.includes('templates');
+            });
+            (fs.readdirSync as jest.Mock).mockReturnValue([
+                { name: 'existing-blog', isDirectory: () => true }
+            ]);
+
+            const yamlContent = 'domain: existing.com\nname: Existing';
+            (fs.readFileSync as jest.Mock).mockReturnValue(yamlContent);
+
+            // Already exists
+            mockDeps.getWebsite.mockReturnValue({ domain: 'existing.com' } as any);
+
+            const result = migrateFromLegacy();
+
+            expect(result.migrated).not.toContain('existing.com');
+        });
+
+        it('should migrate from job store completed jobs', () => {
+            // Jobs dir exists, templates doesn't
+            (fs.existsSync as jest.Mock).mockImplementation((path: string) => {
+                return path.includes('.site-builder-jobs') || path.includes('.json');
+            });
+
+            (fs.readdirSync as jest.Mock).mockReturnValue(['job-123.json']);
+
+            const jobData = {
+                id: 'job-123',
+                status: 'complete',
+                config: {
+                    domain: 'job-site.com',
+                    siteName: 'Job Site',
+                    niche: 'finance'
+                },
+                createdAt: Date.now(),
+                completedAt: Date.now()
             };
-
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(jobData));
             mockDeps.getWebsite.mockReturnValue(null);
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(legacyData));
-            (fs.readdirSync as jest.Mock).mockReturnValue([]);
-            (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
-            migrateFromLegacy(domain);
+            const result = migrateFromLegacy();
 
-            // The migration should attempt to preserve dates
-            expect(mockDeps.saveWebsite).toHaveBeenCalled;
+            expect(result.migrated).toContain('job-site.com');
+        });
+
+        it('should record errors for failed migrations', () => {
+            // Only templates folder exists, not jobs folder
+            (fs.existsSync as jest.Mock).mockImplementation((path: string) => {
+                return path.includes('templates');
+            });
+            (fs.readdirSync as jest.Mock).mockReturnValue([
+                { name: 'broken-site', isDirectory: () => true }
+            ]);
+
+            // Throw on read
+            (fs.readFileSync as jest.Mock).mockImplementation(() => {
+                throw new Error('File read error');
+            });
+
+            const result = migrateFromLegacy();
+
+            expect(result.errors.length).toBeGreaterThan(0);
+        });
+
+        it('should not migrate incomplete jobs', () => {
+            (fs.existsSync as jest.Mock).mockImplementation((path: string) => {
+                return path.includes('.site-builder-jobs');
+            });
+
+            (fs.readdirSync as jest.Mock).mockReturnValue(['pending-job.json']);
+
+            const jobData = {
+                id: 'pending-123',
+                status: 'pending', // Not complete
+                config: { domain: 'pending.com' }
+            };
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(jobData));
+
+            const result = migrateFromLegacy();
+
+            expect(result.migrated).not.toContain('pending.com');
         });
     });
 });

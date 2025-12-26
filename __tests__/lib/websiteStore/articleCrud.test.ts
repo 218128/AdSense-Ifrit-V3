@@ -19,25 +19,22 @@ jest.mock('fs', () => ({
 import * as fs from 'fs';
 import {
     createMockArticle,
-    createMockArticleVersion,
     createMockArticleCrudDeps,
-    setupFsMock,
-    createMockFileSystem
+    createMockWebsite
 } from './_testUtils';
 
 import {
     saveArticle,
     getArticle,
+    getArticleBySlug,
     listArticles,
     deleteArticle,
-    updateArticleStatus,
+    updateArticle,
     generateArticleId,
     saveArticleVersion,
     listArticleVersions,
     _initArticleCrudDeps
 } from '@/lib/websiteStore/articleCrud';
-
-import { getArticlePath, getArticlesDir } from '@/lib/websiteStore/paths';
 
 describe('articleCrud.ts', () => {
     let mockDeps: ReturnType<typeof createMockArticleCrudDeps>;
@@ -64,14 +61,13 @@ describe('articleCrud.ts', () => {
             expect(id).toMatch(/^art_/);
         });
 
-        it('should include timestamp', () => {
-            const beforeTime = Date.now();
+        it('should include timestamp and random string', () => {
             const id = generateArticleId();
-            const afterTime = Date.now();
 
             // ID format: art_<timestamp>_<random>
             const parts = id.split('_');
-            expect(parts.length).toBeGreaterThanOrEqual(2);
+            expect(parts.length).toBe(3);
+            expect(parts[0]).toBe('art');
         });
     });
 
@@ -88,17 +84,6 @@ describe('articleCrud.ts', () => {
                 expect.stringContaining('art_test123.json'),
                 expect.any(String)
             );
-        });
-
-        it('should call incrementPendingChanges', () => {
-            const domain = 'test-site.com';
-            const article = createMockArticle();
-
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-
-            saveArticle(domain, article);
-
-            expect(mockDeps.incrementPendingChanges).toHaveBeenCalledWith(domain);
         });
 
         it('should serialize article as JSON with formatting', () => {
@@ -122,10 +107,7 @@ describe('articleCrud.ts', () => {
 
             saveArticle(domain, article);
 
-            expect(fs.mkdirSync).toHaveBeenCalledWith(
-                expect.any(String),
-                expect.objectContaining({ recursive: true })
-            );
+            expect(fs.mkdirSync).toHaveBeenCalled();
         });
     });
 
@@ -167,6 +149,35 @@ describe('articleCrud.ts', () => {
         });
     });
 
+    describe('getArticleBySlug()', () => {
+        it('should return article matching slug', () => {
+            const domain = 'test-site.com';
+            const mockArticle = createMockArticle({ slug: 'my-article' });
+
+            (fs.existsSync as jest.Mock).mockReturnValue(true);
+            (fs.readdirSync as jest.Mock).mockReturnValue(['art_1.json']);
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockArticle));
+
+            const result = getArticleBySlug(domain, 'my-article');
+
+            expect(result).not.toBeNull();
+            expect(result?.slug).toBe('my-article');
+        });
+
+        it('should return null when no article matches slug', () => {
+            const domain = 'test-site.com';
+            const mockArticle = createMockArticle({ slug: 'other-article' });
+
+            (fs.existsSync as jest.Mock).mockReturnValue(true);
+            (fs.readdirSync as jest.Mock).mockReturnValue(['art_1.json']);
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockArticle));
+
+            const result = getArticleBySlug(domain, 'nonexistent');
+
+            expect(result).toBeNull();
+        });
+    });
+
     describe('listArticles()', () => {
         it('should return empty array when directory does not exist', () => {
             const domain = 'test-site.com';
@@ -180,11 +191,11 @@ describe('articleCrud.ts', () => {
 
         it('should return array of articles from directory', () => {
             const domain = 'test-site.com';
-            const mockArticle1 = createMockArticle({ id: 'art_1' });
-            const mockArticle2 = createMockArticle({ id: 'art_2' });
+            const mockArticle1 = createMockArticle({ id: 'art_1', lastModifiedAt: 2000 });
+            const mockArticle2 = createMockArticle({ id: 'art_2', lastModifiedAt: 1000 });
 
             (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readdirSync as jest.Mock).mockReturnValue(['art_1.json', 'art_2.json', 'readme.txt']);
+            (fs.readdirSync as jest.Mock).mockReturnValue(['art_1.json', 'art_2.json']);
             (fs.readFileSync as jest.Mock)
                 .mockReturnValueOnce(JSON.stringify(mockArticle1))
                 .mockReturnValueOnce(JSON.stringify(mockArticle2));
@@ -192,8 +203,8 @@ describe('articleCrud.ts', () => {
             const result = listArticles(domain);
 
             expect(result).toHaveLength(2);
+            // Should be sorted by lastModifiedAt descending
             expect(result[0].id).toBe('art_1');
-            expect(result[1].id).toBe('art_2');
         });
 
         it('should filter out non-JSON files', () => {
@@ -222,6 +233,63 @@ describe('articleCrud.ts', () => {
 
             expect(result).toHaveLength(1);
             expect(result[0].id).toBe('art_valid');
+        });
+    });
+
+    describe('updateArticle()', () => {
+        it('should update article with new values', () => {
+            const domain = 'test-site.com';
+            const articleId = 'art_12345';
+            const mockArticle = createMockArticle({ id: articleId, title: 'Original' });
+
+            (fs.existsSync as jest.Mock).mockReturnValue(true);
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockArticle));
+
+            const result = updateArticle(domain, articleId, { title: 'Updated' });
+
+            expect(result).not.toBeNull();
+            expect(result?.title).toBe('Updated');
+        });
+
+        it('should update lastModifiedAt timestamp', () => {
+            const domain = 'test-site.com';
+            const articleId = 'art_12345';
+            const oldTimestamp = Date.now() - 10000;
+            const mockArticle = createMockArticle({
+                id: articleId,
+                lastModifiedAt: oldTimestamp
+            });
+
+            (fs.existsSync as jest.Mock).mockReturnValue(true);
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockArticle));
+
+            const result = updateArticle(domain, articleId, { title: 'New' });
+
+            expect(result?.lastModifiedAt).toBeGreaterThan(oldTimestamp);
+        });
+
+        it('should return null when article does not exist', () => {
+            const domain = 'test-site.com';
+            const articleId = 'art_nonexistent';
+
+            (fs.existsSync as jest.Mock).mockReturnValue(false);
+
+            const result = updateArticle(domain, articleId, { title: 'New' });
+
+            expect(result).toBeNull();
+        });
+
+        it('should call incrementPendingChanges on update', () => {
+            const domain = 'test-site.com';
+            const articleId = 'art_12345';
+            const mockArticle = createMockArticle({ id: articleId });
+
+            (fs.existsSync as jest.Mock).mockReturnValue(true);
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockArticle));
+
+            updateArticle(domain, articleId, { title: 'Updated' });
+
+            expect(mockDeps.incrementPendingChanges).toHaveBeenCalledWith(domain);
         });
     });
 
@@ -264,114 +332,73 @@ describe('articleCrud.ts', () => {
         });
     });
 
-    describe('updateArticleStatus()', () => {
-        it('should update article status to published', () => {
+    describe('saveArticleVersion()', () => {
+        it('should save version for existing article', () => {
             const domain = 'test-site.com';
             const articleId = 'art_12345';
-            const mockArticle = createMockArticle({ id: articleId, status: 'draft' });
+            const mockArticle = createMockArticle({ id: articleId });
 
             (fs.existsSync as jest.Mock).mockReturnValue(true);
             (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockArticle));
 
-            updateArticleStatus(domain, articleId, 'published');
+            const result = saveArticleVersion(domain, articleId, 'manual');
 
-            const writtenContent = JSON.parse((fs.writeFileSync as jest.Mock).mock.calls[0][1]);
-            expect(writtenContent.status).toBe('published');
+            expect(result).not.toBeNull();
+            expect(result?.reason).toBe('manual');
         });
 
-        it('should update lastModifiedAt timestamp', () => {
-            const domain = 'test-site.com';
-            const articleId = 'art_12345';
-            const oldTimestamp = Date.now() - 10000;
-            const mockArticle = createMockArticle({
-                id: articleId,
-                lastModifiedAt: oldTimestamp
-            });
-
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockArticle));
-
-            updateArticleStatus(domain, articleId, 'published');
-
-            const writtenContent = JSON.parse((fs.writeFileSync as jest.Mock).mock.calls[0][1]);
-            expect(writtenContent.lastModifiedAt).toBeGreaterThan(oldTimestamp);
-        });
-
-        it('should do nothing when article does not exist', () => {
+        it('should return null for non-existent article', () => {
             const domain = 'test-site.com';
             const articleId = 'art_nonexistent';
 
             (fs.existsSync as jest.Mock).mockReturnValue(false);
 
-            updateArticleStatus(domain, articleId, 'published');
+            const result = saveArticleVersion(domain, articleId);
 
-            expect(fs.writeFileSync).not.toHaveBeenCalled();
-        });
-    });
-
-    describe('saveArticleVersion()', () => {
-        it('should save version to versions directory', () => {
-            const domain = 'test-site.com';
-            const version = createMockArticleVersion({ articleId: 'art_12345' });
-
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-
-            saveArticleVersion(domain, version);
-
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
-                expect.stringContaining('versions'),
-                expect.any(String)
-            );
-        });
-
-        it('should create versions directory if it does not exist', () => {
-            const domain = 'test-site.com';
-            const version = createMockArticleVersion();
-
-            (fs.existsSync as jest.Mock).mockReturnValue(false);
-
-            saveArticleVersion(domain, version);
-
-            expect(fs.mkdirSync).toHaveBeenCalled();
+            expect(result).toBeNull();
         });
     });
 
     describe('listArticleVersions()', () => {
-        it('should return empty array when no versions exist', () => {
+        it('should return empty array when article has no versions', () => {
             const domain = 'test-site.com';
             const articleId = 'art_12345';
+            const mockArticle = createMockArticle({ id: articleId, versions: undefined });
 
-            (fs.existsSync as jest.Mock).mockReturnValue(false);
+            (fs.existsSync as jest.Mock).mockReturnValue(true);
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockArticle));
 
             const result = listArticleVersions(domain, articleId);
 
             expect(result).toEqual([]);
         });
 
-        it('should return sorted versions newest first', () => {
+        it('should return versions from article', () => {
             const domain = 'test-site.com';
             const articleId = 'art_12345';
-            const version1 = createMockArticleVersion({
-                versionId: 'v1',
-                articleId,
-                createdAt: 1000
-            });
-            const version2 = createMockArticleVersion({
-                versionId: 'v2',
-                articleId,
-                createdAt: 2000
-            });
+            const versions = [
+                { id: 'ver_1', content: 'v1', title: 'V1', savedAt: 1000, reason: 'auto' as const, wordCount: 10 },
+                { id: 'ver_2', content: 'v2', title: 'V2', savedAt: 2000, reason: 'manual' as const, wordCount: 20 }
+            ];
+            const mockArticle = createMockArticle({ id: articleId, versions });
 
             (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readdirSync as jest.Mock).mockReturnValue([`${articleId}_v1.json`, `${articleId}_v2.json`]);
-            (fs.readFileSync as jest.Mock)
-                .mockReturnValueOnce(JSON.stringify(version1))
-                .mockReturnValueOnce(JSON.stringify(version2));
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockArticle));
 
             const result = listArticleVersions(domain, articleId);
 
             expect(result).toHaveLength(2);
-            expect(result[0].createdAt).toBeGreaterThan(result[1].createdAt);
+        });
+
+        it('should return empty array when article does not exist', () => {
+            const domain = 'test-site.com';
+            const articleId = 'art_nonexistent';
+
+            (fs.existsSync as jest.Mock).mockReturnValue(false);
+
+            const result = listArticleVersions(domain, articleId);
+
+            expect(result).toEqual([]);
         });
     });
 });

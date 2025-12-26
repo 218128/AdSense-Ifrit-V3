@@ -140,7 +140,7 @@ describe('externalContent.ts', () => {
             const result = importExternalContent(domain, content);
 
             expect(result.description).toContain('This is the beginning');
-            expect(result.description).toEndWith('...');
+            expect(result.description).toMatch(/\.\.\.$/);
         });
 
         it('should use provided category or default to general', () => {

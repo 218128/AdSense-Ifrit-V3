@@ -8,23 +8,20 @@ jest.mock('fs', () => ({
     readFileSync: jest.fn(),
     writeFileSync: jest.fn(),
     mkdirSync: jest.fn(),
-    readdirSync: jest.fn(),
-    unlinkSync: jest.fn(),
-    rmSync: jest.fn()
+    readdirSync: jest.fn()
 }));
 
 import * as fs from 'fs';
 import {
     createMockWebsite,
     createMockArticle,
-    createMockWebsiteVersion,
     createMockVersionControlDeps
 } from './_testUtils';
 
 import {
-    createNewVersion,
-    listWebsiteVersions,
-    getVersionDetails,
+    addVersion,
+    getVersionHistory,
+    updateVersionCommit,
     checkContentCompatibility,
     rollbackToVersion,
     _initVersionControlDeps
@@ -36,88 +33,55 @@ describe('versionControl.ts', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockDeps = createMockVersionControlDeps();
+        // Ensure website has versions array
+        mockDeps.getWebsite.mockReturnValue(createMockWebsite({
+            versions: []
+        }));
         _initVersionControlDeps(mockDeps);
+        (fs.readdirSync as jest.Mock).mockReturnValue([]);
     });
 
-    describe('createNewVersion()', () => {
+    describe('addVersion()', () => {
         it('should create a new version with timestamp', () => {
             const domain = 'test-site.com';
-            const website = createMockWebsite();
-            const articles = [createMockArticle(), createMockArticle()];
 
-            mockDeps.getWebsite.mockReturnValue(website);
-            mockDeps.listArticles.mockReturnValue(articles);
             (fs.existsSync as jest.Mock).mockReturnValue(true);
 
             const beforeTime = Date.now();
-            const result = createNewVersion(domain, 'Test version');
+            const result = addVersion(domain, '1.0.0', 'abc123', ['Initial release']);
 
-            expect(result.createdAt).toBeGreaterThanOrEqual(beforeTime);
-            expect(result.note).toBe('Test version');
+            expect(result.deployedAt).toBeGreaterThanOrEqual(beforeTime);
+            expect(result.changes).toContain('Initial release');
         });
 
-        it('should include all article IDs in version', () => {
+        it('should generate version number', () => {
             const domain = 'test-site.com';
-            const website = createMockWebsite();
-            const articles = [
-                createMockArticle({ id: 'art_1' }),
-                createMockArticle({ id: 'art_2' }),
-                createMockArticle({ id: 'art_3' })
-            ];
 
-            mockDeps.getWebsite.mockReturnValue(website);
-            mockDeps.listArticles.mockReturnValue(articles);
             (fs.existsSync as jest.Mock).mockReturnValue(true);
 
-            const result = createNewVersion(domain);
+            const result = addVersion(domain, '1.0.0', 'abc123', ['test']);
 
-            expect(result.articleIds).toHaveLength(3);
-            expect(result.articleIds).toContain('art_1');
-            expect(result.articleIds).toContain('art_2');
-            expect(result.articleIds).toContain('art_3');
+            expect(result.version).toMatch(/^\d+\.\d+\.\d+$/);
         });
 
-        it('should save version to versions directory', () => {
+        it('should include commit SHA', () => {
             const domain = 'test-site.com';
 
-            mockDeps.getWebsite.mockReturnValue(createMockWebsite());
-            mockDeps.listArticles.mockReturnValue([]);
             (fs.existsSync as jest.Mock).mockReturnValue(true);
 
-            createNewVersion(domain);
+            const result = addVersion(domain, '1.0.0', 'commit123', ['test']);
 
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
-                expect.stringContaining('versions'),
-                expect.any(String)
-            );
+            expect(result.commitSha).toBe('commit123');
         });
 
-        it('should create versions directory if it does not exist', () => {
+        it('should save version to website', () => {
             const domain = 'test-site.com';
 
-            mockDeps.getWebsite.mockReturnValue(createMockWebsite());
-            mockDeps.listArticles.mockReturnValue([]);
-            (fs.existsSync as jest.Mock).mockReturnValue(false);
-
-            createNewVersion(domain);
-
-            expect(fs.mkdirSync).toHaveBeenCalledWith(
-                expect.any(String),
-                expect.objectContaining({ recursive: true })
-            );
-        });
-
-        it('should include website metadata snapshot', () => {
-            const domain = 'test-site.com';
-            const website = createMockWebsite({ name: 'My Website' });
-
-            mockDeps.getWebsite.mockReturnValue(website);
-            mockDeps.listArticles.mockReturnValue([]);
             (fs.existsSync as jest.Mock).mockReturnValue(true);
 
-            const result = createNewVersion(domain);
+            addVersion(domain, '1.0.0', 'abc123', ['test']);
 
-            expect(result.metadata.name).toBe('My Website');
+            expect(mockDeps.saveWebsite).toHaveBeenCalled();
         });
 
         it('should throw if website does not exist', () => {
@@ -125,197 +89,187 @@ describe('versionControl.ts', () => {
 
             mockDeps.getWebsite.mockReturnValue(null);
 
-            expect(() => createNewVersion(domain)).toThrow();
+            expect(() => addVersion(domain, '1.0.0', 'abc', [])).toThrow();
         });
     });
 
-    describe('listWebsiteVersions()', () => {
+    describe('getVersionHistory()', () => {
         it('should return empty array when no versions exist', () => {
             const domain = 'test-site.com';
+            const website = createMockWebsite({ versions: [] });
 
-            (fs.existsSync as jest.Mock).mockReturnValue(false);
+            mockDeps.getWebsite.mockReturnValue(website);
 
-            const result = listWebsiteVersions(domain);
+            const result = getVersionHistory(domain);
 
             expect(result).toEqual([]);
         });
 
-        it('should return sorted versions newest first', () => {
+        it('should return versions from website', () => {
             const domain = 'test-site.com';
-            const version1 = createMockWebsiteVersion({
-                versionId: 'v1',
-                createdAt: 1000
-            });
-            const version2 = createMockWebsiteVersion({
-                versionId: 'v2',
-                createdAt: 2000
-            });
+            const versions = [
+                { version: '1.0.1', templateVersion: '1.0.0', deployedAt: 1000, commitSha: 'a', changes: [], canRollback: true },
+                { version: '1.0.2', templateVersion: '1.0.0', deployedAt: 2000, commitSha: 'b', changes: [], canRollback: true }
+            ];
+            const website = createMockWebsite({ versions });
 
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readdirSync as jest.Mock).mockReturnValue(['v1.json', 'v2.json']);
-            (fs.readFileSync as jest.Mock)
-                .mockReturnValueOnce(JSON.stringify(version1))
-                .mockReturnValueOnce(JSON.stringify(version2));
+            mockDeps.getWebsite.mockReturnValue(website);
 
-            const result = listWebsiteVersions(domain);
+            const result = getVersionHistory(domain);
 
             expect(result).toHaveLength(2);
-            expect(result[0].createdAt).toBeGreaterThan(result[1].createdAt);
         });
 
-        it('should filter out non-JSON files', () => {
-            const domain = 'test-site.com';
+        it('should return empty array when website is null', () => {
+            const domain = 'nonexistent.com';
 
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readdirSync as jest.Mock).mockReturnValue(['readme.md', '.gitkeep']);
+            mockDeps.getWebsite.mockReturnValue(null);
 
-            const result = listWebsiteVersions(domain);
+            const result = getVersionHistory(domain);
 
             expect(result).toEqual([]);
         });
     });
 
-    describe('getVersionDetails()', () => {
-        it('should return version when it exists', () => {
+    describe('updateVersionCommit()', () => {
+        it('should update commit SHA for existing version', () => {
             const domain = 'test-site.com';
-            const versionId = 'v_12345';
-            const version = createMockWebsiteVersion({ versionId });
+            const versions = [
+                { version: '1.0.1', templateVersion: '1.0.0', deployedAt: 1000, commitSha: 'old', changes: [], canRollback: true }
+            ];
+            const website = createMockWebsite({ versions });
 
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(version));
+            mockDeps.getWebsite.mockReturnValue(website);
 
-            const result = getVersionDetails(domain, versionId);
+            const result = updateVersionCommit(domain, '1.0.1', 'new-commit');
 
-            expect(result).toEqual(version);
+            expect(result).toBe(true);
+            expect(mockDeps.saveWebsite).toHaveBeenCalled();
         });
 
-        it('should return null when version does not exist', () => {
+        it('should return false when version not found', () => {
             const domain = 'test-site.com';
-            const versionId = 'v_nonexistent';
+            const website = createMockWebsite({ versions: [] });
 
-            (fs.existsSync as jest.Mock).mockReturnValue(false);
+            mockDeps.getWebsite.mockReturnValue(website);
 
-            const result = getVersionDetails(domain, versionId);
+            const result = updateVersionCommit(domain, '1.0.99', 'new-commit');
 
-            expect(result).toBeNull();
+            expect(result).toBe(false);
         });
 
-        it('should return null when JSON is invalid', () => {
-            const domain = 'test-site.com';
-            const versionId = 'v_invalid';
+        it('should return false when website is null', () => {
+            const domain = 'nonexistent.com';
 
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readFileSync as jest.Mock).mockReturnValue('invalid json');
+            mockDeps.getWebsite.mockReturnValue(null);
 
-            const result = getVersionDetails(domain, versionId);
+            const result = updateVersionCommit(domain, '1.0.1', 'new');
 
-            expect(result).toBeNull();
+            expect(result).toBe(false);
         });
     });
 
     describe('checkContentCompatibility()', () => {
-        it('should return no warnings when articles match', () => {
-            const domain = 'test-site.com';
-            const currentArticles = [
-                createMockArticle({ id: 'art_1' }),
-                createMockArticle({ id: 'art_2' })
-            ];
-            const version = createMockWebsiteVersion({
-                articleIds: ['art_1', 'art_2']
-            });
-
-            mockDeps.listArticles.mockReturnValue(currentArticles);
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(version));
-
-            const result = checkContentCompatibility(domain, 'v_test');
-
-            expect(result.warnings).toHaveLength(0);
-        });
-
-        it('should warn about articles that will be removed', () => {
-            const domain = 'test-site.com';
-            const currentArticles = [
-                createMockArticle({ id: 'art_1', title: 'Article 1' }),
-                createMockArticle({ id: 'art_2', title: 'Article 2' }),
-                createMockArticle({ id: 'art_3', title: 'Article 3' })
-            ];
-            const version = createMockWebsiteVersion({
-                articleIds: ['art_1']
-            });
-
-            mockDeps.listArticles.mockReturnValue(currentArticles);
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(version));
-
-            const result = checkContentCompatibility(domain, 'v_test');
-
-            expect(result.warnings.length).toBeGreaterThan(0);
-            expect(result.warnings.some(w => w.includes('art_2') || w.includes('Article 2'))).toBe(true);
-        });
-
-        it('should return null if version does not exist', () => {
+        it('should return empty array when snapshot does not exist', () => {
             const domain = 'test-site.com';
 
             (fs.existsSync as jest.Mock).mockReturnValue(false);
 
-            const result = checkContentCompatibility(domain, 'v_nonexistent');
+            const result = checkContentCompatibility(domain, '1.0.0');
 
-            expect(result).toBeNull();
+            expect(result).toEqual([]);
+        });
+
+        it('should return warnings when template differs', () => {
+            const domain = 'test-site.com';
+            const website = createMockWebsite({
+                template: {
+                    id: 'new-template',
+                    name: 'New',
+                    version: '2.0.0',
+                    installedAt: Date.now(),
+                    upgradeAvailable: false,
+                    features: [],
+                    category: 'general'
+                }
+            });
+            const snapshot = {
+                template: {
+                    id: 'old-template',
+                    name: 'Old',
+                    version: '1.0.0'
+                },
+                fingerprint: {}
+            };
+
+            mockDeps.getWebsite.mockReturnValue(website);
+            mockDeps.listArticles.mockReturnValue([createMockArticle()]);
+            (fs.existsSync as jest.Mock).mockReturnValue(true);
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(snapshot));
+
+            const result = checkContentCompatibility(domain, '1.0.0');
+
+            expect(result.length).toBeGreaterThan(0);
         });
     });
 
     describe('rollbackToVersion()', () => {
-        it('should restore website metadata from version', () => {
+        it('should return error when website does not exist', () => {
+            const domain = 'nonexistent.com';
+
+            mockDeps.getWebsite.mockReturnValue(null);
+
+            const result = rollbackToVersion(domain, '1.0.0');
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain('not found');
+        });
+
+        it('should return error when version not found', () => {
             const domain = 'test-site.com';
-            const versionId = 'v_12345';
-            const versionMetadata = createMockWebsite({
-                name: 'Old Name',
-                description: 'Old Description'
-            });
-            const version = createMockWebsiteVersion({
-                versionId,
-                metadata: versionMetadata
-            });
+            const website = createMockWebsite({ versions: [] });
 
+            mockDeps.getWebsite.mockReturnValue(website);
+
+            const result = rollbackToVersion(domain, '1.0.99');
+
+            expect(result.success).toBe(false);
+        });
+
+        it('should return error when version cannot rollback', () => {
+            const domain = 'test-site.com';
+            const versions = [
+                { version: '1.0.1', templateVersion: '1.0.0', deployedAt: 1000, commitSha: 'a', changes: [], canRollback: false }
+            ];
+            const website = createMockWebsite({ versions });
+
+            mockDeps.getWebsite.mockReturnValue(website);
+
+            const result = rollbackToVersion(domain, '1.0.1');
+
+            expect(result.success).toBe(false);
+        });
+
+        it('should succeed when version can rollback and snapshot exists', () => {
+            const domain = 'test-site.com';
+            const versions = [
+                { version: '1.0.1', templateVersion: '1.0.0', deployedAt: 1000, commitSha: 'a', changes: [], canRollback: true }
+            ];
+            const website = createMockWebsite({ versions });
+            const snapshot = {
+                template: website.template,
+                fingerprint: website.fingerprint,
+                version: versions[0]
+            };
+
+            mockDeps.getWebsite.mockReturnValue(website);
             (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(version));
+            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(snapshot));
 
-            const result = rollbackToVersion(domain, versionId);
+            const result = rollbackToVersion(domain, '1.0.1');
 
+            expect(result.success).toBe(true);
             expect(mockDeps.saveWebsite).toHaveBeenCalled();
-            expect(result).toBe(true);
-        });
-
-        it('should return false when version does not exist', () => {
-            const domain = 'test-site.com';
-            const versionId = 'v_nonexistent';
-
-            (fs.existsSync as jest.Mock).mockReturnValue(false);
-
-            const result = rollbackToVersion(domain, versionId);
-
-            expect(result).toBe(false);
-            expect(mockDeps.saveWebsite).not.toHaveBeenCalled();
-        });
-
-        it('should update the updatedAt timestamp', () => {
-            const domain = 'test-site.com';
-            const versionId = 'v_12345';
-            const oldTimestamp = Date.now() - 100000;
-            const versionMetadata = createMockWebsite({ updatedAt: oldTimestamp });
-            const version = createMockWebsiteVersion({
-                versionId,
-                metadata: versionMetadata
-            });
-
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
-            (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(version));
-
-            rollbackToVersion(domain, versionId);
-
-            const savedWebsite = mockDeps.saveWebsite.mock.calls[0][0];
-            expect(savedWebsite.updatedAt).toBeGreaterThan(oldTimestamp);
         });
     });
 });
