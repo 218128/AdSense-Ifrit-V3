@@ -192,6 +192,8 @@ export {
     markProfileTransferred
 } from './websiteStore/profileCrud';
 
+import { _initProfileCrudDeps } from './websiteStore/profileCrud';
+
 // ============================================
 // MIGRATION - Re-exported from migration.ts
 // ============================================
@@ -222,6 +224,8 @@ export {
     importExternalContent,
     generateSlug
 } from './websiteStore/externalContent';
+
+import { _initExternalContentDeps } from './websiteStore/externalContent';
 
 // ============================================
 // SELECTIVE DEPLOY - Re-exported from selectiveDeploy.ts
@@ -447,9 +451,23 @@ _initMigrationDeps({
     saveWebsite
 });
 
+// Initialize profile CRUD dependencies
+_initProfileCrudDeps({
+    PROFILES_DIR
+});
+
+// Initialize external content dependencies
+_initExternalContentDeps({
+    generateArticleId,
+    saveArticle
+});
+
 // Initialize selective deploy dependencies
 _initSelectiveDeployDeps({
     getWebsite,
     listArticles,
-    listPages
+    listPages,
+    getTheme,
+    getInstalledPlugins
 });
+

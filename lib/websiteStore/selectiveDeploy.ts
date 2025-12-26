@@ -4,14 +4,14 @@
  * Functions for determining pending deployment changes
  */
 
-import type { Website, Article, PendingChanges } from './types';
-import { getTheme } from './themeCrud';
-import { getInstalledPlugins } from './pluginCrud';
+import type { Website, Article, PendingChanges, ThemeConfig } from './types';
 
 // Forward declarations for circular dependency resolution
 let _getWebsite: (domain: string) => Website | null;
 let _listArticles: (domain: string) => Article[];
 let _listPages: (domain: string) => Article[];
+let _getTheme: (domain: string) => ThemeConfig | null;
+let _getInstalledPlugins: (domain: string) => { name: string }[];
 
 /**
  * Initialize dependencies from main websiteStore
@@ -20,10 +20,14 @@ export function _initSelectiveDeployDeps(deps: {
     getWebsite: typeof _getWebsite;
     listArticles: typeof _listArticles;
     listPages: typeof _listPages;
+    getTheme: typeof _getTheme;
+    getInstalledPlugins: typeof _getInstalledPlugins;
 }) {
     _getWebsite = deps.getWebsite;
     _listArticles = deps.listArticles;
     _listPages = deps.listPages;
+    _getTheme = deps.getTheme;
+    _getInstalledPlugins = deps.getInstalledPlugins;
 }
 
 // ============================================
@@ -51,11 +55,11 @@ export function getPendingChanges(domain: string): PendingChanges {
         .map(p => p.id);
 
     // Check for local theme
-    const localTheme = getTheme(domain);
+    const localTheme = _getTheme(domain);
     const hasThemeChanges = localTheme !== null && localTheme.globals !== '';
 
     // Check for local plugins
-    const plugins = getInstalledPlugins(domain);
+    const plugins = _getInstalledPlugins(domain);
     const hasPluginChanges = plugins.length > 0;
 
     // Check template (if website has upgrade available)
@@ -87,3 +91,4 @@ export function getPendingChanges(domain: string): PendingChanges {
         }
     };
 }
+

@@ -8,20 +8,31 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import type { DomainProfile } from './types';
-import { PROFILES_DIR } from './paths';
+
+// Forward declaration for dependency injection
+let _PROFILES_DIR: string;
+
+/**
+ * Initialize dependencies from main websiteStore
+ */
+export function _initProfileCrudDeps(deps: {
+    PROFILES_DIR: string;
+}) {
+    _PROFILES_DIR = deps.PROFILES_DIR;
+}
 
 // ============================================
 // INTERNAL HELPERS
 // ============================================
 
 function ensureProfilesDir(): void {
-    if (!fs.existsSync(PROFILES_DIR)) {
-        fs.mkdirSync(PROFILES_DIR, { recursive: true });
+    if (!fs.existsSync(_PROFILES_DIR)) {
+        fs.mkdirSync(_PROFILES_DIR, { recursive: true });
     }
 }
 
 function getProfilePath(domain: string): string {
-    return path.join(PROFILES_DIR, `${domain.replace(/[^a-zA-Z0-9.-]/g, '_')}.json`);
+    return path.join(_PROFILES_DIR, `${domain.replace(/[^a-zA-Z0-9.-]/g, '_')}.json`);
 }
 
 // ============================================
@@ -62,11 +73,11 @@ export function listDomainProfiles(): DomainProfile[] {
     ensureProfilesDir();
 
     const profiles: DomainProfile[] = [];
-    const files = fs.readdirSync(PROFILES_DIR).filter(f => f.endsWith('.json'));
+    const files = fs.readdirSync(_PROFILES_DIR).filter(f => f.endsWith('.json'));
 
     for (const file of files) {
         try {
-            const data = fs.readFileSync(path.join(PROFILES_DIR, file), 'utf-8');
+            const data = fs.readFileSync(path.join(_PROFILES_DIR, file), 'utf-8');
             profiles.push(JSON.parse(data));
         } catch {
             // Skip invalid files
@@ -100,3 +111,4 @@ export function markProfileTransferred(domain: string): void {
         saveDomainProfile(profile);
     }
 }
+

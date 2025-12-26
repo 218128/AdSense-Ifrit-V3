@@ -5,7 +5,21 @@
  */
 
 import type { Article, CoverImage, ContentImage } from './types';
-import { generateArticleId, saveArticle } from './articleCrud';
+
+// Forward declarations for circular dependency resolution
+let _generateArticleId: () => string;
+let _saveArticle: (domain: string, article: Article) => void;
+
+/**
+ * Initialize dependencies from main websiteStore
+ */
+export function _initExternalContentDeps(deps: {
+    generateArticleId: typeof _generateArticleId;
+    saveArticle: typeof _saveArticle;
+}) {
+    _generateArticleId = deps.generateArticleId;
+    _saveArticle = deps.saveArticle;
+}
 
 // ============================================
 // EXTERNAL CONTENT INTEGRATION
@@ -30,7 +44,7 @@ export function importExternalContent(
     const wordCount = content.content.split(/\s+/).length;
 
     const article: Article = {
-        id: generateArticleId(),
+        id: _generateArticleId(),
         slug,
         title: content.title,
         description: content.content.substring(0, 160) + '...',
@@ -53,7 +67,7 @@ export function importExternalContent(
         lastModifiedAt: Date.now()
     };
 
-    saveArticle(domain, article);
+    _saveArticle(domain, article);
     return article;
 }
 
@@ -67,3 +81,4 @@ export function generateSlug(title: string): string {
         .replace(/^-|-$/g, '')
         .substring(0, 60);
 }
+
