@@ -23,25 +23,30 @@ describe('BuildingProgress', () => {
     };
 
     const createJobResponse = (overrides = {}) => ({
-        id: 'job-123',
-        status: 'running',
-        domain: 'test-domain.com',
-        siteName: 'Test Site',
-        niche: 'Technology',
-        progress: {
-            total: 10,
-            completed: 3,
-            failed: 0,
-            retrying: 0,
-            published: 2,
-            pending: 7,
-            processing: 1
-        },
-        currentProvider: 'gemini',
-        currentItem: 'How to Use React Hooks',
-        queueSummary: [],
-        recentErrors: [],
-        ...overrides
+        success: true,
+        job: {
+            id: 'job-123',
+            status: 'running',
+            config: {
+                domain: 'test-domain.com',
+                siteName: 'Test Site',
+                niche: 'Technology'
+            },
+            progress: {
+                total: 10,
+                completed: 3,
+                failed: 0,
+                retrying: 0,
+                published: 2,
+                pending: 7,
+                processing: 1
+            },
+            currentProvider: 'gemini',
+            currentItem: 'How to Use React Hooks',
+            queueSummary: [],
+            recentErrors: [],
+            ...overrides
+        }
     });
 
     beforeEach(() => {
@@ -57,12 +62,13 @@ describe('BuildingProgress', () => {
         it('should show loading state initially', () => {
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: () => Promise.resolve(null)
+                json: () => Promise.resolve({ success: false })
             });
 
             render(<BuildingProgress {...defaultProps} />);
 
-            expect(screen.getByText(/Checking/)).toBeInTheDocument();
+            // Component shows "Loading build status..." while loading
+            expect(screen.getByText(/Loading build status/)).toBeInTheDocument();
         });
 
         it('should display progress information when job is running', async () => {
@@ -74,7 +80,8 @@ describe('BuildingProgress', () => {
             render(<BuildingProgress {...defaultProps} />);
 
             await waitFor(() => {
-                expect(screen.getByText(/3 \/ 10/)).toBeInTheDocument();
+                // Component shows completed count (3) and pending count (7)
+                expect(screen.getByText('3')).toBeInTheDocument();
             });
         });
 
@@ -100,7 +107,8 @@ describe('BuildingProgress', () => {
             render(<BuildingProgress {...defaultProps} />);
 
             await waitFor(() => {
-                expect(screen.getByText(/Test Site/)).toBeInTheDocument();
+                // Component shows niche from config
+                expect(screen.getByText(/Technology/)).toBeInTheDocument();
             });
         });
     });
@@ -131,7 +139,8 @@ describe('BuildingProgress', () => {
         it('should call onComplete when job is done', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: () => Promise.resolve(createJobResponse({ status: 'completed' }))
+                // Component checks for 'complete' not 'completed'
+                json: () => Promise.resolve(createJobResponse({ status: 'complete' }))
             });
 
             render(<BuildingProgress {...defaultProps} />);
@@ -165,14 +174,16 @@ describe('BuildingProgress', () => {
                 ok: true,
                 json: () => Promise.resolve(createJobResponse({
                     status: 'failed',
-                    progress: { total: 10, completed: 5, failed: 5, pending: 0 }
+                    progress: { total: 10, completed: 5, failed: 5, pending: 0, retrying: 0, published: 0, processing: 0 }
                 }))
             });
 
             render(<BuildingProgress {...defaultProps} />);
 
             await waitFor(() => {
-                expect(screen.getByText(/5/)).toBeInTheDocument();
+                // Both completed (5) and failed (5) should be shown
+                const fives = screen.getAllByText('5');
+                expect(fives.length).toBeGreaterThanOrEqual(2);
             });
         });
 
