@@ -78,7 +78,7 @@ export async function POST(
         const filesToPush: { path: string; content: string; binary?: boolean }[] = [];
         const results: { id: string; slug: string; success: boolean; error?: string; imagesPushed?: number }[] = [];
         const publishedArticles: { id: string; path: string }[] = [];
-        let failedImages: string[] = [];  // Track images that failed to upload
+        const failedImages: string[] = [];  // Track images that failed to upload
 
         for (const articleId of articleIds) {
             const articlePath = path.join(articlesDir, `${articleId}.json`);

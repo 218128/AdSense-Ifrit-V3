@@ -237,7 +237,7 @@ export const useDomainAcquireStore = create<DomainAcquireStore>()(
                 const all = state.getAllDomains();
                 const { minScore, maxPrice, tldFilter, sortBy, sortOrder, qualityTier } = state.filters;
 
-                let filtered = all.filter(d => {
+                const filtered = all.filter(d => {
                     if (d.score?.overall && d.score.overall < minScore) return false;
                     if (d.price && Number(d.price) > maxPrice) return false;
                     if (tldFilter !== 'all' && d.tld !== tldFilter) return false;

@@ -4,7 +4,7 @@
  * Homepage with hero, featured article, article grid, and in-feed ads.
  */
 
-/* eslint-disable @next/next/no-html-link-for-pages */
+ 
 
 import React from 'react';
 import ArticleCard, { ArticlePreview } from '../shared/ArticleCard';

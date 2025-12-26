@@ -72,7 +72,8 @@ Some content with [Add your own content].`;
 
             const result = validateContent(content, 'cluster');
 
-            expect(result.issues.some(i => i.code.includes('placeholder'))).toBe(true);
+            // Implementation uses 'FORBIDDEN_CONTENT' code for placeholder patterns
+            expect(result.issues.some(i => i.code === 'FORBIDDEN_CONTENT')).toBe(true);
         });
 
         it('should flag missing frontmatter', () => {
@@ -82,7 +83,8 @@ Some content here.`;
 
             const result = validateContent(content, 'cluster');
 
-            expect(result.issues.some(i => i.code === 'missing_frontmatter')).toBe(true);
+            // Implementation uses 'NO_FRONTMATTER' code
+            expect(result.issues.some(i => i.code === 'NO_FRONTMATTER')).toBe(true);
         });
 
         it('should return metrics object', () => {

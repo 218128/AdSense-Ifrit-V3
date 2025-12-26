@@ -172,7 +172,7 @@ export async function POST(
                         // Pattern 3: Extract visible text from JSX (fallback)
                         if (!extractedContent) {
                             // Remove imports and exports
-                            let cleanContent = content
+                            const cleanContent = content
                                 .replace(/import[\s\S]*?from\s*['"][^'"]+['"];?\n?/g, '')
                                 .replace(/export\s+default\s+function[\s\S]*?\{/g, '')
                                 .replace(/export\s+function[\s\S]*?\{/g, '');

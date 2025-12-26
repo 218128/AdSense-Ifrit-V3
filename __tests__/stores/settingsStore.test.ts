@@ -118,9 +118,9 @@ describe('Settings Store', () => {
 
         it('should update provider key properties', () => {
             const store = useSettingsStore.getState();
-            store.addProviderKey('deepseek', { key: 'test-key' });
+            store.addProviderKey('deepseek', { key: 'test-key-1234567890' });
 
-            store.updateProviderKey('deepseek', 'test-key', {
+            store.updateProviderKey('deepseek', 'test-key-1234567890', {
                 validated: true,
                 validatedAt: Date.now(),
             });
@@ -132,8 +132,8 @@ describe('Settings Store', () => {
 
         it('should get provider keys using selector', () => {
             const store = useSettingsStore.getState();
-            store.addProviderKey('openrouter', { key: 'or-key-1' });
-            store.addProviderKey('openrouter', { key: 'or-key-2' });
+            store.addProviderKey('openrouter', { key: 'or-key-1-1234567890' });
+            store.addProviderKey('openrouter', { key: 'or-key-2-1234567890' });
 
             const keys = store.getProviderKeys('openrouter');
             expect(keys).toHaveLength(2);
@@ -302,7 +302,7 @@ describe('Settings Store', () => {
 
             const exported = store.exportSettings();
 
-            expect(exported.version).toBe('3.0.0');
+            expect(exported.version).toBe('3.1.0');
             expect(exported.app).toBe('AdSense Ifrit V3');
             expect(exported.exportedAt).toBeDefined();
             expect(exported.settings).toBeDefined();

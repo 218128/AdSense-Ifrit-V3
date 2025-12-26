@@ -7,7 +7,7 @@
  * and trending articles grid.
  */
 
-/* eslint-disable @next/next/no-html-link-for-pages */
+ 
 
 import React from 'react';
 import { ArticleCard, AdZone } from '../shared';

@@ -278,7 +278,7 @@ export class CapabilityExecutor {
         preferredHandler?: string
     ): CapabilityHandler[] {
         // Filter to handlers that support this capability and are available
-        let eligible = handlers.filter(h =>
+        const eligible = handlers.filter(h =>
             h.capabilities.includes(capability) && h.isAvailable
         );
 
