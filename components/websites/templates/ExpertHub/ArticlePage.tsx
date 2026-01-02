@@ -7,9 +7,11 @@
  * table of contents, disclaimers, and expert-level formatting.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { AuthorCard, TrustBadges, TrustBadgePresets, AdZone, ArticleCard } from '../shared';
 import ExpertLayout from './Layout';
+import { sanitizeHtml } from '@/lib/security/sanitize';
 
 interface Expert {
     name: string;
@@ -67,19 +69,16 @@ export default function ExpertArticlePage({
     relatedArticles,
     disclaimer
 }: ArticlePageProps) {
-    const [tocItems, setTocItems] = useState<TOCItem[]>([]);
-    const [activeSection, setActiveSection] = useState('');
-
-    // Extract TOC from content
-    useEffect(() => {
+    // Use useMemo to derive TOC items from content (avoids setState in effect)
+    const tocItems = useMemo<TOCItem[]>(() => {
         const headings = content.match(/^##\s+(.+)$/gm) || [];
-        const items = headings.map((heading, idx) => ({
+        return headings.map((heading, idx) => ({
             id: `section-${idx}`,
             title: heading.replace(/^##\s+/, ''),
             level: 2
         }));
-        setTocItems(items);
     }, [content]);
+    const [activeSection, setActiveSection] = useState('');
 
     return (
         <ExpertLayout siteName={siteName} navItems={navItems}>
@@ -110,7 +109,7 @@ export default function ExpertArticlePage({
                     <article className="flex-1 max-w-3xl">
                         {/* Breadcrumb */}
                         <nav className="text-sm text-slate-500 mb-6">
-                            <a href="/" className="hover:text-slate-700">Home</a>
+                            <Link href="/" className="hover:text-slate-700">Home</Link>
                             <span className="mx-2">›</span>
                             <a href={`/category/${category.toLowerCase()}`} className="hover:text-slate-700">{category}</a>
                             <span className="mx-2">›</span>
@@ -208,7 +207,7 @@ export default function ExpertArticlePage({
                         {/* Article Content */}
                         <div
                             className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-emerald-600 prose-strong:text-slate-900 mb-10"
-                            dangerouslySetInnerHTML={{ __html: formatContent(content, tocItems) }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(formatContent(content, tocItems)) }}
                         />
 
                         {/* In-Article Ad */}

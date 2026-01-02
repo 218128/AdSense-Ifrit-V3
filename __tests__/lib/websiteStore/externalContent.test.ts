@@ -185,6 +185,7 @@ describe('externalContent.ts', () => {
                 url: 'https://example.com/image.jpg',
                 alt: 'Cover image',
                 source: 'external'
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Test fixture partial match
             } as any;
 
             const result = importExternalContent(domain, {
@@ -201,6 +202,7 @@ describe('externalContent.ts', () => {
             const contentImages = [
                 { id: 'img-1', url: 'https://example.com/img1.jpg', alt: 'Image 1', source: 'external' },
                 { id: 'img-2', url: 'https://example.com/img2.jpg', alt: 'Image 2', source: 'external' }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Test fixture partial match
             ] as any;
 
             const result = importExternalContent(domain, {

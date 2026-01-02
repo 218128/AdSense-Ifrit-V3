@@ -20,8 +20,11 @@ import {
     DollarSign,
     Star,
     ArrowRight,
-    Package
+    Package,
+    Sparkles,
+    Info
 } from 'lucide-react';
+import { CreateSiteButton } from '@/components/hunt/CreateSiteButton';
 
 export interface QueuedDomain {
     domain: string;
@@ -30,6 +33,8 @@ export interface QueuedDomain {
     recommendation: string;
     estimatedValue: number;
     addedAt: number;
+    purchased?: boolean;  // Track if domain was purchased
+    siteCreated?: boolean;  // Track if site was provisioned
 }
 
 interface PurchaseQueueProps {
@@ -37,6 +42,8 @@ interface PurchaseQueueProps {
     onRemove: (domain: string) => void;
     onClear: () => void;
     onMarkPurchased: (domain: string) => void;
+    onSiteCreated?: (domain: string) => void;  // Callback when site is provisioned
+    onResetSiteCreated?: (domain: string) => void;  // Reset if status is wrong
 }
 
 const REGISTRARS = [
@@ -93,7 +100,9 @@ export default function PurchaseQueue({
     queue,
     onRemove,
     onClear,
-    onMarkPurchased
+    onMarkPurchased,
+    onSiteCreated,
+    onResetSiteCreated
 }: PurchaseQueueProps) {
     const [showTips, setShowTips] = useState(true);
 
@@ -273,13 +282,58 @@ export default function PurchaseQueue({
                                 <div className="text-xs text-neutral-400">
                                     Added {new Date(domain.addedAt).toLocaleDateString()}
                                 </div>
-                                <button
-                                    onClick={() => onMarkPurchased(domain.domain)}
-                                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-emerald-700"
-                                >
-                                    <CheckCircle className="w-4 h-4" />
-                                    Mark as Purchased
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {domain.purchased ? (
+                                        /* Show Create Website button for purchased domains */
+                                        domain.siteCreated ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium flex items-center gap-1">
+                                                    <CheckCircle className="w-4 h-4" />
+                                                    Site Created
+                                                </span>
+                                                <button
+                                                    onClick={() => onResetSiteCreated?.(domain.domain)}
+                                                    className="px-2 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs hover:bg-gray-200"
+                                                    title="Reset status if incorrect"
+                                                >
+                                                    Reset
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col gap-2">
+                                                {/* Hostinger setup guidance */}
+                                                <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs">
+                                                    <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                                    <div className="text-amber-800">
+                                                        <strong>Before clicking Create Website:</strong>
+                                                        <br />Add this domain to your{' '}
+                                                        <a
+                                                            href="https://hpanel.hostinger.com/domains"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-amber-700 underline hover:text-amber-900"
+                                                        >
+                                                            Hostinger Dashboard
+                                                        </a>
+                                                        {' '}and point nameservers to Hostinger.
+                                                    </div>
+                                                </div>
+                                                <CreateSiteButton
+                                                    domain={domain.domain}
+                                                    onSuccess={() => onSiteCreated?.(domain.domain)}
+                                                />
+                                            </div>
+                                        )
+                                    ) : (
+                                        <button
+                                            onClick={() => onMarkPurchased(domain.domain)}
+                                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-emerald-700"
+                                        >
+                                            <CheckCircle className="w-4 h-4" />
+                                            Mark as Purchased
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))}

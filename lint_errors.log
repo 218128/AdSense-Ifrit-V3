@@ -1,0 +1,425 @@
+
+> frontend@0.1.0 lint
+> eslint --quiet
+
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/__tests__/components/websites/ImageGallery.test.tsx
+  21:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/__tests__/lib/ai/providers/registry.test.ts
+  87:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/__tests__/lib/keys/KeyManager.test.ts
+  8:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/__tests__/lib/websiteStore/externalContent.test.ts
+  188:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  204:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/__tests__/lib/websiteStore/migration.test.ts
+  85:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/__tests__/lib/websiteStore/selectiveDeploy.test.ts
+  185:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/__tests__/lib/websiteStore/versionControl.test.ts
+  194:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/__tests__/stores/settingsStore.test.ts
+  68:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/app/api/websites/[domain]/content/batch-operations/route.ts
+  221:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/app/api/websites/[domain]/graphics/route.ts
+  77:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  92:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/app/api/websites/[domain]/sync/route.ts
+  107:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/dashboard/DashboardView.tsx
+  46:17  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/dashboard/DashboardView.tsx:46:17
+  44 |             try {
+  45 |                 const parsed = JSON.parse(savedWebsites);
+> 46 |                 setWebsites(parsed);
+     |                 ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  47 |             } catch {
+  48 |                 // Ignore
+  49 |             }  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/DomainDomination/CloudflareManager.tsx
+  58:13  error  Error: Cannot access variable before it is declared
+
+`loadDomains` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/DomainDomination/CloudflareManager.tsx:58:13
+  56 |         if (saved) {
+  57 |             setConfig(saved);
+> 58 |             loadDomains(saved);
+     |             ^^^^^^^^^^^ `loadDomains` accessed before it is declared
+  59 |         }
+  60 |     }, []);
+  61 |
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/DomainDomination/CloudflareManager.tsx:62:5
+  60 |     }, []);
+  61 |
+> 62 |     const loadDomains = async (cfg: CloudflareConfig) => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 63 |         setLoading(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 64 |         setError(null);
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     };
+     | ^^^^^^^ `loadDomains` is declared here
+  76 |
+  77 |     const handleConnect = async () => {
+  78 |         if (!tokenInput.trim()) return;  react-hooks/immutability
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/DomainDomination/FlipPipeline.tsx
+  109:24  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/DomainDomination/FlipPipeline.tsx:109:24
+  107 |             purchaseDate: new Date().toISOString().split('T')[0],
+  108 |             registrar: 'Unknown',
+> 109 |             createdAt: Date.now(),
+      |                        ^^^^^^^^^^ Cannot call impure function
+  110 |             updatedAt: Date.now(),
+  111 |         };
+  112 |         addProject(newProject);  react-hooks/purity
+  110:24  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/DomainDomination/FlipPipeline.tsx:110:24
+  108 |             registrar: 'Unknown',
+  109 |             createdAt: Date.now(),
+> 110 |             updatedAt: Date.now(),
+      |                        ^^^^^^^^^^ Cannot call impure function
+  111 |         };
+  112 |         addProject(newProject);
+  113 |         setShowWatchlistImport(false);                             react-hooks/purity
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/SaveResearchButton.tsx
+  183:70  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:77  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:80  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:88  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:91  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:95  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/domains/hooks/useWatchlist.ts
+  38:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/domains/hooks/useWatchlist.ts:38:21
+  36 |                 const saved = localStorage.getItem(WATCHLIST_KEY);
+  37 |                 if (saved) {
+> 38 |                     setWatchlist(JSON.parse(saved));
+     |                     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  39 |                 }
+  40 |             } catch (e) {
+  41 |                 console.error('Failed to load watchlist:', e);  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/flip/hooks/useFlipProjects.ts
+  43:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/_ARCHIVED_FOR_REVIEW/flip/hooks/useFlipProjects.ts:43:21
+  41 |                 const saved = localStorage.getItem(STORAGE_KEY);
+  42 |                 if (saved) {
+> 43 |                     setProjects(JSON.parse(saved));
+     |                     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  44 |                 }
+  45 |             } catch (e) {
+  46 |                 console.error('Failed to load flip projects:', e);  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/subtabs/DomainAcquire/features/PurchaseQueue/useWatchlist.ts
+  38:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/subtabs/DomainAcquire/features/PurchaseQueue/useWatchlist.ts:38:21
+  36 |                 const saved = localStorage.getItem(WATCHLIST_KEY);
+  37 |                 if (saved) {
+> 38 |                     setWatchlist(JSON.parse(saved));
+     |                     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  39 |                 }
+  40 |             } catch (e) {
+  41 |                 console.error('Failed to load watchlist:', e);  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/subtabs/FlipPipeline/FlipPipeline.tsx
+  114:24  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/subtabs/FlipPipeline/FlipPipeline.tsx:114:24
+  112 |             purchaseDate: new Date().toISOString().split('T')[0],
+  113 |             registrar: 'Unknown',
+> 114 |             createdAt: Date.now(),
+      |                        ^^^^^^^^^^ Cannot call impure function
+  115 |             updatedAt: Date.now(),
+  116 |         };
+  117 |         addProject(newProject);  react-hooks/purity
+  115:24  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/subtabs/FlipPipeline/FlipPipeline.tsx:115:24
+  113 |             registrar: 'Unknown',
+  114 |             createdAt: Date.now(),
+> 115 |             updatedAt: Date.now(),
+      |                        ^^^^^^^^^^ Cannot call impure function
+  116 |         };
+  117 |         addProject(newProject);
+  118 |         setShowWatchlistImport(false);                             react-hooks/purity
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/subtabs/shared/CloudflareManager.tsx
+  58:13  error  Error: Cannot access variable before it is declared
+
+`loadDomains` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/subtabs/shared/CloudflareManager.tsx:58:13
+  56 |         if (saved) {
+  57 |             setConfig(saved);
+> 58 |             loadDomains(saved);
+     |             ^^^^^^^^^^^ `loadDomains` accessed before it is declared
+  59 |         }
+  60 |     }, []);
+  61 |
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/subtabs/shared/CloudflareManager.tsx:62:5
+  60 |     }, []);
+  61 |
+> 62 |     const loadDomains = async (cfg: CloudflareConfig) => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 63 |         setLoading(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 64 |         setError(null);
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     };
+     | ^^^^^^^ `loadDomains` is declared here
+  76 |
+  77 |     const handleConnect = async () => {
+  78 |         if (!tokenInput.trim()) return;  react-hooks/immutability
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/hunt/subtabs/shared/SaveResearchButton.tsx
+  183:70  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:77  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:80  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:88  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:91  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  183:95  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/settings/AIKeyManager.tsx
+  219:34  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/settings/AIKeyManager.tsx:219:34
+  217 |                 updateProviderKey(providerId as ProviderId, key, {
+  218 |                     validated: true,
+> 219 |                     validatedAt: Date.now()
+      |                                  ^^^^^^^^^^ Cannot call impure function
+  220 |                 });
+  221 |
+  222 |                 // V4: Save available models (user MUST select one manually)  react-hooks/purity
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/settings/CapabilitiesPanel.tsx
+  169:80  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/settings/_archive/AIUsagePanel.tsx
+  42:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/settings/_archive/AIUsagePanel.tsx:42:9
+  40 |
+  41 |     useEffect(() => {
+> 42 |         loadData();
+     |         ^^^^^^^^ Avoid calling setState() directly within an effect
+  43 |     }, [viewMode]);
+  44 |
+  45 |     const handleSaveCredit = () => {  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/settings/_archive/CacheStatusPanel.tsx
+  35:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/settings/_archive/CacheStatusPanel.tsx:35:9
+  33 |
+  34 |     useEffect(() => {
+> 35 |         loadStats();
+     |         ^^^^^^^^^ Avoid calling setState() directly within an effect
+  36 |         const interval = setInterval(loadStats, 60000);
+  37 |         return () => clearInterval(interval);
+  38 |     }, []);  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/settings/_archive/UsageStatsPanel.tsx
+  32:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/settings/_archive/UsageStatsPanel.tsx:32:9
+  30 |
+  31 |     useEffect(() => {
+> 32 |         loadStats();
+     |         ^^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |     }, []);
+  34 |
+  35 |     const handleExport = () => {  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/BulkArticleQueue.tsx
+  151:34  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `generateArticle`, but the source dependencies were [queue, isPaused, domain, niche, onComplete]. Inferred different dependency than source.
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/BulkArticleQueue.tsx:151:34
+  149 |     };
+  150 |
+> 151 |     const runQueue = useCallback(async () => {
+      |                                  ^^^^^^^^^^^^^
+> 152 |         setIsRunning(true);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 153 |         setIsPaused(false);
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 188 |         onComplete();
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 189 |     }, [queue, isPaused, domain, niche, onComplete]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  190 |
+  191 |     const togglePause = () => {
+  192 |         setIsPaused(!isPaused);  react-hooks/preserve-manual-memoization
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/DomainSetup.tsx
+  47:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/DomainSetup.tsx:47:9
+  45 |     // Load domains on mount
+  46 |     useEffect(() => {
+> 47 |         setDomains(getDomains());
+     |         ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  48 |         const defaultDomain = getDefaultDomain();
+  49 |         if (defaultDomain) {
+  50 |             setDefaultDomainIdState(defaultDomain.id);  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/EmailSetup.tsx
+  48:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/EmailSetup.tsx:48:9
+  46 |     useEffect(() => {
+  47 |         const configs = getSavedConfigs();
+> 48 |         setSavedDomains(Object.keys(configs));
+     |         ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  49 |     }, []);
+  50 |
+  51 |     const handleGenerate = () => {  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/GenerationHistory.tsx
+  61:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/GenerationHistory.tsx:61:9
+  59 |
+  60 |     useEffect(() => {
+> 61 |         setHistory(getGenerationHistory());
+     |         ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  62 |     }, []);
+  63 |
+  64 |     const handleClear = () => {  react-hooks/set-state-in-effect
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/ThemeEditor.tsx
+  388:107  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  388:114  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/WebsiteDetail.tsx
+  1365:52  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  1530:71  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/templates/ExpertHub/ArticlePage.tsx
+   81:9   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/components/websites/templates/ExpertHub/ArticlePage.tsx:81:9
+  79 |             level: 2
+  80 |         }));
+> 81 |         setTocItems(items);
+     |         ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  82 |     }, [content]);
+  83 |
+  84 |     return (  react-hooks/set-state-in-effect
+  113:29  error  Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @next/next/no-html-link-for-pages
+
+/home/ubuntu/Documents/AdSence Ifrit V3 Opus4.5/lib/ai/multiProvider.ts
+  332:96   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  332:114  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 52 problems (52 errors, 0 warnings)
+

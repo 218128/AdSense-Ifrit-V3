@@ -18,3 +18,6 @@ export { SelectionBar } from './SelectionBar';
 
 // KeywordHunter extracted components
 export { HistoryPanel } from './HistoryPanel';
+export { SelectionActionsBar } from './SelectionActionsBar';
+export { SavedAnalysesTable } from './SavedAnalysesTable';
+

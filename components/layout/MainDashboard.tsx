@@ -26,7 +26,13 @@ import { HuntDashboard } from '@/components/hunt';
 import { WebsitesView } from '@/components/websites';
 import { SettingsView } from '@/components/settings';
 
-type TabId = 'dashboard' | 'hunt' | 'websites' | 'settings';
+// WordPress feature module
+import { WPSitesDashboard } from '@/features/wordpress';
+
+// Campaigns feature module
+import { CampaignsDashboard } from '@/features/campaigns';
+
+type TabId = 'dashboard' | 'hunt' | 'websites' | 'wpsites' | 'campaigns' | 'settings';
 
 interface MainDashboardProps {
     articles?: Array<{ slug: string; title: string }>;
@@ -50,8 +56,22 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; badge?: string; g
         id: 'websites',
         label: 'Websites',
         icon: <Globe className="w-5 h-5" />,
-        badge: 'Wizard',
+        badge: 'Legacy',
         gradient: 'from-emerald-500 to-teal-500'
+    },
+    {
+        id: 'wpsites',
+        label: 'WP Sites',
+        icon: <Rocket className="w-5 h-5" />,
+        badge: 'NEW',
+        gradient: 'from-blue-500 to-indigo-600'
+    },
+    {
+        id: 'campaigns',
+        label: 'Campaigns',
+        icon: <Target className="w-5 h-5" />,
+        badge: 'NEW',
+        gradient: 'from-purple-500 to-pink-600'
     },
     {
         id: 'settings',
@@ -113,7 +133,17 @@ export default function MainDashboard({ articles = [] }: MainDashboardProps) {
                 )}
                 {activeTab === 'websites' && (
                     <p className="text-neutral-500">
-                        <span className="text-emerald-600 font-medium">Wizard Mode:</span> Create and manage your revenue-generating websites
+                        <span className="text-emerald-600 font-medium">Legacy Mode:</span> Custom website templates and deployment
+                    </p>
+                )}
+                {activeTab === 'wpsites' && (
+                    <p className="text-neutral-500">
+                        <span className="text-blue-600 font-medium">WordPress Mode:</span> Connect and manage your WordPress sites for AI publishing
+                    </p>
+                )}
+                {activeTab === 'campaigns' && (
+                    <p className="text-neutral-500">
+                        <span className="text-purple-600 font-medium">Automation Mode:</span> Schedule AI content campaigns to your WordPress sites
                     </p>
                 )}
                 {activeTab === 'settings' && (
@@ -128,6 +158,8 @@ export default function MainDashboard({ articles = [] }: MainDashboardProps) {
                 {activeTab === 'dashboard' && <DashboardView />}
                 {activeTab === 'hunt' && <HuntDashboard />}
                 {activeTab === 'websites' && <WebsitesView articles={articles} />}
+                {activeTab === 'wpsites' && <WPSitesDashboard />}
+                {activeTab === 'campaigns' && <CampaignsDashboard />}
                 {activeTab === 'settings' && <SettingsPanel />}
             </div>
         </div>

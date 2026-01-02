@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getArticle } from '@/lib/websiteStore';
+import { getArticle, listArticles } from '@/lib/websiteStore';
 import {
     auditArticleSEO,
     suggestInternalLinks,
@@ -119,6 +119,30 @@ ${articleContent}`;
         // Get backlink strategies based on niche (extracted from domain or content)
         const niche = detectNiche(articleContent);
         result.backlinkStrategies = suggestBacklinkOpportunities(niche);
+
+        // Generate internal link suggestions from all articles
+        try {
+            const allArticles = listArticles(domain);
+            const articlesForLinking = allArticles.map(a => ({
+                slug: a.id,
+                title: a.title || a.id,
+                keywords: (a.title?.split(' ') || []).filter(Boolean)
+            }));
+
+            if (articlesForLinking.length > 1) {
+                const allLinks = suggestInternalLinks(articlesForLinking);
+                // Filter to only suggestions where this article is the source
+                result.internalLinkSuggestions = allLinks
+                    .filter(link => link.sourceSlug === articleSlug)
+                    .map(link => ({
+                        targetSlug: link.targetSlug,
+                        anchorText: link.anchorText,
+                        relevanceScore: link.relevanceScore
+                    }));
+            }
+        } catch {
+            // Ignore internal linking errors - not critical
+        }
 
         return NextResponse.json({
             success: true,

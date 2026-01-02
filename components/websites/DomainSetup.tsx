@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Globe, Plus, Trash2, Edit, Check, X, Star } from 'lucide-react';
 import {
     DomainConfig,
@@ -36,20 +36,15 @@ const EMPTY_FORM: DomainFormData = {
 };
 
 export default function DomainManager() {
-    const [domains, setDomains] = useState<DomainConfig[]>([]);
-    const [defaultDomainId, setDefaultDomainIdState] = useState<string | undefined>();
+    // Use lazy initializers to avoid setState in useEffect
+    const [domains, setDomains] = useState<DomainConfig[]>(() => getDomains());
+    const [defaultDomainId, setDefaultDomainIdState] = useState<string | undefined>(() => {
+        const defaultDomain = getDefaultDomain();
+        return defaultDomain?.id;
+    });
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState<DomainFormData>(EMPTY_FORM);
-
-    // Load domains on mount
-    useEffect(() => {
-        setDomains(getDomains());
-        const defaultDomain = getDefaultDomain();
-        if (defaultDomain) {
-            setDefaultDomainIdState(defaultDomain.id);
-        }
-    }, []);
 
     const handleInputChange = (field: keyof DomainFormData, value: string | boolean) => {
         setFormData(prev => ({ ...prev, [field]: value }));

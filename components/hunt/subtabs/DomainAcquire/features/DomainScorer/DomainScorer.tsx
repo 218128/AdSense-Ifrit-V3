@@ -6,6 +6,7 @@
  * UI for analyzing domains before acquisition.
  * Shows score breakdown, risks, and recommendations.
  * Now with educational transparency!
+ * Profile generation added AFTER safety check passes.
  */
 
 import { useState } from 'react';
@@ -27,10 +28,15 @@ import {
     Info,
     ChevronDown,
     ChevronUp,
-    HelpCircle
+    HelpCircle,
+    ShoppingCart,
+    Trash2,
+    FileText,
+    Download
 } from 'lucide-react';
 import { DataSourceBanner } from '../../../shared';
 import { ScorerScoreCard as ScoreCard } from './ScorerScoreCard';
+import { generateProfile } from '@/lib/domains/api';
 
 interface DomainScore {
     overall: number;
@@ -129,6 +135,52 @@ export default function DomainScorer({
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+
+    // Profile generation state
+    const [generatingProfile, setGeneratingProfile] = useState(false);
+    const [profileGenerated, setProfileGenerated] = useState(false);
+
+    // Generate profile after safety check passes
+    const handleGenerateProfile = async () => {
+        if (!result) return;
+
+        setGeneratingProfile(true);
+        try {
+            // Get API key from localStorage (snack method)
+            const apiKey = typeof window !== 'undefined'
+                ? localStorage.getItem('gemini_api_key') || undefined
+                : undefined;
+
+            const profileResult = await generateProfile(
+                result.domain,
+                {
+                    trustFlow: result.trust?.score,
+                    domainAuthority: result.score?.authority,
+                },
+                apiKey  // Pass API key to server
+            );
+
+            if (profileResult.success && profileResult.profile) {
+                // Download as JSON
+                const dataStr = JSON.stringify(profileResult.profile, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${result.domain}_profile.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+
+                setProfileGenerated(true);
+            } else {
+                alert('Profile generation failed: ' + (profileResult.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        } finally {
+            setGeneratingProfile(false);
+        }
+    };
 
     const analyzeDomain = async () => {
         if (!domain.trim()) return;
@@ -542,11 +594,126 @@ export default function DomainScorer({
                                 </div>
                             </div>
                         </div>
+
+                        {/* Action Buttons */}
+                        <div className="mt-6 pt-6 border-t border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div className="flex gap-3">
+                                    {/* Generate Profile - only for safe domains */}
+                                    {result.score.recommendation !== 'avoid' && (
+                                        <button
+                                            onClick={handleGenerateProfile}
+                                            disabled={generatingProfile}
+                                            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${profileGenerated
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-purple-600 text-white hover:bg-purple-700'
+                                                } disabled:opacity-50`}
+                                        >
+                                            {generatingProfile ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : profileGenerated ? (
+                                                <CheckCircle className="w-4 h-4" />
+                                            ) : (
+                                                <FileText className="w-4 h-4" />
+                                            )}
+                                            {profileGenerated ? 'Profile Saved' : 'Generate Profile'}
+                                        </button>
+                                    )}
+                                    {onAddToQueue && result.score.recommendation !== 'avoid' && (
+                                        <button
+                                            onClick={() => onAddToQueue({
+                                                domain: result.domain,
+                                                tld: result.domain.split('.').pop() || '',
+                                                score: result.score.overall,
+                                                recommendation: result.score.recommendation,
+                                                estimatedValue: result.score.estimatedValue
+                                            })}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                                        >
+                                            <ShoppingCart className="w-4 h-4" />
+                                            Add to Purchase Queue
+                                        </button>
+                                    )}
+                                    {onDiscard && (
+                                        <button
+                                            onClick={() => onDiscard(result.domain)}
+                                            className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center gap-2"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                            Discard
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex gap-3">
+                                    {onGoToFind && (
+                                        <button
+                                            onClick={onGoToFind}
+                                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                                        >
+                                            Find More Domains
+                                        </button>
+                                    )}
+                                    {onGoToPurchase && (
+                                        <button
+                                            onClick={onGoToPurchase}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                                        >
+                                            Go to Purchase Queue →
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Domains Queue from Step 1 */}
+                {analyzeQueue.length > 0 && !result && !loading && (
+                    <div className="p-6 border-b border-gray-200">
+                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <Target className="w-4 h-4 text-indigo-600" />
+                            Domains to Analyze ({analyzeQueue.length})
+                        </h4>
+                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                            {analyzeQueue.map((candidate, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => {
+                                        setDomain(candidate.domain);
+                                        // Auto-trigger analysis
+                                        setTimeout(() => {
+                                            const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+                                            if (input) {
+                                                input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+                                            }
+                                        }, 100);
+                                    }}
+                                    className={`p-3 text-left rounded-lg border transition-all ${domain === candidate.domain
+                                        ? 'border-indigo-500 bg-indigo-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    <div className="font-medium text-gray-900 truncate">{candidate.domain}</div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className={`text-xs px-1.5 py-0.5 rounded ${candidate.score >= 70 ? 'bg-green-100 text-green-700' :
+                                            candidate.score >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-red-100 text-red-700'
+                                            }`}>
+                                            Score: {candidate.score}
+                                        </span>
+                                        <span className="text-xs text-gray-500">.{candidate.tld}</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-3">
+                            Click a domain to deep analyze it with Wayback Machine, spam check, and AI insights
+                        </p>
                     </div>
                 )}
 
                 {/* Empty State */}
-                {!result && !loading && (
+                {!result && !loading && analyzeQueue.length === 0 && (
                     <div className="p-12 text-center text-gray-500">
                         <Target className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p>Enter a domain to analyze its acquisition potential</p>

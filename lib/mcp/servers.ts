@@ -77,6 +77,16 @@ export const MCP_SERVERS: MCPServerConfig[] = [
         category: 'integration'
     },
     {
+        id: 'hostinger',
+        name: 'Hostinger WordPress Hosting',
+        description: 'Create WordPress sites, manage hosting, domains, SSL, DNS',
+        command: 'npx',
+        args: ['-y', 'hostinger-api-mcp@latest'],
+        requiresApiKey: true,
+        apiKeyEnvVar: 'API_TOKEN',  // Hostinger MCP expects API_TOKEN
+        category: 'integration'
+    },
+    {
         id: 'filesystem',
         name: 'File System',
         description: 'Read and write local files',

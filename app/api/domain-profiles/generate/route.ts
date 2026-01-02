@@ -25,7 +25,11 @@ interface GenerateRequest {
         price?: string;
     };
     saveProfile?: boolean;
-    apiKey?: string; // Client-provided API key from localStorage
+    /** Keyword context from previous step (Keyword Hunter) */
+    keywordContext?: {
+        keywords: string[];
+        research: Record<string, string[]>;
+    };
 }
 
 interface AIKeywordResult {
@@ -114,7 +118,8 @@ function segmentDomainName(domain: string): string[] {
 function buildAIPrompt(
     domain: string,
     words: string[],
-    spamzillaData?: GenerateRequest['spamzillaData']
+    spamzillaData?: GenerateRequest['spamzillaData'],
+    keywordContext?: GenerateRequest['keywordContext']
 ): string {
     let context = `Domain: ${domain}\nExtracted words: ${words.join(', ')}`;
 
@@ -130,9 +135,28 @@ function buildAIPrompt(
         }
     }
 
+    // Add keyword context from Keyword Hunter if available
+    let keywordSection = '';
+    if (keywordContext && keywordContext.keywords.length > 0) {
+        keywordSection = `\n\n**User's Target Keywords from Research:**
+${keywordContext.keywords.join(', ')}`;
+
+        // Add research findings if available
+        const researchEntries = Object.entries(keywordContext.research);
+        if (researchEntries.length > 0) {
+            keywordSection += '\n\n**Research Findings:**';
+            for (const [keyword, findings] of researchEntries.slice(0, 3)) {
+                const topFindings = findings.slice(0, 3).join('; ');
+                keywordSection += `\n- ${keyword}: ${topFindings}`;
+            }
+        }
+
+        keywordSection += '\n\n**IMPORTANT:** Align the generated niche and keywords with the user\'s research above. The domain should complement their existing keyword strategy.';
+    }
+
     return `You are an SEO expert analyzing a domain for AdSense monetization.
 
-${context}
+${context}${keywordSection}
 
 Based on the domain name and any available data, generate a comprehensive keyword profile.
 The goal is to identify the most profitable niche and keywords for this domain.
@@ -174,11 +198,14 @@ export async function POST(request: NextRequest) {
         // Step 1: Segment domain name
         const words = segmentDomainName(domain);
         console.log(`[Profile Generate] Domain: ${domain}, Words: ${words.join(', ')}`);
+        if (body.keywordContext?.keywords?.length) {
+            console.log(`[Profile Generate] Using keyword context: ${body.keywordContext.keywords.join(', ')}`);
+        }
 
-        // Step 2: Build AI prompt
-        const prompt = buildAIPrompt(domain, words, body.spamzillaData);
+        // Step 2: Build AI prompt (including keyword context from Keyword Hunter)
+        const prompt = buildAIPrompt(domain, words, body.spamzillaData, body.keywordContext);
 
-        // Step 3: Call AI API (use client-provided key or fallback to env)
+        // Step 3: Call AI API (pass client's API key from request body)
         const aiResult = await generateWithAI(prompt, body.apiKey);
 
         if (!aiResult) {
@@ -296,64 +323,83 @@ export async function POST(request: NextRequest) {
 }
 
 // ============================================
-// AI Generation Helper
+// AI Generation Helper - Uses Unified Capabilities
 // ============================================
 
-async function generateWithAI(prompt: string, clientApiKey?: string): Promise<AIKeywordResult | null> {
+async function generateWithAI(prompt: string): Promise<AIKeywordResult | null> {
     try {
-        // Use client-provided key first, fall back to environment variable
-        const apiKey = clientApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+        // Use the unified capabilities system directly (no HTTP roundtrip)
+        const { aiServices } = await import('@/lib/ai/services');
+        await aiServices.initialize();
 
-        if (!apiKey) {
-            console.error('[Profile Generate] No AI API key configured');
-            // Return fallback result
+        const result = await aiServices.execute({
+            capability: 'generate',  // Use existing generate capability
+            prompt,
+            context: { itemType: 'domain-profile' },
+        });
+
+        if (!result.success) {
+            console.warn('[Profile Generate] Capability failed:', result.error);
             return getFallbackResult();
         }
 
-        // Use Gemini API
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 2048,
-                    }
-                })
+        // Parse JSON from response
+        let parsed: Record<string, unknown> | null = null;
+
+        // Priority 1: Use result.data if available
+        if (result.data && typeof result.data === 'object') {
+            parsed = result.data as Record<string, unknown>;
+        }
+        // Priority 2: Parse from result.text
+        else if (result.text) {
+            const text = result.text;
+            const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) || text.match(/\{[\s\S]*\}/);
+            const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
+
+            try {
+                parsed = JSON.parse(jsonStr);
+            } catch {
+                console.error('[Profile Generate] Failed to parse AI response');
+                return getFallbackResult();
             }
-        );
+        }
 
-        if (!response.ok) {
-            console.error('[Profile Generate] AI API error:', response.status);
+        if (!parsed) {
+            console.warn('[Profile Generate] No data in response');
             return getFallbackResult();
         }
 
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!text) {
-            return getFallbackResult();
-        }
-
-        // Parse JSON from response (handle markdown code blocks)
-        const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) || text.match(/\{[\s\S]*\}/);
-        const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
-
-        try {
-            const result = JSON.parse(jsonStr);
-            return result as AIKeywordResult;
-        } catch {
-            console.error('[Profile Generate] Failed to parse AI response');
-            return getFallbackResult();
-        }
+        // Normalize with snake_case support
+        return normalizeAIKeywordResult(parsed);
 
     } catch (error) {
         console.error('[Profile Generate] AI call failed:', error);
         return getFallbackResult();
     }
+}
+
+/**
+ * Normalize AI response - handles both snake_case and camelCase fields
+ */
+function normalizeAIKeywordResult(raw: Record<string, unknown>): AIKeywordResult {
+    return {
+        niche: String(raw.niche || 'General'),
+        nicheDescription: String(raw.niche_description || raw.nicheDescription || ''),
+        primaryKeywords: toStringArray(raw.primary_keywords || raw.primaryKeywords),
+        secondaryKeywords: toStringArray(raw.secondary_keywords || raw.secondaryKeywords),
+        questionKeywords: toStringArray(raw.question_keywords || raw.questionKeywords),
+        suggestedTopics: toStringArray(raw.suggested_topics || raw.suggestedTopics),
+        suggestedCategories: toStringArray(raw.suggested_categories || raw.suggestedCategories),
+        contentAngles: toStringArray(raw.content_angles || raw.contentAngles),
+        monetizationHints: toStringArray(raw.monetization_hints || raw.monetizationHints),
+    };
+}
+
+function toStringArray(value: unknown): string[] {
+    if (Array.isArray(value)) {
+        return value.map(v => String(v));
+    }
+    return [];
 }
 
 function getFallbackResult(): AIKeywordResult {

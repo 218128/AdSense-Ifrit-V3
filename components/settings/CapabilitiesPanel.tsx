@@ -166,7 +166,7 @@ export default function CapabilitiesPanel() {
                     <div>
                         <h2 className="text-lg font-semibold text-gray-100">AI Capabilities</h2>
                         <p className="text-sm text-gray-400">
-                            Configure which AI tasks are available and how they're handled
+                            Configure which AI tasks are available and how they&apos;re handled
                         </p>
                     </div>
                 </div>

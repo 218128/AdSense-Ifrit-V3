@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 // Zustand store
-import { useKeywordStore } from '@/stores/keywordStore';
+import { useKeywordStore, type EnrichedKeyword } from '@/stores/keywordStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 // Import components
@@ -31,6 +31,8 @@ import {
     AnalysisResultCard,
     CSVImporter,
     HistoryPanel,
+    SelectionActionsBar,
+    SavedAnalysesTable,
 } from '../../shared/components';
 
 // Utilities
@@ -38,12 +40,15 @@ import { parseCSV } from '../../shared/utils';
 
 // Types
 import type { KeywordItem, AnalyzedKeyword } from '@/lib/keywords/types';
+import { ActionStatusBar } from '@/lib/shared/components';
 
 // ============ PROPS ============
 
 interface KeywordHunterV2Props {
-    /** Callback when keyword is selected for use */
-    onSelect?: (data: { topic: string; context: string; source: 'live' | 'fallback' | 'csv_import' }) => void;
+    /** Callback when keyword is selected for use - now accepts EnrichedKeyword */
+    onSelect?: (data: EnrichedKeyword) => void;
+    /** Callback for multiple keywords */
+    onSelectMultiple?: (data: EnrichedKeyword[]) => void;
     /** Callback to navigate to domain hunting */
     onNavigateToDomains?: (keywords: string[]) => void;
     /** Disabled state */
@@ -54,6 +59,7 @@ interface KeywordHunterV2Props {
 
 export default function KeywordHunterV2({
     onSelect,
+    onSelectMultiple,
     onNavigateToDomains,
     disabled = false,
 }: KeywordHunterV2Props) {
@@ -69,17 +75,29 @@ export default function KeywordHunterV2({
         clearAnalyzedKeywords,
         isAnalyzing,
         runAnalysis,
-        // Selection
+        // Selection for keyword cards
         selectedKeywords,
         toggleSelect,
         isSelected,
         clearSelection,
         getSelectedCount,
+        // Selection for analyzed cards
+        selectedAnalyzedIds,
+        toggleAnalyzedSelect,
+        selectAllAnalyzed,
+        clearAnalyzedSelection,
+        isAnalyzedSelected,
+        getSelectedAnalyzedCount,
+        getSelectedAnalyzedKeywords,
+        // Save functionality
+        saveCurrentAnalysis,
+        getEnrichedKeywords,
         // History
         history,
         loadHistoryItem,
         clearHistory,
         // Computed
+        actionStatus,
         getAllKeywords,
         getEvergreenKeywords,
     } = useKeywordStore();
@@ -87,15 +105,23 @@ export default function KeywordHunterV2({
     // ============ LOCAL STATE ============
 
     const [showHistory, setShowHistory] = useState(false);
-    // V5: Research trends state
+    // V5: Research state - loading only, results from store
     const [researching, setResearching] = useState(false);
-    const [researchResults, setResearchResults] = useState<string[]>([]);
+
+    // Get research results for selected keywords from store
+    const researchResults = useKeywordStore(state => state.researchResults);
+    const addResearchResult = useKeywordStore(state => state.addResearchResult);
+    const currentResearchResults = Array.from(selectedKeywords)
+        .map(kw => researchResults[kw])
+        .filter(Boolean)
+        .flatMap(r => r?.findings || []);
 
     // Computed values
     const allKeywords = getAllKeywords();
     const evergreenKeywords = getEvergreenKeywords();
     const selectedCount = getSelectedCount();
     const hasSelection = selectedCount > 0;
+    const selectedAnalyzedCount = getSelectedAnalyzedCount();
 
     // ============ HANDLERS ============
 
@@ -103,11 +129,12 @@ export default function KeywordHunterV2({
         const file = event.target.files?.[0];
         if (!file) return;
 
+        const filename = file.name;
         const reader = new FileReader();
         reader.onload = (e) => {
             const content = e.target?.result as string;
             const parsed = parseCSV(content);
-            addCSVKeywords(parsed);
+            addCSVKeywords(parsed, filename); // Track filename in history
         };
         reader.readAsText(file);
 
@@ -125,42 +152,52 @@ export default function KeywordHunterV2({
         clearSelection();
     };
 
-    // V5: Research trends for selected keywords
+    // V5: Research trends for selected keywords using Capabilities system
     const handleResearchTrends = async () => {
         if (selectedCount === 0) return;
 
         setResearching(true);
-        setResearchResults([]);
 
         try {
-            // Get Perplexity key from Zustand store
-            const mcpApiKeys = useSettingsStore.getState().mcpServers.apiKeys;
-            const providerKeys = useSettingsStore.getState().providerKeys;
-            const perplexityKey = mcpApiKeys?.perplexity || providerKeys?.perplexity?.[0]?.key;
+            // Use aiServices capability system (handles provider selection + API keys)
+            const { aiServices } = await import('@/lib/ai/services');
 
-            if (!perplexityKey) {
-                alert('Perplexity API key not configured. Go to Settings → MCP Tools or AI Providers.');
-                setResearching(false);
-                return;
-            }
+            const keywords = Array.from(selectedKeywords);
+            const result = await aiServices.research(
+                `Latest trends and statistics for: ${keywords.join(', ')}`,
+                { researchType: 'quick' }
+            );
 
-            const selectedKws = Array.from(selectedKeywords).join(', ');
+            if (result.success) {
+                let findings: string[] = [];
 
-            const response = await fetch('/api/research', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    query: `Latest trends and statistics for: ${selectedKws}`,
-                    type: 'quick',
-                    tool: 'perplexity',
-                    apiKey: perplexityKey
-                })
-            });
+                // Try to extract from structured data first
+                if (result.data && (result.data as { keyFindings?: string[] })?.keyFindings) {
+                    findings = (result.data as { keyFindings: string[] }).keyFindings;
+                }
+                // Fallback: Parse text response
+                else if (result.text) {
+                    // Split by newlines or bullet points to get individual findings
+                    findings = result.text
+                        .split(/[\n•\-\*]/)
+                        .map(s => s.trim())
+                        .filter(s => s.length > 10); // Filter out short fragments
 
-            const data = await response.json();
+                    // If still nothing, use whole text
+                    if (findings.length === 0) {
+                        findings = [result.text];
+                    }
+                }
 
-            if (data.success && data.keyFindings) {
-                setResearchResults(data.keyFindings);
+                if (findings.length > 0) {
+                    // Save research results to store for each selected keyword
+                    for (const keyword of keywords) {
+                        addResearchResult(keyword, findings);
+                    }
+                    console.log('[Research] Saved findings:', findings.length);
+                }
+            } else if (result.error?.includes('No handlers')) {
+                alert('No research provider configured. Go to Settings → Capabilities.');
             }
         } catch (err) {
             console.error('Research failed:', err);
@@ -169,14 +206,31 @@ export default function KeywordHunterV2({
         }
     };
 
+    // Single keyword - pass full EnrichedKeyword
     const handleUseKeyword = (kw: AnalyzedKeyword) => {
         if (onSelect) {
-            onSelect({
-                topic: kw.keyword,
-                context: `${kw.analysis.niche} - ${kw.analysis.estimatedCPC}`,
-                source: kw.source === 'csv' ? 'csv_import' : 'fallback',
-            });
+            const enriched = getEnrichedKeywords([kw.keyword])[0];
+            if (enriched) {
+                onSelect(enriched);
+            }
         }
+    };
+
+    // Multiple keywords - pass full EnrichedKeyword[]
+    const handleUseSelected = () => {
+        const enriched = getEnrichedKeywords();
+        if (onSelectMultiple && enriched.length > 0) {
+            onSelectMultiple(enriched);
+        } else if (onSelect && enriched.length > 0) {
+            // Fallback: call onSelect for each
+            enriched.forEach(e => onSelect(e));
+        }
+        clearAnalyzedSelection();
+    };
+
+    // Save selected to persistent table
+    const handleSaveSelected = () => {
+        saveCurrentAnalysis();
     };
 
     const handleHuntDomains = () => {
@@ -203,6 +257,9 @@ export default function KeywordHunterV2({
                     History ({history.length})
                 </button>
             </div>
+
+            {/* Action Status Bar */}
+            {actionStatus && <ActionStatusBar status={actionStatus} className="mb-4" />}
 
             {/* History panel */}
             {showHistory && (
@@ -275,23 +332,20 @@ export default function KeywordHunterV2({
                 </div>
             )}
 
-            {/* V5: Research Results */}
-            {researchResults.length > 0 && (
+            {/* V5: Research Results - from store */}
+            {currentResearchResults.length > 0 && (
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                             <FlaskConical className="w-5 h-5 text-purple-600" />
                             <span className="font-semibold text-purple-900">Research Insights</span>
                         </div>
-                        <button
-                            onClick={() => setResearchResults([])}
-                            className="text-xs text-purple-600 hover:underline"
-                        >
-                            Clear
-                        </button>
+                        <span className="text-xs text-purple-500">
+                            Saved to store
+                        </span>
                     </div>
                     <ul className="space-y-1">
-                        {researchResults.map((finding, i) => (
+                        {currentResearchResults.map((finding, i) => (
                             <li key={i} className="text-sm text-purple-800 flex items-start gap-2">
                                 <span className="text-purple-400 mt-0.5">•</span>
                                 <span>{finding}</span>
@@ -303,7 +357,7 @@ export default function KeywordHunterV2({
 
             {/* Analysis results */}
             {analyzedKeywords.length > 0 && (
-                <div className="space-y-4">
+                <div className="space-y-4 relative pb-20"> {/* Extra padding for sticky bar */}
                     <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-neutral-900">
                             Analysis Results ({analyzedKeywords.length})
@@ -332,10 +386,22 @@ export default function KeywordHunterV2({
                             <AnalysisResultCard
                                 key={kw.keyword}
                                 keyword={kw}
+                                isSelected={isAnalyzedSelected(kw.keyword)}
+                                onToggleSelect={() => toggleAnalyzedSelect(kw.keyword)}
                                 onUse={() => handleUseKeyword(kw)}
                             />
                         ))}
                     </div>
+
+                    {/* Selection action bar */}
+                    <SelectionActionsBar
+                        selectedCount={selectedAnalyzedCount}
+                        totalCount={analyzedKeywords.length}
+                        onSelectAll={selectAllAnalyzed}
+                        onClearSelection={clearAnalyzedSelection}
+                        onUseSelected={handleUseSelected}
+                        onSaveSelected={handleSaveSelected}
+                    />
                 </div>
             )}
 
@@ -349,6 +415,15 @@ export default function KeywordHunterV2({
                     </p>
                 </div>
             )}
+
+            {/* Saved Analyses Table */}
+            <SavedAnalysesTable
+                onUseKeywords={(keywords) => {
+                    if (onSelectMultiple) {
+                        onSelectMultiple(keywords);
+                    }
+                }}
+            />
         </div>
     );
 }

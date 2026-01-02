@@ -1,3 +1,15 @@
+/**
+ * @legacy Legacy Websites Module
+ * 
+ * DEPRECATION NOTICE: This module is for the legacy GitHub/Vercel website system.
+ * For WordPress/Hostinger sites, use `features/wordpress/` instead.
+ * 
+ * Migration Guide:
+ * - Use `useWPSitesStore` instead of custom website stores
+ * - Use `features/wordpress/model/wpSiteTypes.ts` for WPSite types
+ * - Use `features/wordpress/lib/adsenseChecker.ts` for AdSense readiness
+ */
+
 // Websites components barrel file
 export { default as WebsitesView } from './WebsitesView';
 export { default as WebsiteDetail } from './WebsiteDetail';

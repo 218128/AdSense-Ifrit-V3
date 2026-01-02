@@ -2,11 +2,11 @@
   "domain": "299riyal.store",
   "niche": "General",
   "purchaseType": "external",
-  "purchasedAt": 1766572669772,
+  "purchasedAt": 1767046374050,
   "deepAnalysis": {
     "score": {
-      "overall": 50,
-      "authority": 0,
+      "overall": 35,
+      "authority": 35,
       "trustworthiness": 0,
       "relevance": 50,
       "emailPotential": 50,
@@ -27,7 +27,7 @@
       "positives": [],
       "negatives": []
     },
-    "analyzedAt": 1766572669772
+    "analyzedAt": 1767046374050
   },
   "keywordAnalysis": {
     "sourceKeywords": [
@@ -110,7 +110,7 @@
     ],
     "totalSearchVolume": 0,
     "averageCPC": 0,
-    "analyzedAt": 1766572669772
+    "analyzedAt": 1767046374050
   },
   "aiNiche": {
     "niche": "General",
@@ -136,7 +136,7 @@
     "targetAudience": "People interested in general",
     "monetizationStrategy": "Use informational content for high ad engagement. Create comparison articles for commercial keywords",
     "generatedBy": "gemini",
-    "generatedAt": 1766572669772
+    "generatedAt": 1767046374050
   },
   "primaryKeywords": [
     "tips",
@@ -178,9 +178,9 @@
     "Expert deep-dives",
     "Comparison reviews"
   ],
-  "trafficPotential": 50,
+  "trafficPotential": 35,
   "difficultyScore": 50,
-  "researchedAt": 1766572669772,
+  "researchedAt": 1767046374050,
   "notes": "Auto-generated from domain name. A general purpose website",
   "transferredToWebsite": false
 }

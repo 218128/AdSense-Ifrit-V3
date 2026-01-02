@@ -44,14 +44,6 @@ export function AnalyticsPanel() {
         loadAnalytics();
     }, []);
 
-    const getRecommendationIcon = (type: string) => {
-        switch (type) {
-            case 'high_priority': return <AlertCircle className="w-5 h-5 text-red-500" />;
-            case 'medium_priority': return <Info className="w-5 h-5 text-amber-500" />;
-            case 'low_priority': return <CheckCircle className="w-5 h-5 text-green-500" />;
-            default: return <Lightbulb className="w-5 h-5 text-blue-500" />;
-        }
-    };
 
     const getScoreColor = (score: number) => {
         if (score >= 80) return 'text-green-600';

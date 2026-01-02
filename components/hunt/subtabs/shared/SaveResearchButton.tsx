@@ -180,7 +180,7 @@ export default function SaveResearchButton({
                             rows={3}
                             className="w-full p-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
                         />
-                        <p className="text-xs text-neutral-500 mt-1">"How to", "What is", "Why" queries for FAQ content.</p>
+                        <p className="text-xs text-neutral-500 mt-1">&ldquo;How to&rdquo;, &ldquo;What is&rdquo;, &ldquo;Why&rdquo; queries for FAQ content.</p>
                     </div>
 
                     {/* Notes */}
@@ -210,8 +210,8 @@ export default function SaveResearchButton({
                         onClick={handleSave}
                         disabled={saving || saved}
                         className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all ${saved
-                                ? 'bg-green-500 text-white'
-                                : 'bg-purple-500 hover:bg-purple-600 text-white'
+                            ? 'bg-green-500 text-white'
+                            : 'bg-purple-500 hover:bg-purple-600 text-white'
                             }`}
                     >
                         {saving ? (

@@ -182,6 +182,7 @@ describe('selectiveDeploy.ts', () => {
                     upgradeAvailable: 'true', // String to match type
                     features: [],
                     category: 'general'
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mock partial object
                 } as any
             }));
             mockDeps.listArticles.mockReturnValue([]);

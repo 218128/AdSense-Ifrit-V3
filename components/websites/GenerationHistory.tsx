@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { History, Clock, User, FileText, TrendingUp, ExternalLink, Trash2 } from 'lucide-react';
 
 export interface GenerationRecord {
@@ -54,12 +54,9 @@ interface GenerationHistoryProps {
 }
 
 export default function GenerationHistory({ onRefresh }: GenerationHistoryProps) {
-    const [history, setHistory] = useState<GenerationRecord[]>([]);
+    // Use lazy initializer to avoid setState in useEffect
+    const [history, setHistory] = useState<GenerationRecord[]>(() => getGenerationHistory());
     const [isExpanded, setIsExpanded] = useState(true);
-
-    useEffect(() => {
-        setHistory(getGenerationHistory());
-    }, []);
 
     const handleClear = () => {
         if (confirm('Clear all generation history?')) {

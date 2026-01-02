@@ -191,6 +191,7 @@ describe('versionControl.ts', () => {
                     upgradeAvailable: 'false',
                     features: [],
                     category: 'general'
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mock partial object
                 } as any
             });
             const snapshot = {

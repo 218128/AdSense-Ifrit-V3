@@ -2,7 +2,7 @@
  * AnalysisResultCard Component
  * 
  * Displays CPC analysis result for a keyword.
- * Pure presentational component.
+ * Supports multi-selection for batch operations.
  */
 
 'use client';
@@ -12,7 +12,8 @@ import {
     TrendingUp,
     Target,
     Zap,
-    ArrowRight
+    ArrowRight,
+    Check
 } from 'lucide-react';
 import type { AnalyzedKeyword } from '@/lib/keywords/types';
 
@@ -23,6 +24,10 @@ export interface AnalysisResultCardProps {
     keyword: AnalyzedKeyword;
     /** Use this keyword callback */
     onUse?: () => void;
+    /** Whether this card is selected */
+    isSelected?: boolean;
+    /** Toggle selection callback */
+    onToggleSelect?: () => void;
 }
 
 // ============ HELPERS ============
@@ -67,22 +72,57 @@ function getCompetitionDots(level?: string) {
 export function AnalysisResultCard({
     keyword,
     onUse,
+    isSelected = false,
+    onToggleSelect,
 }: AnalysisResultCardProps) {
-    const { analysis } = keyword;
+    // Defensive: handle missing analysis
+    const analysis = keyword.analysis || {
+        keyword: keyword.keyword,
+        niche: keyword.niche || 'General',
+        estimatedCPC: '$0.50-2.00',
+        estimatedVolume: '1K-10K',
+        competition: 'Medium',
+        score: 50,
+        intent: 'informational',
+        reasoning: 'Analysis pending',
+    };
 
     return (
-        <div className="p-4 bg-white border border-neutral-200 rounded-xl hover:shadow-md transition-shadow">
-            {/* Header */}
+        <div
+            className={`p-4 bg-white border rounded-xl hover:shadow-md transition-all cursor-pointer ${isSelected
+                    ? 'border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50/30'
+                    : 'border-neutral-200'
+                }`}
+            onClick={onToggleSelect}
+        >
+            {/* Header with checkbox */}
             <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                    <h4 className="font-semibold text-neutral-900 mb-1">
-                        {keyword.keyword}
-                    </h4>
-                    <div className="flex items-center gap-2 text-sm text-neutral-500">
-                        {getIntentIcon(analysis.intent)}
-                        <span className="capitalize">{analysis.intent || 'informational'}</span>
-                        <span className="text-neutral-300">•</span>
-                        <span>{analysis.niche}</span>
+                <div className="flex items-start gap-3">
+                    {/* Selection checkbox */}
+                    {onToggleSelect && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleSelect();
+                            }}
+                            className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isSelected
+                                    ? 'bg-indigo-600 border-indigo-600 text-white'
+                                    : 'border-neutral-300 hover:border-indigo-400'
+                                }`}
+                        >
+                            {isSelected && <Check className="w-3 h-3" />}
+                        </button>
+                    )}
+                    <div className="flex-1">
+                        <h4 className="font-semibold text-neutral-900 mb-1">
+                            {keyword.keyword}
+                        </h4>
+                        <div className="flex items-center gap-2 text-sm text-neutral-500">
+                            {getIntentIcon(analysis.intent)}
+                            <span className="capitalize">{analysis.intent || 'informational'}</span>
+                            <span className="text-neutral-300">•</span>
+                            <span>{analysis.niche}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -118,7 +158,10 @@ export function AnalysisResultCard({
             {/* Use button */}
             {onUse && (
                 <button
-                    onClick={onUse}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onUse();
+                    }}
                     className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium flex items-center justify-center gap-2"
                 >
                     <Zap className="w-4 h-4" />
@@ -128,3 +171,4 @@ export function AnalysisResultCard({
         </div>
     );
 }
+

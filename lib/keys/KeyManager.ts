@@ -60,6 +60,58 @@ const rotationState: Record<ProviderId, number> = {
     perplexity: 0,
 };
 
+// ============ RATE LIMIT STATE ============
+
+interface RateLimitInfo {
+    isLimited: boolean;
+    expiresAt?: number;       // Timestamp when limit expires
+    failureCount: number;     // Consecutive failures
+}
+
+// Track rate limit status per provider per key (keyed by provider:keyIndex)
+const rateLimitState: Map<string, RateLimitInfo> = new Map();
+
+// Rate limit cooldown (5 minutes)
+const RATE_LIMIT_COOLDOWN_MS = 5 * 60 * 1000;
+
+// Max failures before marking key as exhausted
+const MAX_CONSECUTIVE_FAILURES = 3;
+
+/**
+ * Get rate limit state key
+ */
+function getRateLimitKey(provider: ProviderId, keyIndex: number): string {
+    return `${provider}:${keyIndex}`;
+}
+
+/**
+ * Check if a key is currently rate limited
+ */
+function isKeyRateLimited(provider: ProviderId, keyIndex: number): boolean {
+    const key = getRateLimitKey(provider, keyIndex);
+    const info = rateLimitState.get(key);
+
+    if (!info || !info.isLimited) return false;
+
+    // Check if cooldown expired
+    if (info.expiresAt && Date.now() >= info.expiresAt) {
+        info.isLimited = false;
+        info.expiresAt = undefined;
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Check if a key has too many failures
+ */
+function isKeyExhausted(provider: ProviderId, keyIndex: number): boolean {
+    const key = getRateLimitKey(provider, keyIndex);
+    const info = rateLimitState.get(key);
+    return (info?.failureCount || 0) >= MAX_CONSECUTIVE_FAILURES;
+}
+
 // ============ KEY MANAGER CLASS ============
 
 /**
@@ -191,7 +243,117 @@ export class KeyManager {
         rotationState[provider] = 0;
     }
 
-    // ============ VALIDATION ============
+    // ============ RATE LIMIT MANAGEMENT ============
+
+    /**
+     * Mark current key as rate limited (429 error)
+     * Automatically rotates to next available key
+     */
+    markRateLimited(provider: ProviderId): ValidatedKey | null {
+        const currentIndex = rotationState[provider];
+        const key = getRateLimitKey(provider, currentIndex);
+
+        let info = rateLimitState.get(key);
+        if (!info) {
+            info = { isLimited: false, failureCount: 0 };
+            rateLimitState.set(key, info);
+        }
+
+        info.isLimited = true;
+        info.expiresAt = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+
+        console.log(`[KeyManager] Marked ${provider} key ${currentIndex} as rate-limited for 5 minutes`);
+
+        // Try to find next available key
+        return this.getAvailableKey(provider);
+    }
+
+    /**
+     * Mark current key as failed (non-429 error)
+     */
+    markFailure(provider: ProviderId): void {
+        const currentIndex = rotationState[provider];
+        const key = getRateLimitKey(provider, currentIndex);
+
+        let info = rateLimitState.get(key);
+        if (!info) {
+            info = { isLimited: false, failureCount: 0 };
+            rateLimitState.set(key, info);
+        }
+
+        info.failureCount++;
+        console.log(`[KeyManager] ${provider} key ${currentIndex} failure count: ${info.failureCount}`);
+    }
+
+    /**
+     * Mark current key as successful (reset failure count)
+     */
+    markSuccess(provider: ProviderId): void {
+        const currentIndex = rotationState[provider];
+        const key = getRateLimitKey(provider, currentIndex);
+
+        const info = rateLimitState.get(key);
+        if (info) {
+            info.failureCount = 0;
+        }
+    }
+
+    /**
+     * Get next available key for a provider (not rate-limited, not exhausted)
+     * Returns null if all keys are exhausted
+     */
+    getAvailableKey(provider: ProviderId): ValidatedKey | null {
+        const state = useSettingsStore.getState();
+        const keys = state.providerKeys[provider] || [];
+
+        if (keys.length === 0) {
+            return null;
+        }
+
+        // Try each key starting from current
+        const startIndex = rotationState[provider];
+        for (let i = 0; i < keys.length; i++) {
+            const idx = (startIndex + i) % keys.length;
+
+            if (!isKeyRateLimited(provider, idx) && !isKeyExhausted(provider, idx)) {
+                rotationState[provider] = idx;
+                const storedKey = keys[idx];
+                return {
+                    key: storedKey.key,
+                    provider,
+                    validated: storedKey.validated || false,
+                    validatedAt: storedKey.validatedAt,
+                    label: storedKey.label,
+                };
+            }
+        }
+
+        // All keys exhausted
+        console.warn(`[KeyManager] All keys for ${provider} are rate-limited or exhausted`);
+        return null;
+    }
+
+    /**
+     * Check if provider has any working keys
+     */
+    hasWorkingKeys(provider: ProviderId): boolean {
+        return this.getAvailableKey(provider) !== null;
+    }
+
+    /**
+     * Get status message for handler failures
+     */
+    getNoKeyMessage(provider: ProviderId): string {
+        const state = useSettingsStore.getState();
+        const keys = state.providerKeys[provider] || [];
+
+        if (keys.length === 0) {
+            return `No API keys configured for ${provider}. Add keys in Settings → AI Providers.`;
+        }
+
+        return `All ${keys.length} keys for ${provider} are rate-limited or failing. Add more keys or wait 5 minutes.`;
+    }
+
 
     /**
      * Validate a key before storage
@@ -356,7 +518,7 @@ export class KeyManager {
         const state = useSettingsStore.getState();
         const allProviders: ProviderId[] = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
 
-        const result: Record<ProviderId, { enabled: boolean; keyCount: number; validated: number }> = {} as any;
+        const result = {} as Record<ProviderId, { enabled: boolean; keyCount: number; validated: number }>;
 
         for (const provider of allProviders) {
             const keys = state.providerKeys[provider] || [];

@@ -83,15 +83,12 @@ Focus on keywords that are:
 
 Return as JSON with structure: { keywords: [...], suggestedTitle: "...", contentOutline: [...] }`;
 
-    // Try AIServices first (if available client-side)
+    // Try AIClient first (if available client-side)
+    // Uses unified ai.keywords() for consistency
     if (typeof window !== 'undefined') {
         try {
-            const { aiServices } = await import('./services');
-            const result = await aiServices.execute({
-                capability: 'keywords',
-                prompt,
-                context: { topic, niche, maxKeywords },
-            });
+            const { ai } = await import('./client');
+            const result = await ai.keywords(prompt, { count: maxKeywords });
 
             if (result.success && result.text) {
                 try {
@@ -101,14 +98,14 @@ Return as JSON with structure: { keywords: [...], suggestedTitle: "...", content
                         keywords: data.keywords || [],
                         suggestedTitle: data.suggestedTitle,
                         contentOutline: data.contentOutline,
-                        source: result.source === 'mcp' ? 'ai+search' : 'ai'
+                        source: 'ai' as const
                     };
                 } catch {
                     // Parse failed, fall through to direct call
                 }
             }
         } catch {
-            // AIServices not available, fall through to direct call
+            // AIClient not available, fall through to direct call
         }
     }
 

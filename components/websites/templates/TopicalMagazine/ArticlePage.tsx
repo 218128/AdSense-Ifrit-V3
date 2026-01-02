@@ -10,6 +10,7 @@
 import React from 'react';
 import { AuthorCard, TrustBadges, TrustBadgePresets, AdZone, ArticleCard } from '../shared';
 import MagazineLayout from './Layout';
+import { sanitizeHtml } from '@/lib/security/sanitize';
 
 interface Author {
     name: string;
@@ -127,7 +128,7 @@ export default function MagazineArticlePage({
                 {/* Article Content */}
                 <div
                     className="prose prose-lg max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-rose-600 prose-a:no-underline hover:prose-a:underline mb-10"
-                    dangerouslySetInnerHTML={{ __html: formatContent(content) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(formatContent(content)) }}
                 />
 
                 {/* In-Article Ad */}

@@ -6,6 +6,15 @@
  */
 
 // ============================================
+// PROVIDER TYPES
+// ============================================
+
+/**
+ * Supported AI provider IDs for type-safe key management
+ */
+export type ProviderType = 'gemini' | 'deepseek' | 'openrouter' | 'perplexity';
+
+// ============================================
 // CAPABILITY SYSTEM (Dynamic)
 // ============================================
 
@@ -22,6 +31,7 @@ export interface Capability {
     isEnabled: boolean;              // User can disable
     defaultHandlerId?: string;       // Which handler to use by default
     fallbackHandlerIds?: string[];   // Fallback chain
+    aggregateResults?: boolean;      // If true, call ALL handlers and combine (AND logic)
 }
 
 /**
@@ -99,6 +109,43 @@ export const DEFAULT_CAPABILITIES: Omit<Capability, 'isEnabled' | 'defaultHandle
         icon: 'Code',
         isDefault: true,
     },
+    // Hunt Feature Capabilities
+    {
+        id: 'trend-scan',
+        name: 'Trend Scanning',
+        description: 'Fetch trending topics from multiple sources (HN, Google News, etc.)',
+        icon: 'TrendingUp',
+        isDefault: true,
+        aggregateResults: true,  // Call ALL handlers and combine results
+    },
+    {
+        id: 'domain-search',
+        name: 'Domain Search',
+        description: 'Search expired domain databases (SpamZilla, etc.)',
+        icon: 'Globe',
+        isDefault: true,
+    },
+    {
+        id: 'domain-analyze',
+        name: 'Domain Analysis',
+        description: 'Analyze domain history, spam score, and blacklists',
+        icon: 'Shield',
+        isDefault: true,
+    },
+    {
+        id: 'keyword-analyze',
+        name: 'Keyword Analysis',
+        description: 'Analyze keywords for difficulty/CPC',
+        icon: 'BarChart',
+        isDefault: true,
+    },
+    {
+        id: 'wayback-lookup',
+        name: 'Wayback Lookup',
+        description: 'Check domain history in Wayback Machine',
+        icon: 'History',
+        isDefault: true,
+    },
 ];
 
 // ============================================
@@ -120,6 +167,7 @@ export interface CapabilityHandler {
     priority: number;                // Higher = preferred (0-100)
     isAvailable: boolean;            // Is this handler currently usable?
     requiresApiKey?: boolean;        // Does this need an API key?
+    apiKeySettingName?: string;      // Which settings key holds the API key
 
     // The actual execution function (set at runtime)
     execute?: (options: ExecuteOptions) => Promise<ExecuteResult>;
@@ -139,6 +187,18 @@ export interface ExecuteOptions {
     useFallback?: boolean;           // Allow fallback chain (default: true)
     maxRetries?: number;             // Retry count (default: 2)
     timeout?: number;                // Timeout in ms
+
+    // Progress callbacks for real-time status
+    onProgress?: (status: {
+        phase: 'starting' | 'handler' | 'complete';
+        message: string;
+        handlerId?: string;
+        handlerName?: string;
+        current?: number;
+        total?: number;
+        success?: boolean;
+        error?: string;
+    }) => void;
 
     // AI-specific options
     model?: string;                  // Specific model to use
@@ -160,6 +220,10 @@ export interface ExecuteResult {
     source: 'ai-provider' | 'mcp' | 'local' | 'integration';
     latencyMs: number;
     fallbacksAttempted?: string[];   // Handlers tried before success
+    metadata?: Record<string, unknown>; // Extensible metadata (e.g., sources for aggregation)
+
+    // Rate limit flag (for retry logic)
+    isRateLimited?: boolean;
 
     // AI-specific metadata
     model?: string;

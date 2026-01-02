@@ -49,6 +49,11 @@ import type { AnalyzeCandidate } from '@/stores/huntStore';
 interface ExpiredDomainFinderProps {
     /** Initial keywords from Keyword Hunter */
     initialKeywords?: string[];
+    /** Keyword context with research findings from previous step */
+    keywordContext?: {
+        keywords: string[];
+        research: Record<string, string[]>;
+    };
     /** Callback when domains are sent to analyze */
     onAnalyze?: (domains: AnalyzeCandidate[]) => void;
     /** Callback for quick queue (skip analyze) */
@@ -63,6 +68,7 @@ const PAGE_SIZE = 10;
 
 export default function ExpiredDomainFinder({
     initialKeywords = [],
+    keywordContext,
     onAnalyze,
     onQuickQueue,
 }: ExpiredDomainFinderProps) {
@@ -116,13 +122,6 @@ export default function ExpiredDomainFinder({
     const [generatingProfile, setGeneratingProfile] = useState<string | null>(null);
     const [generatedProfile, setGeneratedProfile] = useState<DomainProfile | null>(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
-
-    // V5: Niche research
-    const [researchingNiche, setResearchingNiche] = useState<string | null>(null);
-    const [nicheResearchResults, setNicheResearchResults] = useState<{
-        domain: string;
-        findings: string[];
-    } | null>(null);
 
     // ============ COMPUTED ============
 
@@ -179,7 +178,8 @@ export default function ExpiredDomainFinder({
                     age: domain.domainAge,
                     szScore: domain.szScore,
                 },
-                apiKey
+                apiKey,
+                keywordContext // Pass keyword context for aligned profile
             );
 
             if (result.success && result.profile) {
@@ -194,50 +194,7 @@ export default function ExpiredDomainFinder({
         } finally {
             setGeneratingProfile(null);
         }
-    }, []);
-
-    // V5: Research niche for a domain
-    const handleResearchNiche = useCallback(async (domain: DomainItem) => {
-        setResearchingNiche(domain.domain);
-        setNicheResearchResults(null);
-
-        try {
-            // Get Perplexity key from Zustand store
-            const { useSettingsStore } = await import('@/stores/settingsStore');
-            const mcpApiKeys = useSettingsStore.getState().mcpServers.apiKeys;
-            const providerKeys = useSettingsStore.getState().providerKeys;
-            const perplexityKey = mcpApiKeys?.perplexity || providerKeys?.perplexity?.[0]?.key;
-
-            if (!perplexityKey) {
-                alert('Perplexity API key not configured. Go to Settings → MCP Tools or AI Providers.');
-                return;
-            }
-
-            const response = await fetch('/api/research', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    query: `What niche and content topics would work best for the domain "${domain.domain}"? Include monetization potential and competition analysis.`,
-                    type: 'deep',
-                    tool: 'perplexity',
-                    apiKey: perplexityKey
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success && data.keyFindings) {
-                setNicheResearchResults({
-                    domain: domain.domain,
-                    findings: data.keyFindings
-                });
-            }
-        } catch (err) {
-            console.error('Niche research failed:', err);
-        } finally {
-            setResearchingNiche(null);
-        }
-    }, []);
+    }, [keywordContext]);
 
     const handleAnalyzeSelected = useCallback(() => {
         if (!onAnalyze || selectedDomains.size === 0) return;
@@ -401,10 +358,6 @@ export default function ExpiredDomainFinder({
                                 onSelect={() => toggleSelection(domain.domain)}
                                 isWatched={isWatched(domain.domain)}
                                 onToggleWatchlist={() => toggleWatchlist(domain)}
-                                onResearchNiche={() => handleResearchNiche(domain)}
-                                isResearchingNiche={researchingNiche === domain.domain}
-                                onGenerateProfile={() => handleGenerateProfile(domain)}
-                                isGeneratingProfile={generatingProfile === domain.domain}
                             />
                         ))}
                     </div>

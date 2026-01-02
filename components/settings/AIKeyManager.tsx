@@ -214,9 +214,10 @@ export function AIKeyManager() {
 
             if (data.valid) {
                 // Update key as validated using store
+                const validationTime = Date.now();
                 updateProviderKey(providerId as ProviderId, key, {
                     validated: true,
-                    validatedAt: Date.now()
+                    validatedAt: validationTime
                 });
 
                 // V4: Save available models (user MUST select one manually)

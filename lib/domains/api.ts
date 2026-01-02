@@ -95,6 +95,11 @@ export async function enrichDomains(domains: string[], apiKey: string): Promise<
 
 /**
  * Generate keyword profile for a domain
+ * 
+ * @param domain - Domain name to generate profile for
+ * @param spamzillaData - Optional SpamZilla metrics
+ * @param apiKey - Optional API key override
+ * @param keywordContext - Optional context from Keyword Hunter research
  */
 export async function generateProfile(
     domain: string,
@@ -105,7 +110,11 @@ export async function generateProfile(
         age?: number;
         szScore?: number;
     },
-    apiKey?: string
+    apiKey?: string,
+    keywordContext?: {
+        keywords: string[];
+        research: Record<string, string[]>;
+    }
 ): Promise<ProfileGenerateResponse> {
     const response = await fetch('/api/domain-profiles/generate', {
         method: 'POST',
@@ -114,7 +123,8 @@ export async function generateProfile(
             domain,
             spamzillaData,
             saveProfile: false,
-            apiKey
+            apiKey,
+            keywordContext  // Pass context to API
         })
     });
     return response.json();

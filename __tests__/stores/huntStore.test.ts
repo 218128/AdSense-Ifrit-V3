@@ -108,7 +108,10 @@ describe('Hunt Store', () => {
             addToPurchase(testDomain);
             markAsPurchased('buy-me.com');
 
-            expect(useHuntStore.getState().purchaseQueue).toHaveLength(0);
+            const queue = useHuntStore.getState().purchaseQueue;
+            // Implementation marks as purchased, doesn't remove
+            expect(queue).toHaveLength(1);
+            expect(queue[0].purchased).toBe(true);
         });
     });
 

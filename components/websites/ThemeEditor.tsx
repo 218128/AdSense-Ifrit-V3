@@ -224,8 +224,8 @@ export default function ThemeEditor({ domain, onRefresh }: ThemeEditorProps) {
                         onClick={handleSave}
                         disabled={!hasChanges || saving}
                         className={`px-4 py-1.5 text-sm rounded-lg flex items-center gap-2 ${hasChanges
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
                             }`}
                     >
                         {saving ? (
@@ -241,8 +241,8 @@ export default function ThemeEditor({ domain, onRefresh }: ThemeEditorProps) {
             {/* Message */}
             {message && (
                 <div className={`p-3 rounded-lg flex items-center gap-2 ${message.type === 'success'
-                        ? 'bg-green-50 text-green-700 border border-green-200'
-                        : 'bg-red-50 text-red-700 border border-red-200'
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
                     }`}>
                     {message.type === 'success' ? (
                         <CheckCircle className="w-4 h-4" />
@@ -258,8 +258,8 @@ export default function ThemeEditor({ domain, onRefresh }: ThemeEditorProps) {
                 <button
                     onClick={() => setActiveTab('quick')}
                     className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeTab === 'quick'
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-neutral-600 hover:text-neutral-800'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-neutral-600 hover:text-neutral-800'
                         }`}
                 >
                     <Palette className="w-4 h-4 inline mr-2" />
@@ -268,8 +268,8 @@ export default function ThemeEditor({ domain, onRefresh }: ThemeEditorProps) {
                 <button
                     onClick={() => setActiveTab('advanced')}
                     className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeTab === 'advanced'
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-neutral-600 hover:text-neutral-800'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-neutral-600 hover:text-neutral-800'
                         }`}
                 >
                     <Code className="w-4 h-4 inline mr-2" />
@@ -385,7 +385,7 @@ export default function ThemeEditor({ domain, onRefresh }: ThemeEditorProps) {
                         spellCheck={false}
                     />
                     <p className="text-xs text-neutral-500">
-                        Edit the full CSS file. Changes will be saved locally and deployed when you click "Deploy".
+                        Edit the full CSS file. Changes will be saved locally and deployed when you click &ldquo;Deploy&rdquo;.
                     </p>
                 </div>
             )}

@@ -6,12 +6,8 @@ import {
     SiteContext,
     getDefaultSiteContext
 } from '@/lib/prompts/contentPrompts';
-import {
-    AIKeyManager,
-    MultiProviderAI,
-    AIProvider,
-    PROVIDERS
-} from '@/lib/ai/multiProvider';
+import { aiServices } from '@/lib/ai/services';
+import { PROVIDERS } from '@/lib/ai/multiProvider';
 
 interface ProviderKeys {
     gemini?: string[];
@@ -25,7 +21,7 @@ interface GenerateSiteContentRequest {
     // Support both single key (backward compatible) and multi-key
     geminiKey?: string;
     providerKeys?: ProviderKeys;
-    preferredProvider?: AIProvider;
+    preferredProvider?: string;
 
     contentType: ContentType;
     topic?: string;
@@ -36,12 +32,12 @@ interface GenerateSiteContentRequest {
 }
 
 /**
- * Site Content Generation API with Multi-Provider Support
+ * Site Content Generation API with Unified Capabilities System
  * 
  * Features:
- * - Automatic key rotation across multiple keys
- * - Failover between Gemini, DeepSeek, and Perplexity
- * - Rate limit awareness
+ * - Uses AIServices.executeWithKeys for server-side execution
+ * - Automatic failover between providers
+ * - Retry logic and validation via CapabilityExecutor
  */
 export async function POST(request: NextRequest) {
     try {
@@ -58,12 +54,30 @@ export async function POST(request: NextRequest) {
             siteContext
         } = body;
 
-        // Validate we have at least one key
-        const hasKeys = geminiKey ||
-            (providerKeys?.gemini?.length) ||
-            (providerKeys?.deepseek?.length) ||
-            (providerKeys?.perplexity?.length);
+        // Build provider keys map for AIServices
+        const keysMap: Record<string, string[]> = {};
 
+        if (geminiKey) {
+            keysMap.gemini = [geminiKey];
+        }
+
+        if (providerKeys) {
+            if (providerKeys.gemini?.length) {
+                keysMap.gemini = [...(keysMap.gemini || []), ...providerKeys.gemini];
+            }
+            if (providerKeys.deepseek?.length) {
+                keysMap.deepseek = providerKeys.deepseek;
+            }
+            if (providerKeys.openrouter?.length) {
+                keysMap.openrouter = providerKeys.openrouter;
+            }
+            if (providerKeys.perplexity?.length) {
+                keysMap.perplexity = providerKeys.perplexity;
+            }
+        }
+
+        // Validate we have at least one key
+        const hasKeys = Object.values(keysMap).some(keys => keys?.length > 0);
         if (!hasKeys) {
             return NextResponse.json({
                 success: false,
@@ -76,43 +90,6 @@ export async function POST(request: NextRequest) {
                 success: false,
                 error: 'Content type is required'
             }, { status: 400 });
-        }
-
-        // Initialize key manager and add keys
-        const keyManager = new AIKeyManager();
-
-        // Add single gemini key (backward compatible)
-        if (geminiKey) {
-            keyManager.addKey('gemini', geminiKey, 'primary');
-        }
-
-        // Add provider keys
-        if (providerKeys) {
-            if (providerKeys.gemini) {
-                providerKeys.gemini.forEach((key, idx) =>
-                    keyManager.addKey('gemini', key, `gemini-${idx + 1}`)
-                );
-            }
-            if (providerKeys.deepseek) {
-                providerKeys.deepseek.forEach((key, idx) =>
-                    keyManager.addKey('deepseek', key, `deepseek-${idx + 1}`)
-                );
-            }
-            if (providerKeys.openrouter) {
-                providerKeys.openrouter.forEach((key, idx) =>
-                    keyManager.addKey('openrouter', key, `openrouter-${idx + 1}`)
-                );
-            }
-            if (providerKeys.vercel) {
-                providerKeys.vercel.forEach((key, idx) =>
-                    keyManager.addKey('vercel', key, `vercel-${idx + 1}`)
-                );
-            }
-            if (providerKeys.perplexity) {
-                providerKeys.perplexity.forEach((key, idx) =>
-                    keyManager.addKey('perplexity', key, `perplexity-${idx + 1}`)
-                );
-            }
         }
 
         // Merge provided context with defaults
@@ -143,37 +120,38 @@ export async function POST(request: NextRequest) {
         // Generate the appropriate prompt
         const prompt = generateContentPrompt(contentRequest);
 
-        // Initialize multi-provider AI
-        const ai = new MultiProviderAI(keyManager);
-
-        // Generate content with automatic failover
-        const result = await ai.generateContent(prompt, {
-            maxTokens: getMaxTokens(contentType),
-            temperature: 0.7,
-            preferredProvider
-        });
+        // Use AIServices.executeWithKeys for server-side execution
+        const result = await aiServices.executeWithKeys(
+            {
+                capability: 'generate',
+                prompt,
+                maxTokens: getMaxTokens(contentType),
+                temperature: 0.7,
+                preferredHandler: preferredProvider,
+            },
+            keysMap
+        );
 
         if (!result.success) {
             return NextResponse.json({
                 success: false,
                 error: result.error || 'All providers failed',
-                stats: keyManager.getStats()
             }, { status: 500 });
         }
 
         // Parse structured content if JSON expected
-        let parsedContent: string | object = result.content || '';
+        let parsedContent: string | object = result.text || '';
         if (contentType === 'homepage' || contentType === 'author') {
             try {
-                const jsonMatch = (result.content || '').match(/```json\n?([\s\S]*?)\n?```/);
+                const jsonMatch = (result.text || '').match(/```json\n?([\s\S]*?)\n?```/);
                 if (jsonMatch) {
                     parsedContent = JSON.parse(jsonMatch[1]);
                 } else {
-                    parsedContent = JSON.parse(result.content || '');
+                    parsedContent = JSON.parse(result.text || '');
                 }
             } catch {
                 // Return raw content if JSON parsing fails
-                parsedContent = result.content || '';
+                parsedContent = result.text || '';
             }
         }
 
@@ -182,10 +160,10 @@ export async function POST(request: NextRequest) {
             contentType,
             topic,
             content: parsedContent,
-            provider: result.provider,
+            provider: result.handlerUsed,
             model: result.model,
             siteContext: mergedContext,
-            stats: keyManager.getStats()
+            latencyMs: result.latencyMs,
         });
 
     } catch (error) {

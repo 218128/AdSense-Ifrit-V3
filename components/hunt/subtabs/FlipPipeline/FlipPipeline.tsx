@@ -104,6 +104,7 @@ export default function FlipPipeline() {
     };
 
     const importFromWatchlist = (domain: WatchlistDomain) => {
+        const now = Date.now();
         const newProject: FlipProject = {
             id: crypto.randomUUID(),
             domain: domain.domain,
@@ -111,8 +112,8 @@ export default function FlipPipeline() {
             purchasePrice: 0,
             purchaseDate: new Date().toISOString().split('T')[0],
             registrar: 'Unknown',
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+            createdAt: now,
+            updatedAt: now,
         };
         addProject(newProject);
         setShowWatchlistImport(false);

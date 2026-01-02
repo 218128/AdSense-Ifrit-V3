@@ -7,7 +7,7 @@
  * This is the first thing users see - high-level portfolio view.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     TrendingUp,
     Globe,
@@ -24,6 +24,7 @@ import {
     BarChart3
 } from 'lucide-react';
 import { AnalyticsPanel } from './AnalyticsPanel';
+import CostDashboard from './CostDashboard';
 
 interface Website {
     id: string;
@@ -34,32 +35,27 @@ interface Website {
 }
 
 export default function OverviewDashboard() {
-    const [websites, setWebsites] = useState<Website[]>([]);
-    const [totalArticles, setTotalArticles] = useState(0);
-
-    useEffect(() => {
-        // Load websites from storage
-        const savedWebsites = localStorage.getItem('ifrit_websites');
-        if (savedWebsites) {
-            try {
-                const parsed = JSON.parse(savedWebsites);
-                setWebsites(parsed);
-            } catch {
-                // Ignore
-            }
+    // Use lazy initializers to avoid setState in useEffect
+    const [websites] = useState<Website[]>(() => {
+        if (typeof window === 'undefined') return [];
+        try {
+            const saved = localStorage.getItem('ifrit_websites');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
         }
+    });
 
-        // Count articles from storage
-        const savedArticles = localStorage.getItem('ifrit_generated_articles');
-        if (savedArticles) {
-            try {
-                const parsed = JSON.parse(savedArticles);
-                setTotalArticles(Array.isArray(parsed) ? parsed.length : 0);
-            } catch {
-                // Ignore
-            }
+    const [totalArticles] = useState(() => {
+        if (typeof window === 'undefined') return 0;
+        try {
+            const saved = localStorage.getItem('ifrit_generated_articles');
+            const parsed = saved ? JSON.parse(saved) : [];
+            return Array.isArray(parsed) ? parsed.length : 0;
+        } catch {
+            return 0;
         }
-    }, []);
+    });
 
     const totalRevenue = websites.reduce((sum, w) => sum + (w.estimatedRevenue || 0), 0);
     const liveWebsites = websites.filter(w => w.status === 'live').length;
@@ -198,6 +194,14 @@ export default function OverviewDashboard() {
                         />
                     </div>
                 </div>
+            </div>
+            {/* AI Cost Summary */}
+            <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden p-4">
+                <div className="flex items-center gap-2 mb-3">
+                    <BarChart3 className="w-5 h-5 text-emerald-500" />
+                    <h3 className="font-semibold text-neutral-900">AI Usage Costs</h3>
+                </div>
+                <CostDashboard compact />
             </div>
 
             {/* Content Strategy Analytics */}

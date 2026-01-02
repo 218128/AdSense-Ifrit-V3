@@ -1349,6 +1349,13 @@ function VersionsTab({
 // UPGRADES TAB
 // ============================================
 
+interface UpgradeInfo {
+    available: boolean;
+    latestVersion?: string;
+    changelog?: string[];
+    compatibility?: { warnings: string[] };
+}
+
 function UpgradesTab({
     website,
     onRefresh,
@@ -1362,7 +1369,7 @@ function UpgradesTab({
     deploying: boolean;
     deployMessage: string | null;
 }) {
-    const [upgradeInfo, setUpgradeInfo] = useState<any>(null);
+    const [upgradeInfo, setUpgradeInfo] = useState<UpgradeInfo | null>(null);
     const [loading, setLoading] = useState(true);
     const [upgrading, setUpgrading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -1496,14 +1503,14 @@ function UpgradesTab({
                                 ))}
                             </div>
 
-                            {upgradeInfo.compatibility?.warnings?.length > 0 && (
+                            {(upgradeInfo.compatibility?.warnings?.length ?? 0) > 0 && (
                                 <div className="mt-4 p-3 bg-amber-100 border border-amber-200 rounded-lg">
                                     <div className="flex items-center gap-2 text-amber-800 font-medium text-sm mb-1">
                                         <AlertTriangle className="w-4 h-4" />
                                         Compatibility Warnings
                                     </div>
                                     <ul className="text-sm text-amber-700">
-                                        {upgradeInfo.compatibility.warnings.map((w: string, i: number) => (
+                                        {upgradeInfo.compatibility?.warnings?.map((w: string, i: number) => (
                                             <li key={i}>• {w}</li>
                                         ))}
                                     </ul>
@@ -1527,7 +1534,7 @@ function UpgradesTab({
             ) : website.status !== 'pending-deploy' && (
                 <div className="p-8 text-center border border-neutral-200 rounded-xl">
                     <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-500" />
-                    <h4 className="font-semibold text-neutral-900">You're Up to Date!</h4>
+                    <h4 className="font-semibold text-neutral-900">You&apos;re Up to Date!</h4>
                     <p className="text-neutral-500 text-sm mt-1">
                         Running the latest version of {website.template.id}
                     </p>

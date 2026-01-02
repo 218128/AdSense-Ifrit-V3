@@ -60,6 +60,77 @@ export async function validateGitHubToken(token: string): Promise<{ success: boo
 }
 
 /**
+ * List user's GitHub repositories
+ */
+export async function listGitHubRepos(
+    token: string
+): Promise<{ success: boolean; repos?: Array<{ name: string; fullName: string; url: string; private: boolean }>; error?: string }> {
+    if (!token) {
+        return { success: false, error: 'No token provided' };
+    }
+
+    try {
+        const response = await fetch('https://api.github.com/user/repos?per_page=50&sort=updated', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+
+        if (!response.ok) {
+            return { success: false, error: 'Failed to fetch repositories' };
+        }
+
+        const data = await response.json();
+        const repos = data.map((repo: { name: string; full_name: string; html_url: string; private: boolean }) => ({
+            name: repo.name,
+            fullName: repo.full_name,
+            url: repo.html_url,
+            private: repo.private
+        }));
+
+        return { success: true, repos };
+    } catch (error) {
+        return { success: false, error: String(error) };
+    }
+}
+
+/**
+ * Delete a GitHub repository
+ */
+export async function deleteGitHubRepo(
+    token: string,
+    repoFullName: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+    if (!token || !repoFullName) {
+        return { success: false, error: 'Missing required parameters' };
+    }
+
+    try {
+        const response = await fetch(`https://api.github.com/repos/${repoFullName}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+
+        if (response.status === 204) {
+            return { success: true, message: `Repository ${repoFullName} deleted` };
+        }
+
+        if (response.status === 404) {
+            return { success: true, message: 'Repository not found (already deleted)' };
+        }
+
+        const error = await response.json().catch(() => ({}));
+        return { success: false, error: error.message || 'Failed to delete repository' };
+    } catch (error) {
+        return { success: false, error: String(error) };
+    }
+}
+
+/**
  * Create a new repository for a domain
  */
 export async function createGitHubRepo(
@@ -253,6 +324,25 @@ ${baseCSS}
                         content: localTheme.globals
                     });
                     console.log(`[GitHub] Created globals.css from local theme for ${domain}`);
+                }
+            } else if (!options.preserveStyles) {
+                // No local theme exists - use default theme CSS as fallback
+                const cssIndex = templateFiles.findIndex(f =>
+                    f.path === 'app/globals.css' || f.path === 'globals.css'
+                );
+
+                if (cssIndex !== -1) {
+                    const baseCSS = templateFiles[cssIndex].content;
+                    const defaultTheme = generateDefaultThemeCSS();
+
+                    templateFiles[cssIndex].content = `
+/* ==== DEFAULT THEME LAYER ==== */
+${defaultTheme}
+
+/* ==== BASE LAYER (template structure) ==== */
+${baseCSS}
+`;
+                    console.log(`[GitHub] Applied default theme for ${domain}`);
                 }
             }
         }

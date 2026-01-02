@@ -5,7 +5,8 @@
  */
 
 // Mock the stores/settingsStore
-const mockProviderKeys: Record<string, any[]> = {
+interface MockStoredKey { key: string; validated?: boolean; validatedAt?: number; label?: string }
+const mockProviderKeys: Record<string, MockStoredKey[]> = {
     gemini: [
         { key: 'gemini-key-1', validated: true, validatedAt: Date.now(), label: 'Main' },
         { key: 'gemini-key-2', validated: false, label: 'Backup' }

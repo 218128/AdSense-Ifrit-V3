@@ -6,7 +6,7 @@
   "template": {
     "id": "niche-authority",
     "version": "1.3.2",
-    "installedAt": 1766105373531
+    "installedAt": 1766863119394
   },
   "fingerprint": {
     "providers": [],
@@ -22,22 +22,32 @@
     "githubOwner": "218128",
     "vercelProject": "299riyal-store-blog",
     "liveUrl": "https://299riyal.store",
-    "lastDeployAt": 1766188849685,
-    "lastDeployCommit": "896ed8da7814fd3900f3b690fd64363303ae5077",
+    "lastDeployAt": 1766863130169,
+    "lastDeployCommit": "94b9f0877d228f67121f54d469330432c1837e19",
     "pendingChanges": 4
   },
   "stats": {
-    "articlesCount": 27,
-    "totalWords": 31264,
-    "lastPublishedAt": 1766674117871,
+    "articlesCount": 38,
+    "totalWords": 40033,
+    "lastPublishedAt": 1766865200031,
     "estimatedMonthlyRevenue": 0
   },
   "versions": [
     {
+      "version": "1.0.6",
+      "templateVersion": "1.3.2",
+      "deployedAt": 1766863130170,
+      "commitSha": "94b9f0877d228f67121f54d469330432c1837e19",
+      "changes": [
+        "Upgraded from v1.3.1 to v1.3.2"
+      ],
+      "canRollback": true
+    },
+    {
       "version": "1.0.5",
       "templateVersion": "1.3.2",
-      "deployedAt": 1766188849688,
-      "commitSha": "896ed8da7814fd3900f3b690fd64363303ae5077",
+      "deployedAt": 1766863031278,
+      "commitSha": "941d851e3da4a9ee682d9647f3ff2c6b5ec67f52",
       "changes": [
         "Upgraded from v1.3.1 to v1.3.2"
       ],
@@ -71,16 +81,6 @@
       "changes": [
         "Upgraded from v1.0.0 to v1.2.0"
       ],
-      "canRollback": true
-    },
-    {
-      "version": "1.0.1",
-      "templateVersion": "1.0.0",
-      "deployedAt": 1734217746000,
-      "commitSha": "7027b2350883e4efc11248be8ef4d8dde5ef92e7",
-      "changes": [
-        "Initial site creation"
-      ],
       "canRollback": false
     }
   ],
@@ -90,5 +90,5 @@
   },
   "status": "live",
   "createdAt": 1702504120000,
-  "updatedAt": 1766679191687
+  "updatedAt": 1766865996056
 }

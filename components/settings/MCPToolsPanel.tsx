@@ -64,6 +64,14 @@ const MCP_SERVERS: MCPServerConfig[] = [
         endpoint: 'GitHub API via MCP server',
     },
     {
+        id: 'hostinger',
+        name: 'Hostinger WordPress Hosting',
+        description: 'Create WordPress sites, manage hosting, domains, SSL, DNS',
+        requiresApiKey: true,
+        category: 'integration',
+        endpoint: 'Hostinger API (npx hostinger-api-mcp@latest)',
+    },
+    {
         id: 'filesystem',
         name: 'File System',
         description: 'Read and write local files',

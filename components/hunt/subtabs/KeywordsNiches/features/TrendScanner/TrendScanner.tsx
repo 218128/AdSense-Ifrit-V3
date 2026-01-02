@@ -43,6 +43,7 @@ import { formatTimeAgo, CPC_THRESHOLD_MEDIUM } from './utils';
 // Extracted components
 import { TrendCard } from './TrendCard';
 import { TipSection, SourceStatusBar, SelectionBar } from '../../shared/components';
+import { ActionStatusBar } from '@/lib/shared/components';
 
 export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
     // ============ ZUSTAND STORE ============
@@ -59,25 +60,49 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
         getSelectedCount,
         isTrendSelected,
         getSelectedTopics,
+        getSelectedTrendItems,
         scanTrends,
         visibleCount,
         showMore,
         showTips,
         toggleTips,
+        // Source filtering
+        activeSource,
+        setActiveSource,
+        getFilteredTrends,
+        // Load more
+        loadMoreTrends,
+        isLoadingMore,
+        // Research - now persisted
+        researchResults,
+        addResearchResult,
+        // Action status
+        actionStatus,
+        // Source settings (for reactive configuration)
+        sourceSettings,
+        setSourceSettings,
     } = useTrendStore();
 
     // ============ LOCAL STATE ============
     const [braveApiKey, setBraveApiKey] = useState<string | null>(null);
 
-    // Computed values
+    // Computed values - use filtered trends
+    const filteredTrends = getFilteredTrends();
     const hasScanned = trends.length > 0 || lastScanTime !== null;
     const selectedCount = getSelectedCount();
-    const visibleTrends = trends.slice(0, visibleCount);
-    const highCPCCount = trends.filter(t => (t.cpcScore || 0) >= CPC_THRESHOLD_MEDIUM).length;
+    const visibleTrends = filteredTrends.slice(0, visibleCount);
+    const highCPCCount = filteredTrends.filter(t => (t.cpcScore || 0) >= CPC_THRESHOLD_MEDIUM).length;
+    const showLoadMore = filteredTrends.length > visibleCount;
 
-    // V5: Research state
+    // V5: Research state - loading only, results from store
     const [researching, setResearching] = useState(false);
-    const [researchResults, setResearchResults] = useState<string[]>([]);
+
+    // Get research results for selected topics from store
+    const selectedTopics = getSelectedTopics();
+    const currentResearchResults = selectedTopics
+        .map(topic => researchResults[topic])
+        .filter(Boolean)
+        .flatMap(r => r?.findings || []);
 
     // ============ EFFECTS ============
 
@@ -117,41 +142,52 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
         }
     };
 
-    // V5: Research selected trends with Perplexity MCP
+    // V5: Research selected trends using Capabilities system
     const handleResearchTrends = async () => {
         if (selectedCount === 0) return;
 
         setResearching(true);
-        setResearchResults([]);
 
         try {
-            // Get Perplexity key from Zustand store
-            const mcpApiKeys = useSettingsStore.getState().mcpServers.apiKeys;
-            const providerKeys = useSettingsStore.getState().providerKeys;
-            const perplexityKey = mcpApiKeys?.perplexity || providerKeys?.perplexity?.[0]?.key;
+            // Use aiServices capability system (handles provider selection + API keys)
+            const { aiServices } = await import('@/lib/ai/services');
 
-            if (!perplexityKey) {
-                alert('Perplexity API key not configured. Go to Settings → MCP Tools or AI Providers.');
-                setResearching(false);
-                return;
-            }
+            const topics = getSelectedTopics();
+            const result = await aiServices.research(
+                `Research these trending topics for monetization potential and content opportunities: ${topics.join(', ')}`,
+                { researchType: 'deep' }
+            );
 
-            const selectedTopics = getSelectedTopics();
-            const response = await fetch('/api/research', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    query: `Research these trending topics for monetization potential and content opportunities: ${selectedTopics.join(', ')}`,
-                    type: 'deep',
-                    tool: 'perplexity',
-                    apiKey: perplexityKey
-                })
-            });
+            if (result.success) {
+                let findings: string[] = [];
 
-            const data = await response.json();
+                // Try to extract from structured data first
+                if (result.data && (result.data as { keyFindings?: string[] })?.keyFindings) {
+                    findings = (result.data as { keyFindings: string[] }).keyFindings;
+                }
+                // Fallback: Parse text response
+                else if (result.text) {
+                    // Split by newlines or bullet points to get individual findings
+                    findings = result.text
+                        .split(/[\n•\-\*]/)
+                        .map(s => s.trim())
+                        .filter(s => s.length > 10); // Filter out short fragments
 
-            if (data.success && data.keyFindings) {
-                setResearchResults(data.keyFindings);
+                    // If still nothing, use whole text
+                    if (findings.length === 0) {
+                        findings = [result.text];
+                    }
+                }
+
+                if (findings.length > 0) {
+                    // Save research results to store for each selected topic
+                    for (const topic of topics) {
+                        addResearchResult(topic, findings);
+                    }
+                    console.log('[TrendResearch] Saved findings:', findings.length);
+                }
+            } else if (result.error?.includes('No handlers')) {
+                alert('No research provider configured. Go to Settings → Capabilities to set up a handler.');
             }
         } catch (err) {
             console.error('Trend research failed:', err);
@@ -213,8 +249,95 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
                     </div>
                 </div>
 
-                {/* Source Status Pills */}
-                <SourceStatusBar sources={sources} />
+                {/* Source Status & Filter */}
+                <SourceStatusBar
+                    sources={sources}
+                    activeSource={activeSource}
+                    onSourceClick={(id) => {
+                        // If clicking active source, clear it (toggle off)
+                        // If clicking new source, set it
+                        setActiveSource(activeSource === id ? null : id);
+                    }}
+                />
+
+                {/* Source Configuration Panel - Dynamic based on selection */}
+                <div className="mt-4 pb-2 border-b border-neutral-100 bg-neutral-50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider flex items-center gap-2">
+                            <Target className="w-3 h-3" />
+                            {activeSource ? 'Source Configuration' : 'Global Scan Settings'}
+                        </label>
+                        {activeSource && (
+                            <span className="text-xs text-amber-600 font-medium">
+                                Configuring: {activeSource.replace('-trends', '').replace('news', ' News')}
+                            </span>
+                        )}
+                    </div>
+
+                    {!activeSource && (
+                        <p className="text-xs text-neutral-400 italic">
+                            Select a specific source above to customize its search parameters.
+                            Currently scanning all sources with default settings.
+                        </p>
+                    )}
+
+                    {/* Brave Search Config */}
+                    {activeSource === 'brave-search-trends' && (
+                        <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Search Query (e.g., 'latest AI agents', 'crypto analysis')"
+                                    className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    value={sourceSettings['brave-search-trends']?.query || ''}
+                                    onChange={(e) => setSourceSettings('brave-search-trends', { query: e.target.value })}
+                                />
+                                <select
+                                    className="px-3 py-1.5 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                                    value={sourceSettings['brave-search-trends']?.freshness || ''}
+                                    onChange={(e) => setSourceSettings('brave-search-trends', { freshness: e.target.value })}
+                                >
+                                    <option value="">Any Time</option>
+                                    <option value="pd">Past Day</option>
+                                    <option value="pw">Past Week</option>
+                                    <option value="pm">Past Month</option>
+                                </select>
+                            </div>
+                            <p className="text-[10px] text-neutral-400">
+                                Leave query empty to scan general technology trends.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Google News Config */}
+                    {activeSource === 'googlenews-trends' && (
+                        <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <input
+                                type="text"
+                                placeholder="Topic (e.g., 'Technology', 'Science', 'Local')"
+                                className="w-full px-3 py-1.5 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                value={sourceSettings['googlenews-trends']?.topic || ''}
+                                onChange={(e) => setSourceSettings('googlenews-trends', { topic: e.target.value })}
+                            />
+                            <p className="text-[10px] text-neutral-400">
+                                Leave empty to scan Top Stories (Headlines).
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Feed Sources (No Config) */}
+                    {(activeSource === 'hackernews-trends' || activeSource === 'producthunt-trends') && (
+                        <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                            <div className="flex items-center gap-2 text-sm text-neutral-600 bg-white border border-neutral-200 p-2 rounded-md">
+                                <Info className="w-4 h-4 text-blue-500" />
+                                <span>Scanning live global feed. No filtering applied to preserve trend integrity.</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Real-time Action Status */}
+                <ActionStatusBar status={actionStatus} className="mt-3" />
             </div>
 
             {/* Selection Actions Bar */}
@@ -245,23 +368,20 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
                 </div>
             )}
 
-            {/* V5: Research Results Panel */}
-            {researchResults.length > 0 && (
+            {/* V5: Research Results Panel - from store */}
+            {currentResearchResults.length > 0 && (
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
                     <div className="flex items-center justify-between mb-3">
                         <h4 className="font-semibold text-purple-900 flex items-center gap-2">
                             <FlaskConical className="w-4 h-4" />
-                            Research Insights ({researchResults.length})
+                            Research Insights ({currentResearchResults.length})
                         </h4>
-                        <button
-                            onClick={() => setResearchResults([])}
-                            className="text-xs text-purple-600 hover:underline"
-                        >
-                            Clear
-                        </button>
+                        <span className="text-xs text-purple-500">
+                            Saved to store
+                        </span>
                     </div>
                     <ul className="space-y-2">
-                        {researchResults.map((finding, i) => (
+                        {currentResearchResults.map((finding, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-purple-800">
                                 <span className="text-purple-400 mt-0.5">•</span>
                                 <span>{finding}</span>
@@ -296,18 +416,26 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
                         ))}
                     </div>
 
-                    {/* Load More */}
-                    {trends.length > visibleCount && (
-                        <div className="p-4 bg-neutral-50 border-t border-neutral-100 text-center">
-                            <button
-                                onClick={showMore}
-                                className="flex items-center gap-2 mx-auto px-4 py-2 text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100 rounded-lg transition-all"
-                            >
-                                <ChevronDown className="w-4 h-4" />
-                                Load More ({trends.length - visibleCount} remaining)
-                            </button>
-                        </div>
-                    )}
+                    {/* Load More - Fetches NEW data from sources */}
+                    <div className="p-4 bg-neutral-50 border-t border-neutral-100 text-center">
+                        <button
+                            onClick={() => loadMoreTrends(braveApiKey)}
+                            disabled={isLoadingMore}
+                            className="flex items-center gap-2 mx-auto px-4 py-2 bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 rounded-lg transition-all font-medium"
+                        >
+                            {isLoadingMore ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Fetching More...
+                                </>
+                            ) : (
+                                <>
+                                    <RefreshCw className="w-4 h-4" />
+                                    Load More Trends
+                                </>
+                            )}
+                        </button>
+                    </div>
 
                     {/* Show Less */}
                     {visibleCount > 10 && (

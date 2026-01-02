@@ -82,6 +82,7 @@ author:
             (fs.readFileSync as jest.Mock).mockReturnValue(yamlContent);
 
             // Already exists
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mock partial object
             mockDeps.getWebsite.mockReturnValue({ domain: 'existing.com' } as any);
 
             const result = migrateFromLegacy();

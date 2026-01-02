@@ -1,3 +1,4 @@
 // Dashboard components barrel file
 export { default as DashboardView } from './DashboardView';
-// Archived: CostDashboard, WorkflowVisualization (moved to _archive/)
+export { default as CostDashboard } from './CostDashboard';
+export { default as WorkflowVisualization, createWorkflowSteps, updateWorkflowStep } from './WorkflowVisualization';

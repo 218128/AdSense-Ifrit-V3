@@ -9,6 +9,7 @@ import { AuthorByline, Author } from '../shared/AuthorCard';
 import TrustBadges from '../shared/TrustBadges';
 import { AdZones } from '../shared/AdZone';
 import ArticleCard, { ArticlePreview } from '../shared/ArticleCard';
+import { sanitizeHtml } from '@/lib/security/sanitize';
 
 interface ArticlePageProps {
     title: string;
@@ -99,7 +100,7 @@ export default function ArticlePage({
                                prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:py-2 prose-blockquote:px-4
                                prose-ul:list-disc prose-ol:list-decimal
                                prose-li:text-gray-700"
-                    dangerouslySetInnerHTML={{ __html: content }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
                 />
 
                 {/* In-Article Ad */}

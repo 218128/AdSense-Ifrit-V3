@@ -65,6 +65,7 @@ describe('Settings Store', () => {
                 namecheapKey: '',
                 unsplashKey: '',
                 pexelsKey: '',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mock may have partial fields
             } as any,
             adsenseConfig: {
                 publisherId: '',

@@ -13,10 +13,11 @@
 import { useState, useMemo } from 'react';
 import {
     FileText, Eye, Code, Save, Send, X, Info,
-    Loader2, Check, AlertTriangle, ChevronDown, ExternalLink, Share2
+    Loader2, AlertTriangle, ExternalLink, Share2
 } from 'lucide-react';
 import DevToPublishModal from '../shared/DevToPublishModal';
 import SocialShareModal from '../shared/SocialShareModal';
+import { sanitizeHtml } from '@/lib/security/sanitize';
 
 interface ArticleEditorProps {
     domain: string;
@@ -299,7 +300,7 @@ export default function ArticleEditor({
                                 )}
                                 <div
                                     className="prose prose-neutral"
-                                    dangerouslySetInnerHTML={{ __html: previewHtml }}
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }}
                                 />
                             </div>
                         </div>

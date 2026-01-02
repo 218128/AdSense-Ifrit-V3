@@ -84,6 +84,7 @@ describe('ProviderRegistry', () => {
         });
 
         it('should return undefined for unknown provider', () => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Testing invalid input intentionally
             const state = registry.getState('unknown' as any);
 
             expect(state).toBeUndefined();

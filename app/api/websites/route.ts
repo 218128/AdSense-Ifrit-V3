@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
                 providers: aiProviders,
                 providerHistory: [],
                 contentStrategy,
-                eeatEnabled: false,
-                aiOverviewOptimized: false,
+                eeatEnabled,
+                aiOverviewOptimized,
                 generatedAt: Date.now(),
                 articleTemplatesUsed: []
             },

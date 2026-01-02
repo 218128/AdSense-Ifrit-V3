@@ -7,7 +7,7 @@
  * Generates SPF, DKIM, DMARC records for various providers.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     Mail,
     Shield,
@@ -38,15 +38,10 @@ export default function DNSManager() {
     const [domain, setDomain] = useState('');
     const [selectedProvider, setSelectedProvider] = useState('improvmx');
     const [config, setConfig] = useState<EmailDNSConfig | null>(null);
-    const [savedDomains, setSavedDomains] = useState<string[]>([]);
+    // Use lazy initializer to avoid setState in useEffect
+    const [savedDomains, setSavedDomains] = useState<string[]>(() => Object.keys(getSavedConfigs()));
     const [copiedRecord, setCopiedRecord] = useState<number | null>(null);
     const [showProviders, setShowProviders] = useState(false);
-
-    // Load saved domains on mount
-    useEffect(() => {
-        const configs = getSavedConfigs();
-        setSavedDomains(Object.keys(configs));
-    }, []);
 
     const handleGenerate = () => {
         if (!domain.trim()) return;
@@ -179,8 +174,8 @@ export default function DNSManager() {
                                                 <div>
                                                     <span className="font-medium">{provider.name}</span>
                                                     <span className={`ml-2 px-1.5 py-0.5 text-xs rounded ${provider.tier === 'free'
-                                                            ? 'bg-green-100 text-green-700'
-                                                            : 'bg-purple-100 text-purple-700'
+                                                        ? 'bg-green-100 text-green-700'
+                                                        : 'bg-purple-100 text-purple-700'
                                                         }`}>
                                                         {provider.tier}
                                                     </span>
@@ -270,10 +265,10 @@ export default function DNSManager() {
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <span className={`px-2 py-0.5 text-xs font-medium rounded ${record.purpose === 'spf' ? 'bg-green-100 text-green-700' :
-                                                        record.purpose === 'dkim' ? 'bg-blue-100 text-blue-700' :
-                                                            record.purpose === 'dmarc' ? 'bg-purple-100 text-purple-700' :
-                                                                record.purpose === 'mx' ? 'bg-orange-100 text-orange-700' :
-                                                                    'bg-gray-100 text-gray-700'
+                                                    record.purpose === 'dkim' ? 'bg-blue-100 text-blue-700' :
+                                                        record.purpose === 'dmarc' ? 'bg-purple-100 text-purple-700' :
+                                                            record.purpose === 'mx' ? 'bg-orange-100 text-orange-700' :
+                                                                'bg-gray-100 text-gray-700'
                                                     }`}>
                                                     {record.purpose.toUpperCase()}
                                                 </span>

@@ -193,3 +193,97 @@ export async function addVercelDomain(
         return { success: false, error: String(error) };
     }
 }
+
+/**
+ * Remove custom domain from Vercel project
+ */
+export async function removeVercelDomain(
+    token: string,
+    projectId: string,
+    domain: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+    if (!token || !projectId || !domain) {
+        return { success: false, error: 'Missing required parameters' };
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.vercel.com/v9/projects/${projectId}/domains/${domain}`,
+            {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+
+            // Domain not found is technically a success (already removed)
+            if (response.status === 404) {
+                return {
+                    success: true,
+                    message: 'Domain not found (may already be removed)'
+                };
+            }
+
+            return {
+                success: false,
+                error: error.error?.message || `Failed to remove domain (${response.status})`
+            };
+        }
+
+        return {
+            success: true,
+            message: `Domain ${domain} removed from Vercel project`
+        };
+
+    } catch (error) {
+        return { success: false, error: String(error) };
+    }
+}
+
+/**
+ * List domains on a Vercel project
+ */
+export async function listVercelDomains(
+    token: string,
+    projectId: string
+): Promise<{ success: boolean; domains?: Array<{ name: string; verified: boolean }>; error?: string }> {
+    if (!token || !projectId) {
+        return { success: false, error: 'Missing required parameters' };
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.vercel.com/v9/projects/${projectId}/domains`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            return {
+                success: false,
+                error: error.error?.message || 'Failed to list domains'
+            };
+        }
+
+        const data = await response.json();
+        const domains = data.domains?.map((d: { name: string; verified: boolean }) => ({
+            name: d.name,
+            verified: d.verified
+        })) || [];
+
+        return { success: true, domains };
+
+    } catch (error) {
+        return { success: false, error: String(error) };
+    }
+}

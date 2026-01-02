@@ -20,25 +20,23 @@ import {
     Target,
     BarChart3,
     ShoppingCart,
-    RefreshCw,
     ArrowRight
 } from 'lucide-react';
 
 // State management
 import { useHuntStore, AnalyzeCandidate } from '@/stores/huntStore';
+import { useKeywordStore, type EnrichedKeyword } from '@/stores/keywordStore';
+import type { KeywordItem } from '@/lib/keywords/types';
 
 // Subtab 1: Keywords/Niches
 import { TrendScanner, KeywordHunter } from './subtabs/KeywordsNiches';
 
 // Subtab 2: Domain Acquire (Find → Analyze → Purchase)
-import { ExpiredDomainFinder, DomainScorer, PurchaseQueue, QuickAnalyzer } from './subtabs/DomainAcquire';
+import { ExpiredDomainFinder, DomainScorer, PurchaseQueue } from './subtabs/DomainAcquire';
 
 // Subtab 3: Flip Pipeline
 import { FlipPipeline } from './subtabs/FlipPipeline';
 
-// Shared components
-import { CloudflareManager } from './subtabs/shared';
-import SaveResearchButton from './subtabs/shared/SaveResearchButton';
 
 type HuntSubTab = 'keywords' | 'domains' | 'flip';
 type DomainStep = 'find' | 'analyze' | 'purchase';
@@ -47,6 +45,7 @@ export default function HuntDashboard() {
     const [subTab, setSubTab] = useState<HuntSubTab>('keywords');
     const [domainStep, setDomainStep] = useState<DomainStep>('find');
     const [domainSearchKeywords, setDomainSearchKeywords] = useState<string[]>([]);
+    const [enrichedKeywords, setEnrichedKeywords] = useState<EnrichedKeyword[]>([]);
 
     // Use Zustand store instead of local state
     const {
@@ -57,14 +56,44 @@ export default function HuntDashboard() {
         removeFromAnalyze,
         removeFromPurchase,
         clearPurchaseQueue,
-        markAsPurchased
+        markAsPurchased,
+        markSiteCreated,
+        resetSiteCreated
     } = useHuntStore();
+
+    // Get research results from keyword store for passing to Domain Acquire
+    const researchResults = useKeywordStore(state => state.researchResults);
 
     // Handle navigation from KeywordHunter to Domain Acquire tab
     const handleNavigateToDomains = useCallback((keywords: string[]) => {
         setDomainSearchKeywords(keywords);
         setSubTab('domains');
         setDomainStep('find');
+    }, []);
+
+    // Handle receiving trends from Scanner (Handoff to Keyword Hunter)
+    const handleTrendHandoff = useCallback((keywords: string[]) => {
+        // 1. Convert to Keyword Items
+        const items: KeywordItem[] = keywords.map(k => ({
+            keyword: k,
+            source: 'trend_scan',
+            niche: 'Trending',
+        }));
+
+        // 2. Add to Keyword Store (as imported Batch)
+        useKeywordStore.getState().addCSVKeywords(items, `Trend Scan - ${new Date().toLocaleTimeString()}`);
+
+        // 3. Select them
+        useKeywordStore.getState().selectMultiple(keywords);
+
+        // 4. Trigger Analysis Immediately
+        useKeywordStore.getState().runAnalysis(items);
+
+        // 5. Scroll to Keyword Hunter
+        const element = document.getElementById('keyword-hunter-section');
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+        }
     }, []);
 
     // Handle sending domains to Analyze step (uses Zustand)
@@ -148,14 +177,9 @@ export default function HuntDashboard() {
         <div className="space-y-6">
             {/* Hunt Mode Header */}
             <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-6 text-white">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                        <Search className="w-8 h-8" />
-                        <h2 className="text-2xl font-bold">Hunt Mode</h2>
-                    </div>
-                    <SaveResearchButton
-                        keywords={domainSearchKeywords}
-                    />
+                <div className="flex items-center gap-3 mb-2">
+                    <Search className="w-8 h-8" />
+                    <h2 className="text-2xl font-bold">Hunt Mode</h2>
                 </div>
                 <p className="text-amber-100">
                     Power-user discovery. Find HIGH-CPC keywords, acquire valuable domains, track flips.
@@ -228,21 +252,33 @@ export default function HuntDashboard() {
                             {/* Trend Scanner Section */}
                             <div className="mb-6 pb-6 border-b border-neutral-200">
                                 <TrendScanner
-                                    onSelectKeywords={(keywords) => {
-                                        // When user selects trends and clicks "Analyze Selected"
-                                        // Navigate to Domain Acquire with these keywords
-                                        handleNavigateToDomains(keywords);
-                                    }}
+                                    onSelectKeywords={handleTrendHandoff}
                                 />
                             </div>
 
                             {/* Keyword Hunter */}
-                            <KeywordHunter
-                                onNavigateToDomains={handleNavigateToDomains}
-                                onSelect={(topic) => {
-                                    console.log('Selected keyword:', topic);
-                                }}
-                            />
+                            <div id="keyword-hunter-section">
+                                <KeywordHunter
+                                    onNavigateToDomains={handleNavigateToDomains}
+                                    onSelect={(enriched) => {
+                                        // Single keyword - full EnrichedKeyword data
+                                        console.log('[Hunt] Selected enriched keyword:', enriched);
+                                        setEnrichedKeywords([enriched]);
+                                        setDomainSearchKeywords([enriched.keyword]);
+                                        // Optionally auto-navigate to domains
+                                        setSubTab('domains');
+                                        setDomainStep('find');
+                                    }}
+                                    onSelectMultiple={(enrichedList) => {
+                                        // Multiple keywords - full EnrichedKeyword[] data
+                                        console.log('[Hunt] Selected multiple enriched keywords:', enrichedList);
+                                        setEnrichedKeywords(enrichedList);
+                                        setDomainSearchKeywords(enrichedList.map(e => e.keyword));
+                                        setSubTab('domains');
+                                        setDomainStep('find');
+                                    }}
+                                />
+                            </div>
                         </div>
                     </div>
                 )}
@@ -318,6 +354,14 @@ export default function HuntDashboard() {
                             {domainStep === 'find' && (
                                 <ExpiredDomainFinder
                                     initialKeywords={domainSearchKeywords}
+                                    keywordContext={enrichedKeywords.length > 0 ? {
+                                        keywords: enrichedKeywords.map(e => e.keyword),
+                                        research: Object.fromEntries(
+                                            enrichedKeywords
+                                                .filter(e => e.research?.findings?.length)
+                                                .map(e => [e.keyword, e.research!.findings])
+                                        )
+                                    } : undefined}
                                     onAnalyze={handleSendToAnalyze}
                                     onQuickQueue={handleQuickQueue}
                                 />
@@ -337,29 +381,14 @@ export default function HuntDashboard() {
                                     onRemove={removeFromPurchase}
                                     onClear={clearPurchaseQueue}
                                     onMarkPurchased={handleMarkAsPurchased}
+                                    onSiteCreated={markSiteCreated}
+                                    onResetSiteCreated={resetSiteCreated}
                                 />
                             )}
                         </div>
-
-                        {/* Renewal Helper Utility - Separate from main workflow */}
-                        <div className="mx-6 mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                    <RefreshCw className="w-5 h-5 text-amber-600" />
-                                    <span className="font-semibold text-amber-800">💰 Renewal Helper</span>
-                                    <span className="text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Utility Tool</span>
-                                </div>
-                                <span className="text-xs text-amber-500">Manage renewals at-cost via Cloudflare</span>
-                            </div>
-                            <CloudflareManager />
-                        </div>
-
-                        {/* Quick Domain Analyzer Utility */}
-                        <div className="mx-6 mb-6">
-                            <QuickAnalyzer />
-                        </div>
                     </div>
                 )}
+
 
                 {/* Flip Pipeline Tab */}
                 {subTab === 'flip' && (

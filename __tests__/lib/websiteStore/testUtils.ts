@@ -216,6 +216,7 @@ export function createMockFileSystem(): Record<string, string> {
  * Setup fs mock to use virtual file system
  */
 export function setupFsMock(virtualFs: Record<string, string>) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs');
 
     (fs.existsSync as jest.Mock).mockImplementation((path: string) => {

@@ -6,7 +6,7 @@
 
 // ============ KEYWORD ITEM ============
 
-export type KeywordSource = 'csv' | 'live' | 'evergreen' | 'ai';
+export type KeywordSource = 'csv' | 'live' | 'evergreen' | 'ai' | 'trend_scan';
 
 export interface KeywordItem {
     keyword: string;
@@ -15,6 +15,7 @@ export interface KeywordItem {
     context?: string;
     difficulty?: string;
     searchVolume?: string;
+    cpc?: string;  // Added for smart CSV parser (SEMrush, Ahrefs formats)
 }
 
 // ============ CPC ANALYSIS ============

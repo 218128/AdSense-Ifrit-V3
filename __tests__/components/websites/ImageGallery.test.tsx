@@ -18,7 +18,7 @@ describe('ImageGallery', () => {
         domain: 'test-domain.com'
     };
 
-    const createImagesResponse = (images: any[] = []) => ({
+    const createImagesResponse = (images: { id: string; url: string; filename: string; type: string; articleSlug: string; articleTitle?: string; alt: string; sizeBytes: number; createdAt: number }[] = []) => ({
         success: true,
         totalSizeMB: '0.12',
         images: images.length ? images : [

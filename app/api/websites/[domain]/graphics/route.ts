@@ -52,6 +52,11 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
 
 /**
  * POST - Regenerate graphics for a website
+ * Supports granular regeneration with action types:
+ * - 'regenerate' - Regenerate all graphics
+ * - 'regenerate-logo' - Regenerate only the logo
+ * - 'regenerate-og' - Regenerate only the OG image
+ * - 'regenerate-favicon' - Regenerate only the favicon
  */
 export async function POST(request: NextRequest, { params }: Params): Promise<NextResponse> {
     try {
@@ -63,10 +68,14 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
         }
 
         const body = await request.json();
-        const { action } = body;
+        const { action, customTagline } = body;
 
-        if (action !== 'regenerate') {
-            return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
+        const validActions = ['regenerate', 'regenerate-logo', 'regenerate-og', 'regenerate-favicon'];
+        if (!validActions.includes(action)) {
+            return NextResponse.json({
+                success: false,
+                error: `Invalid action. Must be one of: ${validActions.join(', ')}`
+            }, { status: 400 });
         }
 
         // Generate theme from website niche
@@ -74,37 +83,65 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
         const themeSeed = createThemeSeed(niche, `${domain}-${Date.now()}`);
         const theme = generateTheme(themeSeed);
 
-        // Generate graphics
-        const graphics = generateSiteGraphics(
-            website.name || domain.split('.')[0],
-            'Your trusted source for quality content',
-            theme
-        );
+        const siteName = website.name || domain.split('.')[0];
+        const tagline = customTagline || 'Your trusted source for quality content';
 
-        // Store graphics metadata
+        // Load existing graphics if doing partial regeneration
         const websiteDir = path.join(process.cwd(), 'websites', domain);
+        const graphicsPath = path.join(websiteDir, 'graphics.json');
+        let existingGraphics: Record<string, unknown> = {};
+
+        if (fs.existsSync(graphicsPath)) {
+            existingGraphics = JSON.parse(fs.readFileSync(graphicsPath, 'utf-8'));
+        }
+
+        // Create directory if needed
         if (!fs.existsSync(websiteDir)) {
             fs.mkdirSync(websiteDir, { recursive: true });
         }
 
-        const graphicsData = {
-            generatedAt: Date.now(),
-            themeColors: graphics.themeColors,
-            logo: graphics.logo.dataUrl,
-            favicon: graphics.favicon.ico48,
-            ogImage: graphics.ogImage.dataUrl,
-            seed: themeSeed.seed,
-            mood: themeSeed.mood
-        };
+        let graphicsData: Record<string, unknown>;
 
-        fs.writeFileSync(
-            path.join(websiteDir, 'graphics.json'),
-            JSON.stringify(graphicsData, null, 2)
-        );
+        if (action === 'regenerate') {
+            // Full regeneration
+            const graphics = generateSiteGraphics(siteName, tagline, theme);
+            graphicsData = {
+                generatedAt: Date.now(),
+                themeColors: graphics.themeColors,
+                logo: graphics.logo.dataUrl,
+                favicon: graphics.favicon.ico48,
+                ogImage: graphics.ogImage.dataUrl,
+                seed: themeSeed.seed,
+                mood: themeSeed.mood
+            };
+        } else {
+            // Partial regeneration - start with existing
+            graphicsData = { ...existingGraphics, generatedAt: Date.now() };
+
+            if (action === 'regenerate-logo') {
+                const logoSvg = generateTextLogo(siteName, theme.colors.primary, theme.colors.secondary);
+                graphicsData.logo = svgToDataUrl(logoSvg);
+            } else if (action === 'regenerate-og') {
+                const ogSvg = generateOgImage(siteName, tagline, theme.colors.primary, theme.colors.secondary);
+                graphicsData.ogImage = svgToDataUrl(ogSvg);
+            } else if (action === 'regenerate-favicon') {
+                const iconSvg = generateIconLogo(siteName, theme.colors.primary, theme.colors.secondary);
+                graphicsData.favicon = svgToDataUrl(iconSvg);
+            }
+        }
+
+        fs.writeFileSync(graphicsPath, JSON.stringify(graphicsData, null, 2));
+
+        const actionMap: Record<string, string> = {
+            'regenerate': 'All graphics regenerated',
+            'regenerate-logo': 'Logo regenerated',
+            'regenerate-og': 'OG image regenerated',
+            'regenerate-favicon': 'Favicon regenerated'
+        };
 
         return NextResponse.json({
             success: true,
-            message: 'Graphics regenerated successfully',
+            message: actionMap[action] || 'Graphics updated',
             graphics: graphicsData
         });
     } catch (error) {

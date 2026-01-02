@@ -102,9 +102,9 @@ export async function POST(
                 );
 
                 if (contentsRes.ok) {
-                    const contents = await contentsRes.json();
+                    const contents: Array<{ type: string; name: string }> = await contentsRes.json();
                     // Count directories that look like article slugs (not special Next.js folders)
-                    const articleDirs = contents.filter((item: any) =>
+                    const articleDirs = contents.filter((item) =>
                         item.type === 'directory' &&
                         !item.name.startsWith('_') &&
                         !item.name.startsWith('api') &&

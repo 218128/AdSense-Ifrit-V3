@@ -45,8 +45,12 @@ export interface IntegrationConfig {
     godaddySecret: string;       // GoDaddy API secret
     unsplashKey: string;
     pexelsKey: string;
-    umamiId: string;             // Umami analytics
+    umamiId: string;             // Umami Website ID (for embedding script)
+    umamiApiUrl: string;         // Umami API URL (e.g. https://analytics.example.com)
+    umamiApiKey: string;         // Umami API Token for fetching stats
     devtoKey: string;            // Dev.to publishing
+    youtubeApiKey: string;       // YouTube Data API v3 key
+    twitterBearerToken: string;  // Twitter/X API v2 Bearer Token
 }
 
 export interface MCPServerConfig {
@@ -203,7 +207,11 @@ const DEFAULT_INTEGRATIONS: IntegrationConfig = {
     unsplashKey: '',
     pexelsKey: '',
     umamiId: '',
+    umamiApiUrl: '',
+    umamiApiKey: '',
     devtoKey: '',
+    youtubeApiKey: '',
+    twitterBearerToken: '',
 };
 
 const DEFAULT_ADSENSE: AdsenseConfig = {
@@ -369,6 +377,8 @@ export const useSettingsStore = create<SettingsStore>()(
                 if (integrations.unsplashKey) settings['ifrit_unsplash_key'] = integrations.unsplashKey;
                 if (integrations.pexelsKey) settings['ifrit_pexels_key'] = integrations.pexelsKey;
                 if (integrations.umamiId) settings['UMAMI_WEBSITE_ID'] = integrations.umamiId;
+                if (integrations.umamiApiUrl) settings['ifrit_umami_api_url'] = integrations.umamiApiUrl;
+                if (integrations.umamiApiKey) settings['ifrit_umami_api_key'] = integrations.umamiApiKey;
                 if (integrations.devtoKey) settings['ifrit_devto_api_key'] = integrations.devtoKey;
 
                 // Export AdSense
@@ -447,7 +457,11 @@ export const useSettingsStore = create<SettingsStore>()(
                     unsplashKey: settings['ifrit_unsplash_key'] || '',
                     pexelsKey: settings['ifrit_pexels_key'] || '',
                     umamiId: settings['UMAMI_WEBSITE_ID'] || '',
+                    umamiApiUrl: settings['ifrit_umami_api_url'] || '',
+                    umamiApiKey: settings['ifrit_umami_api_key'] || '',
                     devtoKey: settings['ifrit_devto_api_key'] || settings['devto_api_key'] || '',
+                    youtubeApiKey: settings['ifrit_youtube_api_key'] || '',
+                    twitterBearerToken: settings['ifrit_twitter_bearer_token'] || '',
                 };
                 restored += Object.values(newIntegrations).filter(Boolean).length;
 
@@ -600,7 +614,11 @@ export const useSettingsStore = create<SettingsStore>()(
                     unsplashKey: localStorage.getItem('ifrit_unsplash_key') || '',
                     pexelsKey: localStorage.getItem('ifrit_pexels_key') || '',
                     umamiId: localStorage.getItem('UMAMI_WEBSITE_ID') || '',
+                    umamiApiUrl: localStorage.getItem('ifrit_umami_api_url') || '',
+                    umamiApiKey: localStorage.getItem('ifrit_umami_api_key') || '',
                     devtoKey: localStorage.getItem('ifrit_devto_api_key') || localStorage.getItem('devto_api_key') || '',
+                    youtubeApiKey: localStorage.getItem('ifrit_youtube_api_key') || '',
+                    twitterBearerToken: localStorage.getItem('ifrit_twitter_bearer_token') || '',
                 };
 
                 // Migrate AdSense

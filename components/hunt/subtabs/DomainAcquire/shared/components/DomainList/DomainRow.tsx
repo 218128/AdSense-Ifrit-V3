@@ -3,6 +3,7 @@
  * 
  * Single row in domain list table.
  * Pure presentational component.
+ * Note: Profile generation moved to DomainScorer (after safety check)
  */
 
 'use client';
@@ -16,10 +17,7 @@ import {
     Eye,
     ShoppingCart,
     Bookmark,
-    BookmarkCheck,
-    FileText,
-    Loader2,
-    FlaskConical
+    BookmarkCheck
 } from 'lucide-react';
 import type { DomainItem } from '@/lib/domains/types';
 
@@ -36,14 +34,6 @@ export interface DomainRowProps {
     isWatched: boolean;
     /** Toggle watchlist */
     onToggleWatchlist: () => void;
-    /** Generate profile callback */
-    onGenerateProfile: () => void;
-    /** Whether profile is being generated */
-    isGeneratingProfile: boolean;
-    /** Research niche callback (optional V5) */
-    onResearchNiche?: () => void;
-    /** Whether research is in progress */
-    isResearchingNiche?: boolean;
 }
 
 // ============ HELPERS ============
@@ -94,10 +84,6 @@ export function DomainRow({
     onSelect,
     isWatched,
     onToggleWatchlist,
-    onGenerateProfile,
-    isGeneratingProfile,
-    onResearchNiche,
-    isResearchingNiche,
 }: DomainRowProps) {
     return (
         <div
@@ -175,38 +161,6 @@ export function DomainRow({
                             {domain.score.overall}
                         </div>
                     )}
-
-                    {/* Research Niche (V5) */}
-                    {onResearchNiche && (
-                        <button
-                            onClick={onResearchNiche}
-                            disabled={isResearchingNiche}
-                            className="px-3 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg text-sm flex items-center gap-1 disabled:opacity-50"
-                            title="Research niche with Perplexity"
-                        >
-                            {isResearchingNiche ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <FlaskConical className="w-4 h-4" />
-                            )}
-                            Research
-                        </button>
-                    )}
-
-                    {/* Generate Profile */}
-                    <button
-                        onClick={onGenerateProfile}
-                        disabled={isGeneratingProfile}
-                        className="px-3 py-2 bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg text-sm flex items-center gap-1 disabled:opacity-50"
-                        title="Generate website profile"
-                    >
-                        {isGeneratingProfile ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <FileText className="w-4 h-4" />
-                        )}
-                        Profile
-                    </button>
 
                     {/* Watchlist */}
                     <button

@@ -177,7 +177,7 @@ describe('Dashboard', () => {
     describe('without API key', () => {
         it('should show error when no Gemini key is set', async () => {
             // Override getUserSettings to return no key
-            const SettingsModule = require('@/components/settings/SettingsView');
+            const SettingsModule = jest.requireMock('@/components/settings/SettingsView');
             SettingsModule.getUserSettings.mockReturnValueOnce({
                 geminiKey: null,
                 blogUrl: 'https://test-blog.com'

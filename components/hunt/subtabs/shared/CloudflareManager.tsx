@@ -7,7 +7,7 @@
  * Features: domain listing, renewal status, DNS management, transfer.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Cloud,
     RefreshCw,
@@ -50,16 +50,8 @@ export default function CloudflareManager() {
     const [error, setError] = useState<string | null>(null);
     const [showPricing, setShowPricing] = useState(false);
 
-    // Load saved config on mount
-    useEffect(() => {
-        const saved = getCloudflareConfig();
-        if (saved) {
-            setConfig(saved);
-            loadDomains(saved);
-        }
-    }, []);
-
-    const loadDomains = async (cfg: CloudflareConfig) => {
+    // Define loadDomains BEFORE useEffect that uses it (fixes hooks order violation)
+    const loadDomains = useCallback(async (cfg: CloudflareConfig) => {
         setLoading(true);
         setError(null);
 
@@ -72,7 +64,16 @@ export default function CloudflareManager() {
         }
 
         setLoading(false);
-    };
+    }, []);
+
+    // Load saved config on mount
+    useEffect(() => {
+        const saved = getCloudflareConfig();
+        if (saved) {
+            setConfig(saved);
+            loadDomains(saved);
+        }
+    }, [loadDomains]);
 
     const handleConnect = async () => {
         if (!tokenInput.trim()) return;
@@ -315,8 +316,8 @@ export default function CloudflareManager() {
                                             <button
                                                 onClick={() => handleToggleAutoRenew(domain)}
                                                 className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 ${domain.autoRenew
-                                                        ? 'bg-green-100 text-green-700'
-                                                        : 'bg-gray-100 text-gray-600'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-gray-100 text-gray-600'
                                                     }`}
                                             >
                                                 {domain.autoRenew ? (

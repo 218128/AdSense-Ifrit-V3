@@ -1,0 +1,30 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true
+    },
+    "include": [
+        "features/wordpress/**/*.ts",
+        "features/wordpress/**/*.tsx",
+        "features/campaigns/**/*.ts",
+        "features/campaigns/**/*.tsx",
+        "features/hosting/**/*.ts",
+        "features/hosting/**/*.tsx",
+        "app/api/campaigns/**/*.ts",
+        "components/hunt/CreateSiteButton.tsx",
+        "components/adsense/**/*.tsx",
+        "components/quality/**/*.tsx",
+        "stores/**/*.ts",
+        "lib/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "components/websites/**",
+        "**/_archive/**",
+        "**/_ARCHIVED_FOR_REVIEW/**",
+        "**/_deprecated/**",
+        "**/__tests__/**",
+        "**/*.test.ts",
+        "**/*.test.tsx"
+    ]
+}
