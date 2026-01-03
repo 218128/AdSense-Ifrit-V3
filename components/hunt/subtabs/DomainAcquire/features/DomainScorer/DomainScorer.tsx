@@ -7,6 +7,9 @@
  * Shows score breakdown, risks, and recommendations.
  * Now with educational transparency!
  * Profile generation added AFTER safety check passes.
+ * 
+ * Architecture: Uses domainAcquireStore for profile generation
+ * following keywords_capabilities_architecture.md pattern.
  */
 
 import { useState } from 'react';
@@ -36,7 +39,8 @@ import {
 } from 'lucide-react';
 import { DataSourceBanner } from '../../../shared';
 import { ScorerScoreCard as ScoreCard } from './ScorerScoreCard';
-import { generateProfile } from '@/lib/domains/api';
+import { useDomainAcquireStore } from '@/stores/domainAcquireStore';
+import { useStatusStreamContext } from '@/components/shared';
 
 interface DomainScore {
     overall: number;
@@ -120,6 +124,11 @@ interface DomainScorerProps {
     onDiscard?: (domain: string) => void;
     onGoToFind?: () => void;
     onGoToPurchase?: () => void;
+    /** Keyword context from Keyword Hunter - passed to Profile generation */
+    keywordContext?: {
+        keywords: string[];
+        research: Record<string, string[]>;
+    };
 }
 
 export default function DomainScorer({
@@ -127,7 +136,8 @@ export default function DomainScorer({
     onAddToQueue,
     onDiscard,
     onGoToFind,
-    onGoToPurchase
+    onGoToPurchase,
+    keywordContext,
 }: DomainScorerProps) {
     const [domain, setDomain] = useState(analyzeQueue[0]?.domain || '');
     const [niche, setNiche] = useState('');
@@ -136,51 +146,42 @@ export default function DomainScorer({
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
 
-    // Profile generation state
-    const [generatingProfile, setGeneratingProfile] = useState(false);
-    const [profileGenerated, setProfileGenerated] = useState(false);
+    // Profile generation via store (architecture pattern)
+    const {
+        profileGenerating,
+        generatedProfiles,
+        profileActionStatus,
+        generateProfile,
+        downloadProfile,
+    } = useDomainAcquireStore();
+
+    // Check if current domain has a generated profile
+    const hasProfile = result ? !!generatedProfiles[result.domain] : false;
+    const isGeneratingThisDomain = result ? profileGenerating === result.domain : false;
 
     // Generate profile after safety check passes
     const handleGenerateProfile = async () => {
         if (!result) return;
 
-        setGeneratingProfile(true);
-        try {
-            // Get API key from localStorage (snack method)
-            const apiKey = typeof window !== 'undefined'
-                ? localStorage.getItem('gemini_api_key') || undefined
-                : undefined;
+        // Feature is agnostic - capability system gets keys from Settings
+        // Pass sessionId for SSE streaming and domainScore for context
+        await generateProfile({
+            domain: result.domain,
+            sessionId: sessionId || undefined, // Convert null to undefined
+            keywordContext,
+            domainScore: result.score ? {
+                overall: result.score.overall,
+                recommendation: result.score.recommendation,
+                risks: result.score.risks || [],
+            } : undefined,
+        });
 
-            const profileResult = await generateProfile(
-                result.domain,
-                {
-                    trustFlow: result.trust?.score,
-                    domainAuthority: result.score?.authority,
-                },
-                apiKey  // Pass API key to server
-            );
-
-            if (profileResult.success && profileResult.profile) {
-                // Download as JSON
-                const dataStr = JSON.stringify(profileResult.profile, null, 2);
-                const blob = new Blob([dataStr], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${result.domain}_profile.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-
-                setProfileGenerated(true);
-            } else {
-                alert('Profile generation failed: ' + (profileResult.error || 'Unknown error'));
-            }
-        } catch (err) {
-            alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
-        } finally {
-            setGeneratingProfile(false);
-        }
+        // Auto-download after generation
+        downloadProfile(result.domain);
     };
+
+    // Get sessionId from status stream context for real-time updates
+    const { sessionId } = useStatusStreamContext();
 
     const analyzeDomain = async () => {
         if (!domain.trim()) return;
@@ -195,6 +196,7 @@ export default function DomainScorer({
                 body: JSON.stringify({
                     domain: domain.trim(),
                     targetNiche: niche || undefined,
+                    sessionId, // Pass sessionId for status streaming
                 }),
             });
 
@@ -599,26 +601,7 @@ export default function DomainScorer({
                         <div className="mt-6 pt-6 border-t border-gray-200">
                             <div className="flex items-center justify-between">
                                 <div className="flex gap-3">
-                                    {/* Generate Profile - only for safe domains */}
-                                    {result.score.recommendation !== 'avoid' && (
-                                        <button
-                                            onClick={handleGenerateProfile}
-                                            disabled={generatingProfile}
-                                            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${profileGenerated
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-purple-600 text-white hover:bg-purple-700'
-                                                } disabled:opacity-50`}
-                                        >
-                                            {generatingProfile ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : profileGenerated ? (
-                                                <CheckCircle className="w-4 h-4" />
-                                            ) : (
-                                                <FileText className="w-4 h-4" />
-                                            )}
-                                            {profileGenerated ? 'Profile Saved' : 'Generate Profile'}
-                                        </button>
-                                    )}
+                                    {/* Note: Profile is auto-generated when domain is marked as purchased in Step 3 */}
                                     {onAddToQueue && result.score.recommendation !== 'avoid' && (
                                         <button
                                             onClick={() => onAddToQueue({

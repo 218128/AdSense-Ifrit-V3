@@ -1,11 +1,21 @@
 'use client';
 
 /**
- * Unified Websites Dashboard
+ * @legacy - LEGACY Websites Dashboard
  * 
- * Single source of truth for all website management.
+ * ⚠️  DEPRECATION NOTICE:
+ * This component is for the Legacy GitHub/Vercel website system.
+ * For WordPress/Hostinger sites, use:
+ *   - `features/wordpress/ui/WPSitesDashboard.tsx`
+ *   - `features/wordpress/model/wpSiteStore.ts`
+ * 
+ * This component is maintained for backward compatibility with existing Legacy sites.
+ * New development should use WP Sites.
+ * 
+ * Single source of truth for all LEGACY website management.
  * Uses unified API for storage and integrates WebsiteDetail for per-site management.
  */
+
 
 import { useState, useEffect, useCallback } from 'react';
 import {

@@ -1170,86 +1170,8 @@ class AIServicesClass {
         });
     }
 
-    // ============================================
-    // SERVER-SIDE EXECUTION (with passed keys)
-    // ============================================
-
-    /**
-     * Execute a capability on the server with explicitly provided API keys.
-     * Use this in API routes where localStorage is not available.
-     * 
-     * @param options - Execution options including capability, prompt, etc.
-     * @param providerKeys - Map of providerId → apiKey[]
-     * @returns ExecuteResult with text/data or error
-     */
-    async executeWithKeys(
-        options: ExecuteOptions,
-        providerKeys: Record<string, string[]>
-    ): Promise<ExecuteResult> {
-        const startTime = Date.now();
-        const { capability, prompt } = options;
-
-        // Validate capability exists
-        const cap = this.capabilities.get(capability);
-        if (!cap || !cap.isEnabled) {
-            return {
-                success: false,
-                error: `Capability '${capability}' not found or disabled`,
-                handlerUsed: 'none',
-                source: 'local',
-                latencyMs: Date.now() - startTime,
-            };
-        }
-
-        // Import providers dynamically (safe for server-side)
-        const { PROVIDER_ADAPTERS } = await import('@/lib/ai/providers');
-
-        // Provider priority order
-        const providerOrder = ['gemini', 'deepseek', 'openrouter', 'perplexity'];
-
-        for (const providerId of providerOrder) {
-            const keys = providerKeys[providerId];
-            if (!keys?.length) continue;
-
-            const adapter = PROVIDER_ADAPTERS[providerId as keyof typeof PROVIDER_ADAPTERS];
-            if (!adapter) continue;
-
-            // Try each key
-            for (const apiKey of keys) {
-                try {
-                    const result = await adapter.chat(apiKey, {
-                        prompt,
-                        model: options.model,
-                        maxTokens: options.maxTokens,
-                        temperature: options.temperature,
-                        systemPrompt: options.systemPrompt,
-                    });
-
-                    if (result.success && result.content) {
-                        return {
-                            success: true,
-                            text: result.content,
-                            handlerUsed: providerId,
-                            source: 'ai-provider',
-                            latencyMs: Date.now() - startTime,
-                            model: result.model,
-                        };
-                    }
-                } catch (error) {
-                    console.log(`[AIServices.executeWithKeys] ${providerId} failed:`, error);
-                    continue;
-                }
-            }
-        }
-
-        return {
-            success: false,
-            error: 'All providers failed or no valid keys provided',
-            handlerUsed: 'none',
-            source: 'local',
-            latencyMs: Date.now() - startTime,
-        };
-    }
+    // NOTE: executeWithKeys method was removed - use CapabilityExecutor with context.apiKey instead
+    // See capability_system_guidelines.md for the standard pattern
 
     // ============================================
     // CONFIG ACCESS

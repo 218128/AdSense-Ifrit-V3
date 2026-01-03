@@ -157,7 +157,11 @@ export class CapabilityExecutor {
         capabilitiesConfig: CapabilitiesConfig
     ): Promise<ExecuteResult & { diagnostics?: ProviderDiagnostics }> {
         const startTime = Date.now();
-        const { capability, maxRetries = this.config.defaultMaxRetries } = options;
+        const {
+            capability,
+            maxRetries = this.config.defaultMaxRetries,
+            useFallback = true  // Default to true to enable handler fallback
+        } = options;
 
         this.log('basic', `[CapabilityExecutor] Starting ${capability}`);
 
@@ -255,7 +259,7 @@ export class CapabilityExecutor {
             }
 
             // All retries failed for this handler, try next
-            if (!options.useFallback) {
+            if (!useFallback) {
                 break;
             }
         }

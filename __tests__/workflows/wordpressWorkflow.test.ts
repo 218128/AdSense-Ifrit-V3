@@ -1,107 +1,147 @@
 /**
  * Workflow Tests - WordPress Site Management Flow
- * Phase 6: Enterprise Consolidation
- * 
- * Tests the WordPress site management workflow using actual store API
+ * Updated to use new wpSiteStore
  */
 
-import { useWordPressStore } from '@/features/wordpress/model/wordpressStore';
+import { useWPSitesStore, useWPSitesLegacy } from '@/features/wordpress/model/wpSiteStore';
+import { renderHook, act } from '@testing-library/react';
 
 // Reset store before each test
 beforeEach(() => {
-    useWordPressStore.setState({
-        sites: [],
+    useWPSitesStore.setState({
+        sites: {},
+        articles: {},
         activeSiteId: null,
+        activeArticleId: null,
+        isLoading: false,
+        isSyncing: null,
+        lastError: null,
     });
 });
 
 describe('WordPress Site Management Workflow', () => {
-    describe('Site CRUD', () => {
-        it('should add a WordPress site', () => {
-            const { addSite } = useWordPressStore.getState();
+    describe('Site CRUD via Legacy API', () => {
+        it('should add a WordPress site using legacy hook', () => {
+            const { result } = renderHook(() => useWPSitesLegacy());
 
-            const site = addSite({
-                name: 'Test Blog',
-                url: 'https://testblog.com',
-                restUrl: 'https://testblog.com/wp-json',
-                username: 'admin',
-                applicationPassword: 'xxxx-xxxx-xxxx',
+            let site: ReturnType<typeof result.current.addSite>;
+            act(() => {
+                site = result.current.addSite({
+                    name: 'Test Blog',
+                    url: 'https://testblog.com',
+                    username: 'admin',
+                    appPassword: 'xxxx-xxxx-xxxx',
+                });
             });
 
-            expect(site.id).toBeDefined();
-            expect(site.status).toBe('pending');
-
-            const { sites } = useWordPressStore.getState();
-            expect(sites).toHaveLength(1);
-            expect(sites[0].name).toBe('Test Blog');
+            expect(site!.id).toBeDefined();
+            expect(site!.status).toBe('pending');
+            expect(result.current.sites).toHaveLength(1);
+            expect(result.current.sites[0].name).toBe('Test Blog');
         });
 
         it('should update site', () => {
-            const { addSite, updateSite } = useWordPressStore.getState();
+            const { result } = renderHook(() => useWPSitesLegacy());
 
-            const site = addSite({
-                name: 'Original',
-                url: 'https://original.com',
-                restUrl: 'https://original.com/wp-json',
-                username: 'admin',
-                applicationPassword: 'xxxx',
+            let site: ReturnType<typeof result.current.addSite>;
+            act(() => {
+                site = result.current.addSite({
+                    name: 'Original',
+                    url: 'https://original.com',
+                    username: 'admin',
+                    appPassword: 'xxxx',
+                });
             });
 
-            updateSite(site.id, { name: 'Updated' });
+            act(() => {
+                result.current.updateSite(site!.id, { name: 'Updated' });
+            });
 
-            const updated = useWordPressStore.getState().getSite(site.id);
+            const updated = result.current.getSite(site!.id);
             expect(updated?.name).toBe('Updated');
         });
 
         it('should remove site', () => {
-            const { addSite, removeSite } = useWordPressStore.getState();
+            const { result } = renderHook(() => useWPSitesLegacy());
 
-            const site = addSite({
-                name: 'Remove Me',
-                url: 'https://remove.com',
-                restUrl: 'https://remove.com/wp-json',
-                username: 'admin',
-                applicationPassword: 'xxxx',
+            let site: ReturnType<typeof result.current.addSite>;
+            act(() => {
+                site = result.current.addSite({
+                    name: 'Remove Me',
+                    url: 'https://remove.com',
+                    username: 'admin',
+                    appPassword: 'xxxx',
+                });
             });
 
-            removeSite(site.id);
+            act(() => {
+                result.current.removeSite(site!.id);
+            });
 
-            expect(useWordPressStore.getState().sites).toHaveLength(0);
+            expect(result.current.sites).toHaveLength(0);
+        });
+    });
+
+    describe('Site CRUD via New Store', () => {
+        it('should add site using new store directly', () => {
+            const store = useWPSitesStore.getState();
+
+            const site = store.addSite({
+                name: 'New Store Test',
+                url: 'https://newstore.com',
+                username: 'admin',
+                appPassword: 'xxxx',
+                status: 'pending',
+            });
+
+            expect(site.id).toMatch(/^wpsite_/);
+            expect(site.name).toBe('New Store Test');
+
+            const sites = useWPSitesStore.getState().getAllSites();
+            expect(sites).toHaveLength(1);
         });
     });
 
     describe('Site Status', () => {
         it('should update site status to connected', () => {
-            const { addSite, updateSiteStatus } = useWordPressStore.getState();
+            const { result } = renderHook(() => useWPSitesLegacy());
 
-            const site = addSite({
-                name: 'Status Test',
-                url: 'https://statustest.com',
-                restUrl: 'https://statustest.com/wp-json',
-                username: 'admin',
-                applicationPassword: 'xxxx',
+            let site: ReturnType<typeof result.current.addSite>;
+            act(() => {
+                site = result.current.addSite({
+                    name: 'Status Test',
+                    url: 'https://statustest.com',
+                    username: 'admin',
+                    appPassword: 'xxxx',
+                });
             });
 
-            updateSiteStatus(site.id, 'connected');
+            act(() => {
+                result.current.updateSiteStatus(site!.id, 'connected');
+            });
 
-            const updated = useWordPressStore.getState().getSite(site.id);
+            const updated = result.current.getSite(site!.id);
             expect(updated?.status).toBe('connected');
         });
 
         it('should update site status with error', () => {
-            const { addSite, updateSiteStatus } = useWordPressStore.getState();
+            const { result } = renderHook(() => useWPSitesLegacy());
 
-            const site = addSite({
-                name: 'Error Test',
-                url: 'https://errortest.com',
-                restUrl: 'https://errortest.com/wp-json',
-                username: 'admin',
-                applicationPassword: 'xxxx',
+            let site: ReturnType<typeof result.current.addSite>;
+            act(() => {
+                site = result.current.addSite({
+                    name: 'Error Test',
+                    url: 'https://errortest.com',
+                    username: 'admin',
+                    appPassword: 'xxxx',
+                });
             });
 
-            updateSiteStatus(site.id, 'error', 'Connection failed');
+            act(() => {
+                result.current.updateSiteStatus(site!.id, 'error', 'Connection failed');
+            });
 
-            const updated = useWordPressStore.getState().getSite(site.id);
+            const updated = result.current.getSite(site!.id);
             expect(updated?.status).toBe('error');
             expect(updated?.lastError).toBe('Connection failed');
         });
@@ -109,58 +149,70 @@ describe('WordPress Site Management Workflow', () => {
 
     describe('Active Site', () => {
         it('should set and get active site', () => {
-            const { addSite, setActiveSite, getActiveSite } = useWordPressStore.getState();
+            const { result } = renderHook(() => useWPSitesLegacy());
 
-            const site = addSite({
-                name: 'Active Test',
-                url: 'https://active.com',
-                restUrl: 'https://active.com/wp-json',
-                username: 'admin',
-                applicationPassword: 'xxxx',
+            let site: ReturnType<typeof result.current.addSite>;
+            act(() => {
+                site = result.current.addSite({
+                    name: 'Active Test',
+                    url: 'https://active.com',
+                    username: 'admin',
+                    appPassword: 'xxxx',
+                });
             });
 
-            setActiveSite(site.id);
+            act(() => {
+                result.current.setActiveSite(site!.id);
+            });
 
-            expect(useWordPressStore.getState().activeSiteId).toBe(site.id);
-            expect(useWordPressStore.getState().getActiveSite()?.id).toBe(site.id);
+            expect(result.current.activeSiteId).toBe(site!.id);
+            expect(result.current.getActiveSite()?.id).toBe(site!.id);
         });
 
         it('should clear active site when removed', () => {
-            const { addSite, setActiveSite, removeSite } = useWordPressStore.getState();
+            const { result } = renderHook(() => useWPSitesLegacy());
 
-            const site = addSite({
-                name: 'Clear Test',
-                url: 'https://clear.com',
-                restUrl: 'https://clear.com/wp-json',
-                username: 'admin',
-                applicationPassword: 'xxxx',
+            let site: ReturnType<typeof result.current.addSite>;
+            act(() => {
+                site = result.current.addSite({
+                    name: 'Clear Test',
+                    url: 'https://clear.com',
+                    username: 'admin',
+                    appPassword: 'xxxx',
+                });
+                result.current.setActiveSite(site.id);
             });
 
-            setActiveSite(site.id);
-            removeSite(site.id);
+            act(() => {
+                result.current.removeSite(site!.id);
+            });
 
-            expect(useWordPressStore.getState().activeSiteId).toBeNull();
+            expect(result.current.activeSiteId).toBeNull();
         });
     });
 
     describe('Site Metadata', () => {
         it('should update site metadata', () => {
-            const { addSite, updateSiteMetadata } = useWordPressStore.getState();
+            const { result } = renderHook(() => useWPSitesLegacy());
 
-            const site = addSite({
-                name: 'Metadata Test',
-                url: 'https://metadata.com',
-                restUrl: 'https://metadata.com/wp-json',
-                username: 'admin',
-                applicationPassword: 'xxxx',
+            let site: ReturnType<typeof result.current.addSite>;
+            act(() => {
+                site = result.current.addSite({
+                    name: 'Metadata Test',
+                    url: 'https://metadata.com',
+                    username: 'admin',
+                    appPassword: 'xxxx',
+                });
             });
 
-            updateSiteMetadata(site.id, {
-                categories: [{ id: 1, name: 'Technology', slug: 'technology' }],
-                tags: [{ id: 1, name: 'News', slug: 'news' }],
+            act(() => {
+                result.current.updateSiteMetadata(site!.id, {
+                    categories: [{ id: 1, name: 'Technology', slug: 'technology' }],
+                    tags: [{ id: 1, name: 'News', slug: 'news' }],
+                });
             });
 
-            const updated = useWordPressStore.getState().getSite(site.id);
+            const updated = result.current.getSite(site!.id);
             expect(updated?.categories).toHaveLength(1);
             expect(updated?.categories?.[0].name).toBe('Technology');
         });

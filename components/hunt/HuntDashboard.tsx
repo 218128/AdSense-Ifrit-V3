@@ -51,14 +51,15 @@ export default function HuntDashboard() {
     const {
         analyzeQueue,
         purchaseQueue,
+        ownedDomains,
         addToAnalyze,
         addToPurchase,
         removeFromAnalyze,
         removeFromPurchase,
         clearPurchaseQueue,
-        markAsPurchased,
-        markSiteCreated,
-        resetSiteCreated
+        purchaseAndGenerateProfile,
+        retryGenerateProfile,
+        markOwnedSiteCreated,
     } = useHuntStore();
 
     // Get research results from keyword store for passing to Domain Acquire
@@ -113,39 +114,15 @@ export default function HuntDashboard() {
         setDomainStep('purchase');
     }, [addToPurchase]);
 
-    // Handle marking domain as purchased - triggers profile generation
+    // Handle marking domain as purchased - triggers profile generation and moves to owned list
     const handleMarkAsPurchased = useCallback(async (domainName: string) => {
-        // Find domain data from queue for profile generation
-        const domainData = purchaseQueue.find(d => d.domain === domainName);
-
-        if (domainData) {
-            try {
-                // Trigger profile generation API
-                const response = await fetch('/api/domain-profiles/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        domain: domainName,
-                        spamzillaData: {
-                            domainAuthority: domainData.score,
-                        },
-                        saveProfile: true,
-                    }),
-                });
-
-                if (response.ok) {
-                    console.log(`[Hunt] Profile generated for ${domainName}`);
-                } else {
-                    console.error(`[Hunt] Failed to generate profile for ${domainName}`);
-                }
-            } catch (error) {
-                console.error(`[Hunt] Error generating profile:`, error);
-            }
-        }
-
-        // Always mark as purchased (removes from queue)
-        markAsPurchased(domainName);
-    }, [purchaseQueue, markAsPurchased]);
+        // Use the new purchaseAndGenerateProfile action which:
+        // 1. Removes from purchase queue
+        // 2. Adds to owned domains with status='generating'
+        // 3. Calls profile generation API
+        // 4. Updates status to 'success' or 'failed'
+        await purchaseAndGenerateProfile(domainName);
+    }, [purchaseAndGenerateProfile]);
 
     // Step badges showing queue counts
     const getStepBadge = (step: DomainStep) => {
@@ -373,16 +350,25 @@ export default function HuntDashboard() {
                                     onDiscard={(domain) => removeFromAnalyze(domain)}
                                     onGoToFind={() => setDomainStep('find')}
                                     onGoToPurchase={() => setDomainStep('purchase')}
+                                    keywordContext={enrichedKeywords.length > 0 ? {
+                                        keywords: enrichedKeywords.map(e => e.keyword),
+                                        research: Object.fromEntries(
+                                            enrichedKeywords
+                                                .filter(e => e.research?.findings?.length)
+                                                .map(e => [e.keyword, e.research!.findings])
+                                        )
+                                    } : undefined}
                                 />
                             )}
                             {domainStep === 'purchase' && (
                                 <PurchaseQueue
                                     queue={purchaseQueue}
+                                    ownedDomains={ownedDomains}
                                     onRemove={removeFromPurchase}
                                     onClear={clearPurchaseQueue}
                                     onMarkPurchased={handleMarkAsPurchased}
-                                    onSiteCreated={markSiteCreated}
-                                    onResetSiteCreated={resetSiteCreated}
+                                    onRetryProfile={retryGenerateProfile}
+                                    onSiteCreated={markOwnedSiteCreated}
                                 />
                             )}
                         </div>

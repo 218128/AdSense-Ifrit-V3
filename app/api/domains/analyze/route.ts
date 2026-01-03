@@ -8,6 +8,9 @@
  * 1. If Spamzilla data provided → use its Wayback flags (fast)
  * 2. Else → call DIY Wayback check (slower)
  * 3. Always → DNS blacklist check
+ * 
+ * STATUS STREAMING:
+ * If sessionId is provided, emits real-time status events via SSE
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -19,6 +22,7 @@ import {
 } from '@/lib/domains/domainScorer';
 import { checkDomainHistory, estimateAgeFromWayback } from '@/lib/domains/waybacker';
 import { checkDomainSpam, domainLooksTrustworthy } from '@/lib/domains/spamChecker';
+import { statusEmitter } from '@/app/api/status/stream/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +31,7 @@ interface AnalyzeRequest {
     targetNiche?: string;
     skipWayback?: boolean;
     quickMode?: boolean;  // Skip Wayback for faster results
+    sessionId?: string;   // For status streaming
     // Spamzilla data (if already enriched)
     spamzillaData?: {
         wasAdult?: boolean;
@@ -45,10 +50,19 @@ interface BlacklistResult {
 }
 
 export async function POST(request: NextRequest) {
+    // Generate action ID for this analysis
+    const actionId = `analyze_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
     try {
         const body: AnalyzeRequest = await request.json();
 
+        // Create status tracker if sessionId provided
+        const tracker = body.sessionId
+            ? statusEmitter.createTracker(body.sessionId, actionId, `Analyze: ${body.domain}`, 'domain')
+            : null;
+
         if (!body.domain) {
+            tracker?.fail('Domain is required');
             return NextResponse.json({
                 success: false,
                 error: 'Domain is required'
@@ -65,11 +79,14 @@ export async function POST(request: NextRequest) {
 
         // Validate domain format
         if (!isValidDomain(domain)) {
+            tracker?.fail('Invalid domain format');
             return NextResponse.json({
                 success: false,
                 error: 'Invalid domain format'
             }, { status: 400 });
         }
+
+        tracker?.step('Domain Validation', 'success', `Valid format, TLD: .${domain.split('.').pop()}`);
 
         // Parse domain
         const { tld, length } = parseDomain(domain);
@@ -82,11 +99,35 @@ export async function POST(request: NextRequest) {
         };
 
         // Run analyses in parallel - spam, trust, and blacklist
+        // (running status removed - only report final results)
+
         const [spamResult, trustResult, blacklistResult] = await Promise.all([
             checkDomainSpam(domain),
             Promise.resolve(domainLooksTrustworthy(domain)),
             checkBlacklist(domain),
         ]);
+
+        // Emit spam check result
+        if (spamResult.isSpammy) {
+            tracker?.step('Spam Check', 'fail', spamResult.issues?.map(i => i.description).join(', ') || 'Spam detected');
+        } else {
+            tracker?.step('Spam Check', 'success', 'No spam indicators found');
+        }
+
+        // Emit trust check result
+        if (trustResult.trustworthy) {
+            tracker?.step('Trust Check', 'success', trustResult.positives?.slice(0, 2).join(', ') || 'Good trust signals');
+        } else {
+            tracker?.step('Trust Check', 'warning', trustResult.negatives?.slice(0, 2).join(', ') || 'Low trust score');
+        }
+
+        // Emit blacklist check result
+        if (blacklistResult?.listed) {
+            const zones = blacklistResult.details?.filter(d => d.listed).map(d => d.name).join(', ') || 'DNS blacklist';
+            tracker?.step('Blacklist Check', 'fail', `Listed in: ${zones}`);
+        } else {
+            tracker?.step('Blacklist Check', 'success', 'Not listed in any DNS blacklist');
+        }
 
         // Wayback check - USE SPAMZILLA DATA IF AVAILABLE
         let waybackData: WaybackData | null = null;
@@ -104,26 +145,73 @@ export async function POST(request: NextRequest) {
             };
             metrics.domainAge = body.spamzillaData.domainAge;
             waybackSource = 'spamzilla';
+
+            // Emit wayback status from Spamzilla
+            const issues = [];
+            if (waybackData.wasAdult) issues.push('Was adult');
+            if (waybackData.wasCasino) issues.push('Was casino');
+            if (waybackData.wasPBN) issues.push('Was PBN');
+            if (waybackData.hadSpam) issues.push('Had spam');
+
+            if (issues.length > 0) {
+                tracker?.step('History Check (Spamzilla)', 'fail', issues.join(', '));
+            } else {
+                tracker?.step('History Check (Spamzilla)', 'success', `Clean history, age: ${body.spamzillaData.domainAge || 'unknown'} years`);
+            }
         } else if (!body.quickMode && !body.skipWayback) {
             // Fallback to DIY Wayback check (SLOWER)
+            // (running status removed - only report final results)
             try {
                 waybackData = await checkDomainHistory(domain);
                 if (waybackData?.firstCaptureDate) {
                     metrics.domainAge = estimateAgeFromWayback(waybackData);
                 }
                 waybackSource = 'archive.org';
+
+                // Emit wayback result
+                const issues = [];
+                if (waybackData?.wasAdult) issues.push('Was adult');
+                if (waybackData?.wasCasino) issues.push('Was casino');
+                if (waybackData?.wasPBN) issues.push('Was PBN');
+                if (waybackData?.hadSpam) issues.push('Had spam');
+
+                if (issues.length > 0) {
+                    tracker?.step('History Check', 'fail', issues.join(', '));
+                } else if (waybackData?.hasHistory) {
+                    tracker?.step('History Check', 'success', `Clean since ${waybackData.firstCaptureDate || 'unknown'}`);
+                } else {
+                    tracker?.step('History Check', 'warning', 'No Wayback history found');
+                }
             } catch (error) {
                 console.error('Wayback check failed:', error);
+                tracker?.step('History Check', 'warning', 'Wayback API unavailable');
                 // Continue without wayback data
             }
+        } else {
+            tracker?.step('History Check', 'skipped', body.quickMode ? 'Quick mode' : 'Skipped');
         }
 
         // Calculate score
+        // (running status removed - only report final results)
         const score = scoreDomain(
             metrics,
             body.targetNiche,
             waybackData || undefined
         );
+
+        // Emit score result
+        const rec = score.recommendation;
+        const emoji = rec === 'strong-buy' ? '🟢' : rec === 'buy' ? '🔵' : rec === 'consider' ? '🟡' : rec === 'avoid' ? '🔴' : '⚫';
+        tracker?.step(`Score: ${score.overall}/100`, 'success', `${emoji} ${rec.replace('-', ' ').toUpperCase()}`);
+
+        // Emit risks if any
+        if (score.risks && score.risks.length > 0) {
+            const riskDescriptions = score.risks.slice(0, 3).map(r => r.description);
+            tracker?.step('Risk Factors', 'warning', riskDescriptions.join(', '));
+        }
+
+        // Complete action
+        tracker?.complete(`${emoji} ${rec.replace('-', ' ').toUpperCase()} - Score: ${score.overall}/100`);
 
         return NextResponse.json({
             success: true,

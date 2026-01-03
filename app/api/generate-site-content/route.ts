@@ -120,16 +120,29 @@ export async function POST(request: NextRequest) {
         // Generate the appropriate prompt
         const prompt = generateContentPrompt(contentRequest);
 
-        // Use AIServices.executeWithKeys for server-side execution
-        const result = await aiServices.executeWithKeys(
+        // Extract first available key (for standard capability pattern)
+        const apiKey = keysMap.gemini?.[0] || keysMap.deepseek?.[0] ||
+            keysMap.perplexity?.[0] || keysMap.openrouter?.[0];
+
+        // Use standard CapabilityExecutor pattern
+        const { getCapabilityExecutor } = await import('@/lib/ai/services/CapabilityExecutor');
+        await aiServices.initialize();
+
+        const executor = getCapabilityExecutor();
+        const handlers = aiServices.getHandlers();
+        const config = aiServices.getConfig();
+
+        const result = await executor.execute(
             {
                 capability: 'generate',
                 prompt,
                 maxTokens: getMaxTokens(contentType),
                 temperature: 0.7,
                 preferredHandler: preferredProvider,
+                context: { apiKey },  // Pass apiKey in context (standard pattern)
             },
-            keysMap
+            handlers,
+            config
         );
 
         if (!result.success) {

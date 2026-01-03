@@ -92,30 +92,46 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
             }
         }
 
-        // Try AIServices.executeWithKeys (uses Capabilities system)
+        // Try CapabilityExecutor pattern (standard capability system)
         if (useAIServices) {
-            console.log('[AI-Config] Trying AIServices.executeWithKeys...');
-            const aiServicesResult = await aiServices.executeWithKeys(
-                {
-                    capability: 'generate',
-                    prompt,
-                    maxTokens: 4000,
-                    temperature: 0.7,
-                },
-                normalizedKeys
-            );
+            console.log('[AI-Config] Trying CapabilityExecutor...');
 
-            if (aiServicesResult.success && aiServicesResult.text) {
-                aiResponse = {
-                    success: true,
-                    content: aiServicesResult.text,
-                    provider: aiServicesResult.handlerUsed,
-                    model: aiServicesResult.model,
-                };
-                usedAIServices = true;
-                console.log(`[AI-Config] AIServices succeeded with ${aiServicesResult.handlerUsed}`);
-            } else {
-                console.log('[AI-Config] AIServices.executeWithKeys failed:', aiServicesResult.error);
+            // Extract first available key for standard pattern
+            const apiKey = normalizedKeys.gemini?.[0] || normalizedKeys.deepseek?.[0] ||
+                normalizedKeys.perplexity?.[0] || normalizedKeys.openrouter?.[0];
+
+            if (apiKey) {
+                const { getCapabilityExecutor } = await import('@/lib/ai/services/CapabilityExecutor');
+                await aiServices.initialize();
+
+                const executor = getCapabilityExecutor();
+                const handlers = aiServices.getHandlers();
+                const config = aiServices.getConfig();
+
+                const aiServicesResult = await executor.execute(
+                    {
+                        capability: 'generate',
+                        prompt,
+                        maxTokens: 4000,
+                        temperature: 0.7,
+                        context: { apiKey },  // Pass apiKey in context (standard pattern)
+                    },
+                    handlers,
+                    config
+                );
+
+                if (aiServicesResult.success && aiServicesResult.text) {
+                    aiResponse = {
+                        success: true,
+                        content: aiServicesResult.text,
+                        provider: aiServicesResult.handlerUsed,
+                        model: aiServicesResult.model,
+                    };
+                    usedAIServices = true;
+                    console.log(`[AI-Config] CapabilityExecutor succeeded with ${aiServicesResult.handlerUsed}`);
+                } else {
+                    console.log('[AI-Config] CapabilityExecutor failed:', aiServicesResult.error);
+                }
             }
         }
 

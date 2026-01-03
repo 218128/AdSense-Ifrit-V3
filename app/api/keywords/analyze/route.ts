@@ -18,6 +18,8 @@ export const dynamic = 'force-dynamic';
 
 interface KeywordAnalysisRequest {
     keywords: string[];
+    /** API key from client (standard capability pattern) */
+    apiKey?: string;
     context?: {
         niche?: string;
         region?: string;
@@ -78,22 +80,34 @@ Respond in JSON format:
   ]
 }`;
 
-        // Try AI analysis via capabilities system
-        const result = await aiServices.execute({
-            capability: 'generate',
-            prompt,
-            context: {
-                systemPrompt: 'You are an SEO and AdSense monetization expert. Analyze keywords for their revenue potential. Be realistic with CPC estimates.',
-                responseFormat: 'json',
-            },
-        });
+        // Use standard capability pattern with CapabilityExecutor
+        const { getCapabilityExecutor } = await import('@/lib/ai/services/CapabilityExecutor');
+        await aiServices.initialize();
 
-        if (result.success && result.data) {
+        const executor = getCapabilityExecutor();
+        const handlers = aiServices.getHandlers();
+        const config = aiServices.getConfig();
+
+        const result = await executor.execute(
+            {
+                capability: 'generate',
+                prompt,
+                systemPrompt: 'You are an SEO and AdSense monetization expert. Analyze keywords for their revenue potential. Be realistic with CPC estimates.',
+                context: {
+                    responseFormat: 'json',
+                    apiKey: body.apiKey,  // Pass apiKey in context
+                },
+            },
+            handlers,
+            config
+        );
+
+        if (result.success && (result.data || result.text)) {
             try {
-                // Parse AI response
-                const responseText = typeof result.data === 'string'
-                    ? result.data
-                    : JSON.stringify(result.data);
+                // Parse AI response (can be in data or text)
+                const responseText = result.data
+                    ? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data))
+                    : result.text || '';
 
                 // Extract JSON from response
                 const jsonMatch = responseText.match(/\{[\s\S]*\}/);

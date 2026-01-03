@@ -9,11 +9,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { saveDomainProfile, DomainProfile } from '@/lib/websiteStore';
+import { statusEmitter } from '@/app/api/status/stream/route';
 
 export const maxDuration = 60; // Allow time for AI generation
 
 interface GenerateRequest {
     domain: string;
+    /** Session ID for SSE status streaming */
+    sessionId?: string;
     spamzillaData?: {
         trustFlow?: number;
         citationFlow?: number;
@@ -29,7 +32,17 @@ interface GenerateRequest {
     keywordContext?: {
         keywords: string[];
         research: Record<string, string[]>;
+        niche?: string;
+        enrichment?: Record<string, unknown>;
     };
+    /** Domain score from analysis step */
+    domainScore?: {
+        overall: number;
+        recommendation: string;
+        risks: Array<{ description: string }>;
+    };
+    /** API key from client (same pattern as /api/capabilities) */
+    apiKey?: string;
 }
 
 interface AIKeywordResult {
@@ -183,6 +196,8 @@ Make suggestions specific to the domain name's implied meaning.`;
 // ============================================
 
 export async function POST(request: NextRequest) {
+    const startTime = Date.now();
+
     try {
         const body: GenerateRequest = await request.json();
 
@@ -195,25 +210,41 @@ export async function POST(request: NextRequest) {
 
         const domain = body.domain.toLowerCase().trim();
 
+        // Create SSE tracker if session provided
+        const actionId = `profile_${Date.now()}`;
+        // createTracker automatically emits a 'start' event
+        const tracker = body.sessionId ? statusEmitter.createTracker(body.sessionId, actionId, `Profile: ${domain}`, 'hunt') : null;
+
         // Step 1: Segment domain name
         const words = segmentDomainName(domain);
         console.log(`[Profile Generate] Domain: ${domain}, Words: ${words.join(', ')}`);
+        tracker?.step('Domain Analysis', 'success', `Extracted: ${words.slice(0, 3).join(', ')}${words.length > 3 ? '...' : ''}`);
+
         if (body.keywordContext?.keywords?.length) {
             console.log(`[Profile Generate] Using keyword context: ${body.keywordContext.keywords.join(', ')}`);
+            tracker?.step('Keyword Context', 'success', `${body.keywordContext.keywords.length} target keywords provided`);
+        }
+
+        if (body.domainScore) {
+            tracker?.step('Domain Score', 'success', `Score: ${body.domainScore.overall}/100 - ${body.domainScore.recommendation}`);
         }
 
         // Step 2: Build AI prompt (including keyword context from Keyword Hunter)
+        tracker?.step('Building Prompt', 'success', 'Combining domain + keyword context');
         const prompt = buildAIPrompt(domain, words, body.spamzillaData, body.keywordContext);
 
-        // Step 3: Call AI API (pass client's API key from request body)
-        const aiResult = await generateWithAI(prompt, body.apiKey);
+        // Step 3: Call AI API (AIServices gets keys from Settings)
+        const aiResult = await generateWithAI(prompt, body.keywordContext, tracker, body.apiKey);
 
         if (!aiResult) {
+            tracker?.fail('AI generation failed - no response');
             return NextResponse.json(
                 { success: false, error: 'AI generation failed' },
                 { status: 500 }
             );
         }
+
+        tracker?.step('AI Generation', 'success', `Niche identified: ${aiResult.niche}`);
 
         // Step 4: Build unified profile with all 3 sections
         const now = Date.now();
@@ -301,9 +332,16 @@ export async function POST(request: NextRequest) {
         };
 
         // Step 5: Optionally save
+        tracker?.step('Profile Assembly', 'success', `${aiResult.primaryKeywords.length} keywords, ${aiResult.suggestedTopics.length} topics`);
+
         if (body.saveProfile) {
+            tracker?.step('Saving', 'running', 'Saving profile...');
             saveDomainProfile(profile);
+            tracker?.step('Saving', 'success', 'Profile saved');
         }
+
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+        tracker?.complete(`Profile generated in ${duration}s`);
 
         return NextResponse.json({
             success: true,
@@ -326,51 +364,106 @@ export async function POST(request: NextRequest) {
 // AI Generation Helper - Uses Unified Capabilities
 // ============================================
 
-async function generateWithAI(prompt: string): Promise<AIKeywordResult | null> {
+// Tracker interface for type safety (matches statusEmitter.createTracker return type)
+interface StatusTracker {
+    step: (message: string, status: 'running' | 'success' | 'fail' | 'warning' | 'skipped', reason?: string) => string;
+    complete: (message: string, details?: string[]) => void;
+    fail: (message: string, reason?: string) => void;
+}
+
+async function generateWithAI(
+    prompt: string,
+    keywordContext?: { keywords: string[]; research: Record<string, string[]> },
+    tracker?: StatusTracker | null,
+    apiKey?: string  // API key from client (same pattern as /api/capabilities)
+): Promise<AIKeywordResult | null> {
     try {
-        // Use the unified capabilities system directly (no HTTP roundtrip)
+        // Use CapabilityExecutor like /api/capabilities/[capability] route does
+        const { getCapabilityExecutor } = await import('@/lib/ai/services/CapabilityExecutor');
         const { aiServices } = await import('@/lib/ai/services');
         await aiServices.initialize();
 
-        const result = await aiServices.execute({
-            capability: 'generate',  // Use existing generate capability
-            prompt,
-            context: { itemType: 'domain-profile' },
-        });
+        const executor = getCapabilityExecutor();
+        const handlers = aiServices.getHandlers();
+        const config = aiServices.getConfig();
 
-        if (!result.success) {
-            console.warn('[Profile Generate] Capability failed:', result.error);
+        // Step 1: Use 'keywords' capability for keyword discovery
+        console.log('[Profile Generate] Using capability: keywords');
+
+        const keywordResult = await executor.execute(
+            {
+                capability: 'keywords',
+                prompt,
+                context: { itemType: 'domain-profile', keywordContext, apiKey },  // Pass apiKey in context
+            },
+            handlers,
+            config
+        );
+
+        if (!keywordResult.success) {
+            console.warn('[Profile Generate] Keywords capability failed:', keywordResult.error);
+            tracker?.step('Keyword Discovery', 'fail', keywordResult.error || 'AI failed');
             return getFallbackResult();
         }
 
-        // Parse JSON from response
-        let parsed: Record<string, unknown> | null = null;
+        tracker?.step('Keyword Discovery', 'success', `Handler: ${keywordResult.handlerUsed}`);
 
-        // Priority 1: Use result.data if available
-        if (result.data && typeof result.data === 'object') {
-            parsed = result.data as Record<string, unknown>;
-        }
-        // Priority 2: Parse from result.text
-        else if (result.text) {
-            const text = result.text;
-            const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) || text.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
-
+        // Parse keywords result
+        let keywordsData: Record<string, unknown> | null = null;
+        if (keywordResult.data && typeof keywordResult.data === 'object') {
+            keywordsData = keywordResult.data as Record<string, unknown>;
+        } else if (keywordResult.text) {
+            const jsonMatch = keywordResult.text.match(/```json\n?([\s\S]*?)\n?```/) || keywordResult.text.match(/\{[\s\S]*\}/);
+            const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : keywordResult.text;
             try {
-                parsed = JSON.parse(jsonStr);
+                keywordsData = JSON.parse(jsonStr);
             } catch {
-                console.error('[Profile Generate] Failed to parse AI response');
-                return getFallbackResult();
+                console.warn('[Profile Generate] Failed to parse keywords response');
             }
         }
 
-        if (!parsed) {
-            console.warn('[Profile Generate] No data in response');
+        if (!keywordsData) {
+            console.warn('[Profile Generate] No keywords data returned');
             return getFallbackResult();
         }
 
+        // Step 2: Use 'keyword-analyze' capability to get CPC/difficulty for discovered keywords
+        const discoveredKeywords = [
+            ...(toStringArray(keywordsData.primary_keywords || keywordsData.primaryKeywords)),
+            ...(toStringArray(keywordsData.secondary_keywords || keywordsData.secondaryKeywords)).slice(0, 3)
+        ].slice(0, 10); // Limit to 10 keywords for analysis
+
+        if (discoveredKeywords.length > 0) {
+            console.log('[Profile Generate] Using capability: keyword-analyze');
+
+            const analysisPrompt = `Analyze these keywords for SEO difficulty, search volume, and CPC potential:\n${discoveredKeywords.join('\n')}`;
+
+            const analysisResult = await executor.execute(
+                {
+                    capability: 'keyword-analyze',
+                    prompt: analysisPrompt,
+                    context: { keywords: discoveredKeywords, apiKey },  // Pass apiKey
+                },
+                handlers,
+                config
+            );
+
+            if (analysisResult.success) {
+                console.log('[Profile Generate] Keyword analysis complete');
+                tracker?.step('Keyword Analysis', 'success', `Handler: ${analysisResult.handlerUsed}`);
+                // Merge analysis data into profile if available
+                if (analysisResult.data && typeof analysisResult.data === 'object') {
+                    const analysisData = analysisResult.data as Record<string, unknown>;
+                    // Add analysis metadata to keywordsData
+                    keywordsData.keywordAnalysis = analysisData;
+                }
+            } else {
+                tracker?.step('Keyword Analysis', 'warning', 'Skipped - using defaults');
+            }
+        }
+
         // Normalize with snake_case support
-        return normalizeAIKeywordResult(parsed);
+        return normalizeAIKeywordResult(keywordsData);
 
     } catch (error) {
         console.error('[Profile Generate] AI call failed:', error);

@@ -86,13 +86,17 @@ export type {
     WPConnectionTestResult,
 } from './model/types';
 
-// Legacy Store (deprecated - use useWPSitesStore)
-export {
-    useWordPressStore,
-    useWPSites,
-    useActiveSite as useActiveSiteLegacy,
-    useConnectedSites as useConnectedSitesLegacy,
-} from './model/wordpressStore';
+// ============================================================================
+// Legacy-Compatible Hooks
+// These provide the old wordpressStore API using the new wpSiteStore
+// ============================================================================
+
+export { useWPSitesLegacy } from './model/wpSiteStore';
+
+// Legacy aliases for smooth migration
+export { useWPSitesLegacy as useWordPressStore } from './model/wpSiteStore';
+export { selectSitesArray as useWPSites } from './model/wpSiteStore';
+
 
 // ============================================================================
 // API

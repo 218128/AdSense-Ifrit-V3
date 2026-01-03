@@ -1,11 +1,22 @@
 /**
- * Unified Website API
+ * @legacy - LEGACY Website API
+ * 
+ * ⚠️  DEPRECATION NOTICE:
+ * This API is for the Legacy Websites system (Vercel/GitHub deployment).
+ * For WordPress/Hostinger sites, use:
+ *   - /api/wp-sites/ for WP Sites management
+ *   - /api/hosting/ for Hostinger provisioning
+ *   - features/wordpress/api/wordpressApi.ts for direct WP REST API calls
+ * 
+ * This route is maintained for backward compatibility with existing Legacy sites.
+ * New WP Sites development should NOT use these endpoints.
  * 
  * Endpoints:
- * GET  /api/websites - List all websites
- * POST /api/websites - Create new website
+ * GET  /api/websites - List all legacy websites
+ * POST /api/websites - Create new legacy website
  * GET  /api/websites/migrate - Run migration from legacy storage
  */
+
 
 import { NextRequest, NextResponse } from 'next/server';
 import {

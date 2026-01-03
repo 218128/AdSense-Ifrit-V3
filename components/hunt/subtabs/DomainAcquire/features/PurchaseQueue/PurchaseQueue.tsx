@@ -4,8 +4,9 @@
  * Purchase Queue Component
  * 
  * Step 3 of Domain Acquire workflow.
- * Shows domains approved for purchase with pre-filled registrar links.
- * Includes tips, pricing info, and bulk export.
+ * Shows:
+ * 1. Domains in purchase queue (waiting to buy)
+ * 2. Owned domains (purchased with profile status)
  */
 
 import { useState } from 'react';
@@ -22,9 +23,13 @@ import {
     ArrowRight,
     Package,
     Sparkles,
-    Info
+    Info,
+    RefreshCw,
+    Loader2,
+    Crown
 } from 'lucide-react';
 import { CreateSiteButton } from '@/components/hunt/CreateSiteButton';
+import type { OwnedDomain, ProfileStatus } from '@/stores/huntStore';
 
 export interface QueuedDomain {
     domain: string;
@@ -39,11 +44,12 @@ export interface QueuedDomain {
 
 interface PurchaseQueueProps {
     queue: QueuedDomain[];
+    ownedDomains?: OwnedDomain[];
     onRemove: (domain: string) => void;
     onClear: () => void;
     onMarkPurchased: (domain: string) => void;
-    onSiteCreated?: (domain: string) => void;  // Callback when site is provisioned
-    onResetSiteCreated?: (domain: string) => void;  // Reset if status is wrong
+    onRetryProfile?: (domain: string) => void;
+    onSiteCreated?: (domain: string) => void;
 }
 
 const REGISTRARS = [
@@ -98,13 +104,46 @@ const TIPS = [
 
 export default function PurchaseQueue({
     queue,
+    ownedDomains = [],
     onRemove,
     onClear,
     onMarkPurchased,
+    onRetryProfile,
     onSiteCreated,
-    onResetSiteCreated
 }: PurchaseQueueProps) {
     const [showTips, setShowTips] = useState(true);
+
+    const getProfileStatusBadge = (status: ProfileStatus, error?: string) => {
+        switch (status) {
+            case 'generating':
+                return (
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Generating Profile...
+                    </span>
+                );
+            case 'success':
+                return (
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Profile Ready
+                    </span>
+                );
+            case 'failed':
+                return (
+                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded flex items-center gap-1" title={error}>
+                        <AlertCircle className="w-3 h-3" />
+                        Profile Failed
+                    </span>
+                );
+            default:
+                return (
+                    <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
+                        Pending
+                    </span>
+                );
+        }
+    };
 
     const exportCSV = () => {
         const csv = [
@@ -282,58 +321,13 @@ export default function PurchaseQueue({
                                 <div className="text-xs text-neutral-400">
                                     Added {new Date(domain.addedAt).toLocaleDateString()}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    {domain.purchased ? (
-                                        /* Show Create Website button for purchased domains */
-                                        domain.siteCreated ? (
-                                            <div className="flex items-center gap-2">
-                                                <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium flex items-center gap-1">
-                                                    <CheckCircle className="w-4 h-4" />
-                                                    Site Created
-                                                </span>
-                                                <button
-                                                    onClick={() => onResetSiteCreated?.(domain.domain)}
-                                                    className="px-2 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs hover:bg-gray-200"
-                                                    title="Reset status if incorrect"
-                                                >
-                                                    Reset
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="flex flex-col gap-2">
-                                                {/* Hostinger setup guidance */}
-                                                <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs">
-                                                    <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                                                    <div className="text-amber-800">
-                                                        <strong>Before clicking Create Website:</strong>
-                                                        <br />Add this domain to your{' '}
-                                                        <a
-                                                            href="https://hpanel.hostinger.com/domains"
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-amber-700 underline hover:text-amber-900"
-                                                        >
-                                                            Hostinger Dashboard
-                                                        </a>
-                                                        {' '}and point nameservers to Hostinger.
-                                                    </div>
-                                                </div>
-                                                <CreateSiteButton
-                                                    domain={domain.domain}
-                                                    onSuccess={() => onSiteCreated?.(domain.domain)}
-                                                />
-                                            </div>
-                                        )
-                                    ) : (
-                                        <button
-                                            onClick={() => onMarkPurchased(domain.domain)}
-                                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-emerald-700"
-                                        >
-                                            <CheckCircle className="w-4 h-4" />
-                                            Mark as Purchased
-                                        </button>
-                                    )}
-                                </div>
+                                <button
+                                    onClick={() => onMarkPurchased(domain.domain)}
+                                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-emerald-700"
+                                >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Mark as Purchased
+                                </button>
                             </div>
                         </div>
                     ))}
@@ -357,6 +351,157 @@ export default function PurchaseQueue({
                                 {queue.filter(d => d.recommendation === 'strong-buy').length}
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ============ OWNED DOMAINS SECTION ============ */}
+            {ownedDomains.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <Crown className="w-5 h-5 text-purple-600" />
+                        <h3 className="text-lg font-bold text-neutral-900">
+                            Owned Domains
+                            <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-sm rounded-full">
+                                {ownedDomains.length}
+                            </span>
+                        </h3>
+                    </div>
+                    <p className="text-sm text-neutral-500">
+                        Your purchased domains. Create websites after profile is ready.
+                    </p>
+
+                    <div className="space-y-3">
+                        {ownedDomains.map((domain) => (
+                            <div
+                                key={domain.domain}
+                                className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4"
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-lg font-bold text-neutral-900">
+                                            {domain.domain}
+                                        </span>
+                                        {getProfileStatusBadge(domain.profileStatus, domain.profileError)}
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="flex items-center gap-1 text-purple-600 font-medium">
+                                            <DollarSign className="w-4 h-4" />
+                                            Est. ${domain.estimatedValue}
+                                        </div>
+                                        <div className="text-xs text-neutral-500">
+                                            Score: {domain.score}/100
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Profile Info - Expandable */}
+                                {domain.profile && (
+                                    <details className="mb-3 group">
+                                        <summary className="cursor-pointer p-2 bg-white/60 rounded-lg text-sm flex items-center justify-between hover:bg-white/80">
+                                            <div>
+                                                <span className="font-medium text-purple-800">Niche:</span>{' '}
+                                                <span className="text-purple-600">{domain.profile.niche}</span>
+                                                {domain.profile.primaryKeywords?.length > 0 && (
+                                                    <span className="ml-3 text-neutral-500">
+                                                        • {domain.profile.primaryKeywords.length} keywords
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="text-xs text-purple-500 group-open:hidden">Click to expand ▼</span>
+                                            <span className="text-xs text-purple-500 hidden group-open:inline">Click to collapse ▲</span>
+                                        </summary>
+                                        <div className="mt-2 p-3 bg-white/80 rounded-lg space-y-3 text-sm">
+                                            {/* Primary Keywords */}
+                                            {domain.profile.primaryKeywords?.length > 0 && (
+                                                <div>
+                                                    <div className="font-medium text-purple-800 mb-1">Primary Keywords:</div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {domain.profile.primaryKeywords.map((kw, i) => (
+                                                            <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">
+                                                                {kw}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* Secondary Keywords */}
+                                            {domain.profile.secondaryKeywords?.length > 0 && (
+                                                <div>
+                                                    <div className="font-medium text-indigo-800 mb-1">Secondary Keywords:</div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {domain.profile.secondaryKeywords.map((kw, i) => (
+                                                            <span key={i} className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded">
+                                                                {kw}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* Question Keywords */}
+                                            {domain.profile.questionKeywords?.length > 0 && (
+                                                <div>
+                                                    <div className="font-medium text-blue-800 mb-1">Question Keywords:</div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {domain.profile.questionKeywords.map((kw, i) => (
+                                                            <span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
+                                                                {kw}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* Suggested Topics */}
+                                            {domain.profile.suggestedTopics?.length > 0 && (
+                                                <div>
+                                                    <div className="font-medium text-emerald-800 mb-1">Suggested Topics:</div>
+                                                    <ul className="list-disc list-inside text-emerald-700 text-xs space-y-0.5">
+                                                        {domain.profile.suggestedTopics.slice(0, 5).map((topic, i) => (
+                                                            <li key={i}>{topic}</li>
+                                                        ))}
+                                                        {domain.profile.suggestedTopics.length > 5 && (
+                                                            <li className="text-neutral-400">+{domain.profile.suggestedTopics.length - 5} more</li>
+                                                        )}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </details>
+                                )}
+
+                                {/* Actions */}
+                                <div className="flex items-center justify-between pt-3 border-t border-purple-200">
+                                    <div className="text-xs text-neutral-400">
+                                        Purchased {new Date(domain.purchasedAt).toLocaleDateString()}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {/* Retry button for failed profiles */}
+                                        {domain.profileStatus === 'failed' && onRetryProfile && (
+                                            <button
+                                                onClick={() => onRetryProfile(domain.domain)}
+                                                className="px-3 py-1.5 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-orange-200"
+                                            >
+                                                <RefreshCw className="w-4 h-4" />
+                                                Retry Profile
+                                            </button>
+                                        )}
+
+                                        {/* Create Website button - available regardless of profile status */}
+                                        {domain.siteCreated ? (
+                                            <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium flex items-center gap-1">
+                                                <CheckCircle className="w-4 h-4" />
+                                                Site Created
+                                            </span>
+                                        ) : (
+                                            <CreateSiteButton
+                                                domain={domain.domain}
+                                                onSuccess={() => onSiteCreated?.(domain.domain)}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

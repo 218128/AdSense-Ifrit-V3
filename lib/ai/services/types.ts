@@ -146,6 +146,13 @@ export const DEFAULT_CAPABILITIES: Omit<Capability, 'isEnabled' | 'defaultHandle
         icon: 'History',
         isDefault: true,
     },
+    {
+        id: 'domain-profile',
+        name: 'Domain Profile Generation',
+        description: 'Generate comprehensive site profile from domain and keyword data',
+        icon: 'FileUser',
+        isDefault: true,
+    },
 ];
 
 // ============================================
