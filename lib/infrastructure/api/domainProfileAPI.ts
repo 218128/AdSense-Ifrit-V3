@@ -133,7 +133,7 @@ export async function generateDomainProfile(
                 keywordContext: options.keywordContext,
                 domainScore: options.domainScore,
                 apiKey, // Pass API key to route (same pattern as /api/capabilities)
-                saveProfile: false,
+                saveProfile: true,  // Save to file for WP Sites access
             }),
         });
 

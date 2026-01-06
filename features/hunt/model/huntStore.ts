@@ -30,6 +30,15 @@ export interface AnalyzeCandidate {
         wasPBN?: boolean;
         hadSpam?: boolean;
         domainAge?: number;
+        trustFlow?: number;
+        citationFlow?: number;
+        domainAuthority?: number;
+        majesticTopics?: string;
+    };
+    keywordContext?: {
+        keywords: string[];
+        research: Record<string, string[]>;
+        niche?: string;
     };
 }
 
@@ -42,6 +51,23 @@ export interface QueuedDomain {
     addedAt: number;
     purchased?: boolean;  // Domain was purchased externally
     siteCreated?: boolean;  // WordPress site provisioned via Hostinger
+    // Preserved enrichment data for profile generation
+    spamzillaData?: {
+        wasAdult?: boolean;
+        wasCasino?: boolean;
+        wasPBN?: boolean;
+        hadSpam?: boolean;
+        domainAge?: number;
+        trustFlow?: number;
+        citationFlow?: number;
+        domainAuthority?: number;
+        majesticTopics?: string;
+    };
+    keywordContext?: {
+        keywords: string[];
+        research: Record<string, string[]>;
+        niche?: string;
+    };
 }
 
 export interface WatchlistDomain {
@@ -142,8 +168,7 @@ interface HuntStore {
     removeOwnedDomain: (domain: string) => void;
     getOwnedDomains: () => OwnedDomain[];
 
-    // Legacy aliases for backwards compatibility
-    purchasedDomains: OwnedDomain[];  // Alias for ownedDomains
+    // Legacy aliases for backwards compatibility (use getOwnedDomains instead)
     addPurchasedDomain: (domain: OwnedDomain) => void;
     removePurchasedDomain: (domain: string) => void;
     getPurchasedDomains: () => OwnedDomain[];
@@ -191,7 +216,10 @@ export const useHuntStore = create<HuntStore>()(
                         score: domain.score,
                         recommendation: domain.recommendation,
                         estimatedValue: domain.estimatedValue || 0,
-                        addedAt: Date.now()
+                        addedAt: Date.now(),
+                        // Preserve enrichment data for profile generation
+                        spamzillaData: domain.spamzillaData,
+                        keywordContext: domain.keywordContext,
                     }],
                     // Remove from analyze queue
                     analyzeQueue: state.analyzeQueue.filter(d => d.domain !== domain.domain)
@@ -272,39 +300,24 @@ export const useHuntStore = create<HuntStore>()(
                     return;
                 }
 
-                // Create owned domain entry with pending status
-                const newOwnedDomain: OwnedDomain = {
-                    domain: domainData.domain,
-                    tld: domainData.tld,
-                    score: domainData.score,
-                    estimatedValue: domainData.estimatedValue,
-                    purchasedAt: Date.now(),
-                    profileStatus: 'generating',
-                    associatedKeywords: [],
-                    associatedTrends: [],
-                };
+                // Import service for business logic (SoC: store delegates to service)
+                const { processDomainPurchase } = await import('../lib/huntService');
 
-                // Remove from purchase queue and add to owned domains
-                set((state) => ({
-                    purchaseQueue: state.purchaseQueue.filter(d => d.domain !== domainName),
-                    ownedDomains: [...state.ownedDomains, newOwnedDomain],
-                }));
-
-                // Generate profile asynchronously
-                try {
-                    const { generateDomainProfile } = await import('@/lib/infrastructure/api/domainProfileAPI');
-                    const result = await generateDomainProfile(domainName);
-
-                    if (result.success && result.profile) {
-                        // Pass the profile directly from API result
-                        get().updateProfileStatus(domainName, 'success', result.profile);
-                    } else {
-                        get().updateProfileStatus(domainName, 'failed', undefined, result.error || 'Unknown error');
-                    }
-                } catch (error) {
-                    get().updateProfileStatus(domainName, 'failed', undefined,
-                        error instanceof Error ? error.message : 'Profile generation failed');
-                }
+                // Delegate to service with callbacks for state updates
+                await processDomainPurchase(domainData, {
+                    onStarted: (ownedDomain) => {
+                        set((state) => ({
+                            purchaseQueue: state.purchaseQueue.filter(d => d.domain !== domainName),
+                            ownedDomains: [...state.ownedDomains, ownedDomain],
+                        }));
+                    },
+                    onProfileSuccess: (domain, profile) => {
+                        get().updateProfileStatus(domain, 'success', profile);
+                    },
+                    onProfileFailed: (domain, error) => {
+                        get().updateProfileStatus(domain, 'failed', undefined, error);
+                    },
+                });
             },
 
             updateProfileStatus: (domainName, status, profile, error) => set((state) => ({
@@ -316,22 +329,20 @@ export const useHuntStore = create<HuntStore>()(
             })),
 
             retryGenerateProfile: async (domainName) => {
-                // Set status to generating and retry
+                // Set status to generating
                 get().updateProfileStatus(domainName, 'generating');
 
-                try {
-                    const { generateDomainProfile } = await import('@/lib/infrastructure/api/domainProfileAPI');
-                    const result = await generateDomainProfile(domainName);
+                // Import service for business logic (SoC: store delegates to service)
+                const { generateDomainProfileAsync } = await import('../lib/huntService');
 
-                    if (result.success && result.profile) {
-                        // Pass the profile directly from API result
-                        get().updateProfileStatus(domainName, 'success', result.profile);
-                    } else {
-                        get().updateProfileStatus(domainName, 'failed', undefined, result.error);
-                    }
-                } catch (error) {
-                    get().updateProfileStatus(domainName, 'failed', undefined,
-                        error instanceof Error ? error.message : 'Retry failed');
+                // Delegate profile generation to service
+                const result = await generateDomainProfileAsync(domainName);
+
+                // Update state based on result
+                if (result.success && result.profile) {
+                    get().updateProfileStatus(domainName, 'success', result.profile);
+                } else {
+                    get().updateProfileStatus(domainName, 'failed', undefined, result.error);
                 }
             },
 
@@ -347,8 +358,8 @@ export const useHuntStore = create<HuntStore>()(
 
             getOwnedDomains: () => get().ownedDomains,
 
-            // Legacy aliases (map to ownedDomains)
-            get purchasedDomains() { return get().ownedDomains; },
+            // Legacy aliases - these are computed from ownedDomains
+            // Note: purchasedDomains is accessed via getOwnedDomains() or store subscription
 
             addPurchasedDomain: (domain) => set((state) => {
                 if (state.ownedDomains.some(d => d.domain === domain.domain)) {
@@ -396,17 +407,55 @@ export const useHuntStore = create<HuntStore>()(
                 selectedTrends: state.selectedTrends,
                 // Don't persist: selectedDomains (ephemeral)
             }),
-            // Handle Set serialization
+            // Handle Set serialization (SSR-safe)
             storage: {
                 getItem: (name) => {
+                    if (typeof window === 'undefined') return null;
                     const str = localStorage.getItem(name);
                     if (!str) return null;
                     return JSON.parse(str);
                 },
                 setItem: (name, value) => {
+                    if (typeof window === 'undefined') return;
                     localStorage.setItem(name, JSON.stringify(value));
                 },
-                removeItem: (name) => localStorage.removeItem(name),
+                removeItem: (name) => {
+                    if (typeof window === 'undefined') return;
+                    localStorage.removeItem(name);
+                },
+            },
+            // Merge persisted state with initial state (ensures nested objects work)
+            merge: (persistedState, currentState) => {
+                const persisted = persistedState as Partial<HuntStore> || {};
+                console.log('[HuntStore] Hydrating from localStorage:', {
+                    ownedDomainsCount: persisted.ownedDomains?.length || 0,
+                    analyzeQueueCount: persisted.analyzeQueue?.length || 0,
+                    purchaseQueueCount: persisted.purchaseQueue?.length || 0,
+                });
+                return {
+                    ...currentState,
+                    ...persisted,
+                    // Ensure arrays are properly restored
+                    ownedDomains: persisted.ownedDomains || [],
+                    analyzeQueue: persisted.analyzeQueue || [],
+                    purchaseQueue: persisted.purchaseQueue || [],
+                    watchlist: persisted.watchlist || [],
+                    selectedKeywords: persisted.selectedKeywords || [],
+                    selectedTrends: persisted.selectedTrends || [],
+                };
+            },
+            // Debug hydration
+            onRehydrateStorage: () => {
+                console.log('[HuntStore] Starting hydration from localStorage...');
+                return (state, error) => {
+                    if (error) {
+                        console.error('[HuntStore] Hydration error:', error);
+                    } else {
+                        console.log('[HuntStore] Hydration complete:', {
+                            ownedDomains: state?.ownedDomains?.length || 0,
+                        });
+                    }
+                };
             },
         }
     )

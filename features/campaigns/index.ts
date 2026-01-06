@@ -13,6 +13,8 @@ export type {
     TrendsSourceConfig,
     ManualSourceConfig,
     ManualTopic,
+    TranslationSourceConfig,
+    LanguageMapping,
     AIConfig,
     ScheduleConfig,
     CampaignStats,
@@ -22,6 +24,46 @@ export type {
     PipelineContext,
     SourceItem,
 } from './model/types';
+
+// Campaign Context Types
+export type {
+    DataSource,
+    SourcedData,
+    EnrichedKeyword,
+    NicheData,
+    CompetitionData,
+    ContentSuggestions,
+    CampaignContext,
+    HuntCampaignContext,
+} from './model/campaignContext';
+export {
+    createSourced,
+    unwrap,
+    createEmptyContext,
+    initContextFromHunt,
+    needsEnrichment,
+    getSourceSummary,
+} from './model/campaignContext';
+
+// Campaign Enrichment
+export {
+    getEnrichedContext,
+    enrichKeywordResearch,
+    enrichCompetition,
+    enrichContentSuggestions,
+    type EnrichmentOptions,
+} from './lib/campaignEnrichment';
+
+// Context Builder
+export {
+    buildPromptContext,
+    buildResearchPrompt,
+    buildOutlinePrompt,
+    buildContentPrompt,
+    getSourceBadgeConfig,
+    type PromptContext,
+    type SourceSummary,
+} from './lib/contextBuilder';
 
 // Store
 export {
@@ -38,6 +80,19 @@ export {
     createRun,
 } from './lib/processor';
 
+// Pipeline Runner (Enhanced with checkpointing)
+export {
+    PipelineRunner,
+    runPipelineWithCheckpointing,
+    defaultPipelineRunner,
+    type Checkpoint,
+    type PipelineStage,
+    type StageResult,
+    type StageStatus,
+    type PipelineProgress,
+    type ProgressCallback,
+} from './lib/PipelineRunner';
+
 export {
     useDeduplicationStore,
     shouldSkipTopic,
@@ -46,6 +101,24 @@ export {
 } from './lib/deduplication';
 
 export type { PostRecord } from './lib/deduplication';
+
+// Content Quality Scoring (Phase 2 Enhancement)
+export {
+    scoreContent,
+    analyzeReadability,
+    analyzeSEO,
+    analyzeUniqueness,
+    analyzeStructure,
+    meetsMinimumQuality,
+    getQualityRating,
+    getCriticalIssues,
+    type QualityScore,
+    type ReadabilityScore,
+    type SEOScore,
+    type UniquenessScore,
+    type StructureScore,
+    type QualityIssue,
+} from './lib/contentQualityScorer';
 
 // RSS
 export { fetchFeed, type FeedItem, type ParsedFeed } from './lib/rssParser';
@@ -132,8 +205,91 @@ export {
     type ABResult
 } from './lib/abTesting';
 
+// Translation (Multi-Language Publishing)
+export {
+    translatePost,
+    translatePosts,
+    type TranslatePostOptions,
+    type TranslatedContent,
+} from './lib/translatePost';
+export {
+    runTranslationPipeline,
+    type TranslationPipelineOptions,
+    type TranslationPipelineResult,
+    type TranslationProgress,
+} from './lib/translationPipeline';
+export {
+    isAlreadyTranslated,
+    getTranslationsForPost,
+    getTranslationStats,
+    createTranslationRecord,
+    updateTranslationStatus,
+    type TranslationRecord,
+    type TranslationHistoryState,
+} from './model/translationHistory';
+export {
+    runTranslationCampaignWithStatus,
+    translateSinglePostWithStatus,
+    type RunTranslationCampaignOptions,
+} from './lib/translationActionRunner';
+
+// Multi-Language Publishing
+export {
+    publishMultiLang,
+    getPopularTargetLanguages,
+    getAllSupportedLanguages,
+    DEFAULT_MULTILANG_CONFIG,
+    type MultiLangConfig,
+    type MultiLangResult,
+    type TranslatedPost,
+} from './lib/multiLangPublisher';
+
+// Image Retry
+export {
+    retryImagesForPost,
+    type RetryImagesResult,
+} from './lib/generators';
+
 // UI
 export { CampaignsDashboard } from './ui/CampaignsDashboard';
 export { CampaignCard } from './ui/CampaignCard';
 export { CampaignEditor } from './ui/CampaignEditor';
 export { RunHistoryPanel } from './ui/RunHistoryPanel';
+
+// ============================================================================
+// Phase 2: Author & Quality Integration
+// ============================================================================
+
+// Author Matching
+export {
+    matchAuthorForPipeline,
+    applyAuthorToContext,
+    validateAuthorForPublishing,
+    type AuthorMatchResult,
+    type AuthorMatchOptions,
+} from './lib/authorMatcher';
+
+// E-E-A-T Injection
+export {
+    injectEEATSignals,
+    injectExperiencePhrases,
+    getContentGenerationEnhancements,
+    type EEATInjectionResult,
+    type EEATInjectionOptions,
+} from './lib/eeatInjector';
+
+// Quality Scoring & Review Integration
+export {
+    scoreContentQuality,
+    applyQualityScoreToContext,
+    createReviewItemFromContext,
+    processSmartReview,
+    shouldPublish,
+    getPostStatusForReview,
+    type QualityScoreResult,
+    type ReviewDecisionResult,
+} from './lib/qualityScoreStage';
+
+// Phase 2 UI Components
+export { AuthorSelector } from './components/AuthorSelector';
+export { QualityScorePanel } from './components/QualityScorePanel';

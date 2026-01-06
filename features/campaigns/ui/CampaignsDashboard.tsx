@@ -26,11 +26,22 @@ export function CampaignsDashboard() {
     const connectedSites = sites.filter(s => s.status === 'connected').length;
 
     const handleRunCampaign = async (campaign: Campaign) => {
+        // Get SSE status store for real-time UI updates
+        const { useGlobalActionStatusStore } = await import('@/stores/globalActionStatusStore');
+        const { startAction, updateAction, addStep, updateStep, completeAction, failAction } = useGlobalActionStatusStore.getState();
+
         const site = sites.find(s => s.id === campaign.targetSiteId);
         if (!site) {
             alert('Target WordPress site not found or not connected.');
             return;
         }
+
+        // Start SSE action for UI visibility
+        const actionId = startAction(
+            `Campaign: ${campaign.name}`,
+            'campaign',
+            true // retryable
+        );
 
         // Create run record
         const run = createRun(campaign.id);
@@ -42,9 +53,30 @@ export function CampaignsDashboard() {
             const maxPosts = campaign.schedule.maxPostsPerRun;
             const itemsToProcess = sourceItems.slice(0, maxPosts);
 
-            for (const sourceItem of itemsToProcess) {
+            updateAction(actionId, `Generating ${itemsToProcess.length} articles...`);
+
+            for (let i = 0; i < itemsToProcess.length; i++) {
+                const sourceItem = itemsToProcess[i];
+                const articleNum = i + 1;
+                const stepId = addStep(actionId, `Article ${articleNum}/${itemsToProcess.length}: Starting...`);
+
                 try {
-                    const result = await runPipeline(campaign, sourceItem, site);
+                    // Run pipeline with status updates
+                    const result = await runPipeline(campaign, sourceItem, site, {
+                        onStatusChange: (status) => {
+                            const statusMessages: Record<string, string> = {
+                                researching: `Article ${articleNum}/${itemsToProcess.length}: Researching "${sourceItem.topic.substring(0, 30)}..."`,
+                                generating: `Article ${articleNum}/${itemsToProcess.length}: Generating content`,
+                                imaging: `Article ${articleNum}/${itemsToProcess.length}: Creating image`,
+                                linking: `Article ${articleNum}/${itemsToProcess.length}: Analyzing links`,
+                                publishing: `Article ${articleNum}/${itemsToProcess.length}: Publishing to WordPress`,
+                            };
+                            updateStep(actionId, stepId, statusMessages[status] || `Article ${articleNum}: ${status}`);
+                        }
+                    });
+
+                    // Success - update step
+                    updateStep(actionId, stepId, `Article ${articleNum}/${itemsToProcess.length}: Published ✓`, 'success');
 
                     incrementGenerated(campaign.id);
                     if (result.wpResult) {
@@ -58,6 +90,9 @@ export function CampaignsDashboard() {
                     run.postsGenerated++;
                     run.postsPublished++;
                 } catch (error) {
+                    // Failure - update step
+                    updateStep(actionId, stepId, `Article ${articleNum}/${itemsToProcess.length}: Failed - ${error instanceof Error ? error.message : 'Error'}`, 'error');
+
                     incrementFailed(campaign.id);
                     run.errors.push({
                         stage: 'generate',
@@ -75,6 +110,11 @@ export function CampaignsDashboard() {
                 postsPublished: run.postsPublished,
             });
 
+            // Complete SSE action
+            const successCount = run.postsPublished;
+            const failCount = run.errors.length;
+            completeAction(actionId, `Complete: ${successCount} published${failCount > 0 ? `, ${failCount} failed` : ''}`);
+
             // Update next run time
             if (campaign.schedule.type === 'interval' && campaign.schedule.intervalHours) {
                 updateSchedule(campaign.id, {
@@ -88,7 +128,7 @@ export function CampaignsDashboard() {
                 status: 'failed',
                 completedAt: Date.now(),
             });
-            alert(`Campaign run failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            failAction(actionId, error instanceof Error ? error.message : 'Campaign failed');
         }
     };
 

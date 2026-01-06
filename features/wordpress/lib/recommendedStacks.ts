@@ -147,15 +147,43 @@ const CORE_SPEED_PLUGINS: PluginRecommendation[] = [
     },
 ];
 
+const CORE_ANALYTICS_PLUGINS: PluginRecommendation[] = [
+    {
+        name: 'Site Kit by Google',
+        slug: 'google-site-kit',
+        displayName: 'Site Kit by Google',
+        description: 'Official Google plugin: Analytics, Search Console, AdSense, PageSpeed in one.',
+        category: 'analytics',
+        required: true,
+        wpRepoUrl: 'https://wordpress.org/plugins/google-site-kit/',
+    },
+];
+
+const CORE_GDPR_PLUGINS: PluginRecommendation[] = [
+    {
+        name: 'Complianz GDPR',
+        slug: 'complianz-gdpr',
+        displayName: 'Complianz GDPR/CCPA',
+        description: 'Cookie consent, privacy policy generator. Required for AdSense.',
+        category: 'other',
+        required: true,
+        wpRepoUrl: 'https://wordpress.org/plugins/complianz-gdpr/',
+    },
+];
+
 export const RECOMMENDED_PLUGINS: Record<WPSiteType, PluginRecommendation[]> = {
     authority: [
         ...CORE_SEO_PLUGINS,
         ...CORE_AD_PLUGINS,
+        ...CORE_ANALYTICS_PLUGINS,
+        ...CORE_GDPR_PLUGINS,
         ...CORE_SPEED_PLUGINS,
     ],
     affiliate: [
         ...CORE_SEO_PLUGINS,
         ...CORE_AD_PLUGINS,
+        ...CORE_ANALYTICS_PLUGINS,
+        ...CORE_GDPR_PLUGINS,
         {
             name: 'TablePress',
             slug: 'tablepress',
@@ -169,6 +197,8 @@ export const RECOMMENDED_PLUGINS: Record<WPSiteType, PluginRecommendation[]> = {
     magazine: [
         ...CORE_SEO_PLUGINS,
         ...CORE_AD_PLUGINS,
+        ...CORE_ANALYTICS_PLUGINS,
+        ...CORE_GDPR_PLUGINS,
         {
             name: 'Social Snap',
             slug: 'flavor',
@@ -181,6 +211,8 @@ export const RECOMMENDED_PLUGINS: Record<WPSiteType, PluginRecommendation[]> = {
     ],
     business: [
         ...CORE_SEO_PLUGINS,
+        ...CORE_ANALYTICS_PLUGINS,
+        ...CORE_GDPR_PLUGINS,
         {
             name: 'WPForms Lite',
             slug: 'wpforms-lite',
@@ -194,6 +226,8 @@ export const RECOMMENDED_PLUGINS: Record<WPSiteType, PluginRecommendation[]> = {
     general: [
         ...CORE_SEO_PLUGINS,
         ...CORE_AD_PLUGINS,
+        ...CORE_ANALYTICS_PLUGINS,
+        ...CORE_GDPR_PLUGINS,
         ...CORE_SPEED_PLUGINS,
     ],
 };

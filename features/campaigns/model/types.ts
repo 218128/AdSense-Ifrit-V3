@@ -3,6 +3,8 @@
  * FSD: features/campaigns/model/types.ts
  */
 
+import type { CampaignContext, HuntCampaignContext } from './campaignContext';
+
 // ============================================================================
 // Campaign Entity
 // ============================================================================
@@ -19,6 +21,10 @@ export interface Campaign {
     targetAuthorId?: number;
     postStatus: 'publish' | 'draft' | 'pending';
 
+    // Author assignment (Phase 2 integration)
+    authorId?: string;                   // Ifrit author profile ID
+    authorHealthMinScore?: number;       // Minimum health score required (default: 40)
+
     // Source configuration
     source: CampaignSource;
 
@@ -31,6 +37,12 @@ export interface Campaign {
     // Statistics
     stats: CampaignStats;
 
+    // Hunt integration - data from Hunt workflow
+    huntContext?: HuntCampaignContext;
+
+    // Enriched context - layered data from multiple sources
+    context?: CampaignContext;
+
     // Timestamps
     createdAt: number;
     updatedAt: number;
@@ -40,11 +52,11 @@ export interface Campaign {
 // Source Types
 // ============================================================================
 
-export type SourceType = 'keywords' | 'rss' | 'trends' | 'manual';
+export type SourceType = 'keywords' | 'rss' | 'trends' | 'manual' | 'translation';
 
 export interface CampaignSource {
     type: SourceType;
-    config: KeywordSourceConfig | RSSSourceConfig | TrendsSourceConfig | ManualSourceConfig;
+    config: KeywordSourceConfig | RSSSourceConfig | TrendsSourceConfig | ManualSourceConfig | TranslationSourceConfig;
 }
 
 export interface KeywordSourceConfig {
@@ -81,6 +93,31 @@ export interface ManualTopic {
     status: 'pending' | 'generated' | 'published';
 }
 
+// Translation source - Translates existing WP posts to multiple languages
+export interface TranslationSourceConfig {
+    type: 'translation';
+    sourceSiteId: string;              // WP site to fetch posts from
+    targetLanguages: LanguageMapping[]; // Multi-language targets
+    postFilters?: {
+        categories?: number[];          // Filter by WP category IDs
+        afterDate?: string;             // ISO date - only posts after this date
+        onlyPublished?: boolean;        // Only published posts (default: true)
+    };
+    postProcessing?: {
+        humanize?: boolean;             // Run through humanizer after translation
+        optimizeReadability?: boolean;  // Optimize readability after translation
+    };
+}
+
+// Language to target site mapping
+export interface LanguageMapping {
+    language: string;            // Language code: 'es', 'fr', 'ar', 'de'
+    languageName?: string;       // Display name: 'Spanish', 'French'
+    targetSiteId: string;        // WP site ID for this language
+    targetCategoryId?: number;   // Optional category override for translated posts
+    targetAuthorId?: number;     // Optional author override
+}
+
 // ============================================================================
 // AI Configuration
 // ============================================================================
@@ -109,6 +146,11 @@ export interface AIConfig {
     // Content spinner options
     enableSpinner?: boolean;
     spinnerMode?: 'light' | 'moderate' | 'heavy';
+
+    // Author/E-E-A-T options (Phase 2 integration)
+    authorHealthRequired?: boolean;      // Require healthy author for generation
+    injectEEATSignals?: boolean;         // Auto-inject experience/expertise phrases
+    qualityGateEnabled?: boolean;        // Run quality scoring before publish
 }
 
 // ============================================================================
@@ -197,6 +239,30 @@ export interface PipelineContext {
     };
     status: RunItem['status'];
     error?: string;
+
+    // Phase 2: Author integration
+    matchedAuthor?: {
+        id: string;
+        name: string;
+        headline?: string;
+        avatarUrl?: string;
+        healthScore?: number;
+    };
+
+    // Phase 2: Quality scoring
+    qualityScore?: {
+        eeat: number;
+        experience: number;
+        expertise: number;
+        authoritativeness: number;
+        trustworthiness: number;
+        factCheck?: number;
+    };
+
+    // Phase 2: Review integration
+    needsManualReview?: boolean;
+    reviewItemId?: string;
+    autoApproved?: boolean;
 }
 
 export interface SourceItem {

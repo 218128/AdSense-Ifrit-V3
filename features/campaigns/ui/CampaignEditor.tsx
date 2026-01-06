@@ -7,7 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Check, Zap, FileText, Sparkles, Clock } from 'lucide-react';
-import type { Campaign, KeywordSourceConfig, RSSSourceConfig, TrendsSourceConfig, AIConfig, ScheduleConfig } from '../model/types';
+import type { Campaign, KeywordSourceConfig, RSSSourceConfig, TrendsSourceConfig, TranslationSourceConfig, AIConfig, ScheduleConfig } from '../model/types';
 import { useCampaignStore } from '../model/campaignStore';
 import { useWPSitesLegacy } from '@/features/wordpress/model/wpSiteStore';
 import { BasicsStep, SourceStep, AIStep, type EditorFormState } from './EditorSteps';
@@ -68,6 +68,11 @@ export function CampaignEditor({ campaign, onClose }: CampaignEditorProps) {
         scheduleType: campaign?.schedule.type || 'manual',
         intervalHours: campaign?.schedule.intervalHours || 24,
         maxPostsPerRun: campaign?.schedule.maxPostsPerRun || 1,
+        // Translation source defaults
+        translationSourceSiteId: (campaign?.source.config as TranslationSourceConfig)?.sourceSiteId || '',
+        translationTargetLanguages: (campaign?.source.config as TranslationSourceConfig)?.targetLanguages || [],
+        translationHumanize: (campaign?.source.config as TranslationSourceConfig)?.postProcessing?.humanize ?? false,
+        translationOptimizeReadability: (campaign?.source.config as TranslationSourceConfig)?.postProcessing?.optimizeReadability ?? false,
     });
 
     const updateField = useCallback(<K extends keyof EditorFormState>(field: K, value: EditorFormState[K]) => {
@@ -115,7 +120,7 @@ export function CampaignEditor({ campaign, onClose }: CampaignEditorProps) {
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
                     {step === 'basics' && <BasicsStep form={form} updateField={updateField} sites={connectedSites} selectedSite={selectedSite} />}
-                    {step === 'source' && <SourceStep form={form} updateField={updateField} />}
+                    {step === 'source' && <SourceStep form={form} updateField={updateField} sites={connectedSites} />}
                     {step === 'ai' && <AIStep form={form} updateField={updateField} />}
                     {step === 'schedule' && <ScheduleStep form={form} updateField={updateField} />}
                     {step === 'review' && <ReviewStep form={form} selectedSite={selectedSite} />}
@@ -183,6 +188,16 @@ function buildCampaignData(form: EditorFormState) {
             region: form.trendsRegion,
             category: form.trendsCategory || undefined,
         } as TrendsSourceConfig;
+    } else if (form.sourceType === 'translation') {
+        sourceConfig = {
+            type: 'translation' as const,
+            sourceSiteId: form.translationSourceSiteId,
+            targetLanguages: form.translationTargetLanguages,
+            postProcessing: {
+                humanize: form.translationHumanize,
+                optimizeReadability: form.translationOptimizeReadability,
+            },
+        } as TranslationSourceConfig;
     } else {
         sourceConfig = {
             type: 'keywords' as const,
@@ -200,7 +215,7 @@ function buildCampaignData(form: EditorFormState) {
         targetSiteId: form.targetSiteId,
         targetCategoryId: form.targetCategoryId,
         postStatus: form.postStatus,
-        source: { type: form.sourceType, config: sourceConfig },
+        source: { type: form.sourceType, config: sourceConfig } as Campaign['source'],
         aiConfig: {
             provider: form.provider,
             articleType: form.articleType,

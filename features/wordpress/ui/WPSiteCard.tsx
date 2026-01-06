@@ -31,6 +31,9 @@ import { testConnection, syncSiteMetadata } from '../api/wordpressApi';
 import { LegalPagesManager } from '@/components/adsense/LegalPagesManager';
 import { PageSpeedCard } from '@/components/quality/PageSpeedCard';
 import { SiteProfileSection } from './SiteProfileSection';
+import { IfritPluginSection } from './IfritPluginSection';
+import { getReadinessStatus, getApprovalProgress } from '../lib/adsenseChecker';
+import { SiteHealthWidget } from './SiteHealthWidget';
 
 interface WPSiteCardProps {
     site: WPSite;
@@ -42,6 +45,8 @@ export function WPSiteCard({ site, onEdit }: WPSiteCardProps) {
     const [showLegalPages, setShowLegalPages] = useState(false);
     const [showPageSpeed, setShowPageSpeed] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
+    const [showPlugin, setShowPlugin] = useState(false);
+    const [showHealth, setShowHealth] = useState(false);
     const { updateSiteStatus, updateSiteMetadata, removeSite } = useWPSitesLegacy();
 
     const handleSync = async () => {
@@ -106,9 +111,21 @@ export function WPSiteCard({ site, onEdit }: WPSiteCardProps) {
                             </a>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                         <StatusIcon className={`w-5 h-5 ${status.color}`} />
                         <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
+                        {site.status === 'connected' && (() => {
+                            const adsense = getReadinessStatus(site);
+                            const progress = getApprovalProgress(site);
+                            return (
+                                <span
+                                    className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${adsense.color.replace('text-', 'bg-').replace('-500', '-100')} ${adsense.color}`}
+                                    title={`AdSense: ${progress.percentage}% ready`}
+                                >
+                                    {adsense.label}
+                                </span>
+                            );
+                        })()}
                     </div>
                 </div>
             </div>
@@ -143,6 +160,33 @@ export function WPSiteCard({ site, onEdit }: WPSiteCardProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Plugin Health Toggle */}
+            {site.status === 'connected' && (
+                <div className="border-b border-neutral-100">
+                    <button
+                        onClick={() => setShowHealth(!showHealth)}
+                        className="w-full px-4 py-2 flex items-center justify-between text-sm text-neutral-600 hover:bg-neutral-50 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <span className="text-base">🔌</span>
+                            <span>Plugin Health</span>
+                        </div>
+                        {showHealth ? (
+                            <ChevronUp className="w-4 h-4" />
+                        ) : (
+                            <ChevronDown className="w-4 h-4" />
+                        )}
+                    </button>
+
+                    {/* Expandable Health Widget */}
+                    {showHealth && (
+                        <div className="px-4 py-3 bg-neutral-50 border-t border-neutral-100">
+                            <SiteHealthWidget site={site} />
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Site Profile Toggle */}
             <div className="border-b border-neutral-100">
@@ -223,6 +267,38 @@ export function WPSiteCard({ site, onEdit }: WPSiteCardProps) {
                     {showPageSpeed && (
                         <div className="px-4 py-3 bg-neutral-50 border-t border-neutral-100">
                             <PageSpeedCard url={site.url} />
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Ifrit Plugin Toggle */}
+            {site.status === 'connected' && (
+                <div className="border-b border-neutral-100">
+                    <button
+                        onClick={() => setShowPlugin(!showPlugin)}
+                        className="w-full px-4 py-2 flex items-center justify-between text-sm text-neutral-600 hover:bg-neutral-50 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span>Ifrit Connector Plugin</span>
+                            {site.ifritPluginActive && (
+                                <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded">Active</span>
+                            )}
+                        </div>
+                        {showPlugin ? (
+                            <ChevronUp className="w-4 h-4" />
+                        ) : (
+                            <ChevronDown className="w-4 h-4" />
+                        )}
+                    </button>
+
+                    {/* Expandable Ifrit Plugin Section */}
+                    {showPlugin && (
+                        <div className="px-4 py-3 bg-neutral-50 border-t border-neutral-100">
+                            <IfritPluginSection site={site} />
                         </div>
                     )}
                 </div>

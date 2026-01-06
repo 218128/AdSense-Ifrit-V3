@@ -102,7 +102,12 @@ export function HostingerHealthDashboard() {
         setError(null);
 
         try {
-            const response = await fetch(`/api/hosting/health?apiKey=${encodeURIComponent(apiKey)}`);
+            // Use POST to avoid exposing API key in URL/logs
+            const response = await fetch('/api/hosting/health', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiKey }),
+            });
             const data: HealthData = await response.json();
 
             if (data.success) {

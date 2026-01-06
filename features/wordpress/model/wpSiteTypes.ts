@@ -109,6 +109,37 @@ export interface WPSite {
     provisionedVia?: 'hostinger-mcp' | 'manual';
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Hunt Profile Data (Artifact loaded from Hunt feature)
+    // WP Sites OWNS this copy - can enrich with additional data over time
+    // ─────────────────────────────────────────────────────────────────────────
+    profileData?: {
+        // Initial data from Hunt Profile Artifact
+        niche: string;
+        primaryKeywords: string[];
+        secondaryKeywords: string[];
+        questionKeywords: string[];
+        suggestedTopics: string[];
+        notes?: string;
+
+        // Artifact source tracking
+        sourceDomain: string;              // Domain the profile was generated for
+        loadedFromHuntAt: number;          // When artifact was loaded
+        lastEnrichedAt?: number;           // When WP Sites enriched with more data
+
+        // Future: Additional enrichment data
+        enrichedKeywords?: string[];       // Keywords added by WP Sites capabilities
+        enrichedTopics?: string[];         // Topics added by research
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Ifrit Plugin Integration
+    // ─────────────────────────────────────────────────────────────────────────
+    ifritPluginActive?: boolean;          // ifrit-connector plugin detected
+    ifritPluginVersion?: string;          // Plugin version
+    ifritToken?: string;                  // API token for ifrit-connector (encrypted)
+    ifritWebhookConfigured?: boolean;     // Webhook URL set in plugin
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Timestamps
     // ─────────────────────────────────────────────────────────────────────────
     createdAt: number;

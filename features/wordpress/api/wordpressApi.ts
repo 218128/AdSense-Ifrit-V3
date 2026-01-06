@@ -150,6 +150,57 @@ export async function updatePost(
 }
 
 // ============================================================================
+// Get Posts (for Translation Source)
+// ============================================================================
+
+export interface WPPostFetchOptions {
+    status?: 'publish' | 'draft' | 'any';
+    categories?: number[];
+    after?: string;        // ISO date - only posts after this date
+    perPage?: number;
+    page?: number;
+    orderby?: 'date' | 'modified' | 'title' | 'id';
+    order?: 'asc' | 'desc';
+}
+
+/**
+ * Get posts from WordPress site (for translation source)
+ */
+export async function getPosts(
+    site: WPSite,
+    options?: WPPostFetchOptions
+): Promise<WPApiResponse<WPPostResult[]>> {
+    const params = new URLSearchParams({
+        per_page: String(options?.perPage || 10),
+        page: String(options?.page || 1),
+        orderby: options?.orderby || 'date',
+        order: options?.order || 'desc',
+    });
+
+    if (options?.status && options.status !== 'any') {
+        params.set('status', options.status);
+    }
+    if (options?.categories?.length) {
+        params.set('categories', options.categories.join(','));
+    }
+    if (options?.after) {
+        params.set('after', options.after);
+    }
+
+    return wpFetch<WPPostResult[]>(site, `/posts?${params}`);
+}
+
+/**
+ * Get a single post by ID
+ */
+export async function getPost(
+    site: WPSite,
+    postId: number
+): Promise<WPApiResponse<WPPostResult>> {
+    return wpFetch<WPPostResult>(site, `/posts/${postId}`);
+}
+
+// ============================================================================
 // Pages (for Legal Pages, About, Contact, etc.)
 // ============================================================================
 

@@ -7,8 +7,8 @@
 
 // ============ DOMAIN ITEM ============
 
-export type DomainSource = 'manual' | 'free' | 'premium' | 'spamzilla';
-export type DomainStatus = 'unknown' | 'available' | 'pending' | 'auction';
+export type DomainSource = 'manual' | 'free' | 'premium' | 'spamzilla' | 'external';
+export type DomainStatus = 'unknown' | 'available' | 'pending' | 'auction' | 'owned';
 export type QualityTier = 'gold' | 'silver' | 'bronze' | 'avoid';
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 export type Recommendation = 'strong-buy' | 'buy' | 'consider' | 'avoid';
@@ -71,6 +71,15 @@ export interface AnalyzeCandidate {
         wasPBN?: boolean;
         hadSpam?: boolean;
         domainAge?: number;
+        trustFlow?: number;
+        citationFlow?: number;
+        domainAuthority?: number;
+        majesticTopics?: string;
+    };
+    keywordContext?: {
+        keywords: string[];
+        research: Record<string, string[]>;
+        niche?: string;
     };
 }
 

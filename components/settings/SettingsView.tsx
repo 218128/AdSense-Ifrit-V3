@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Lock, Bot, Link2, DollarSign, Database } from 'lucide-react';
+import { Settings, Lock, Zap, Brain, Server, Link2, DollarSign, Database } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
 
-// Section components
-import { AISection } from './sections/AISection';
-import { ConnectionsSection } from './sections/ConnectionsSection';
+// Section components - New 6-tab structure
+import { AIProvidersSection } from './sections/AIProvidersSection';
+import { CapabilitiesSection } from './sections/CapabilitiesSection';
+import { MCPSection } from './sections/MCPSection';
+import { IntegrationsSection } from './sections/IntegrationsSection';
 import { MonetizationSection } from './sections/MonetizationSection';
 import { DataSection } from './sections/DataSection';
 
@@ -135,22 +137,24 @@ export function getSelectedModel(provider: string = 'gemini'): string | undefine
 
 // ============ SETTINGS COMPONENT ============
 
-type SettingsSection = 'ai' | 'connections' | 'monetization' | 'data';
+type SettingsSection = 'ai-providers' | 'capabilities' | 'mcp' | 'integrations' | 'monetization' | 'data';
 
 interface SettingsModalProps {
     inline?: boolean;
 }
 
 const sections: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
-    { id: 'ai', label: 'AI', icon: <Bot className="w-4 h-4" /> },
-    { id: 'connections', label: 'Connect', icon: <Link2 className="w-4 h-4" /> },
-    { id: 'monetization', label: 'Monetize', icon: <DollarSign className="w-4 h-4" /> },
-    { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
+    { id: 'ai-providers', label: 'AI Providers', icon: <Zap className="w-4 h-4" /> },
+    { id: 'capabilities', label: 'Capabilities', icon: <Brain className="w-4 h-4" /> },
+    { id: 'mcp', label: 'MCP & Tools', icon: <Server className="w-4 h-4" /> },
+    { id: 'integrations', label: 'Integrations', icon: <Link2 className="w-4 h-4" /> },
+    { id: 'monetization', label: 'Monetization', icon: <DollarSign className="w-4 h-4" /> },
+    { id: 'data', label: 'Data & System', icon: <Database className="w-4 h-4" /> },
 ];
 
 export default function SettingsModal({ inline = false }: SettingsModalProps) {
     const [isOpen, setIsOpen] = useState(inline);
-    const [activeSection, setActiveSection] = useState<SettingsSection>('ai');
+    const [activeSection, setActiveSection] = useState<SettingsSection>('ai-providers');
 
     const store = useSettingsStore();
     const { backupToServer, restoreFromServer, initialize, integrations, adsenseConfig } = store;
@@ -173,13 +177,17 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
         alert('Settings saved!');
     };
 
-    // Render section content
+    // Render section content based on new 6-tab structure
     const renderSectionContent = () => {
         switch (activeSection) {
-            case 'ai':
-                return <AISection />;
-            case 'connections':
-                return <ConnectionsSection />;
+            case 'ai-providers':
+                return <AIProvidersSection />;
+            case 'capabilities':
+                return <CapabilitiesSection />;
+            case 'mcp':
+                return <MCPSection />;
+            case 'integrations':
+                return <IntegrationsSection />;
             case 'monetization':
                 return <MonetizationSection />;
             case 'data':
@@ -200,8 +208,8 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                             key={section.id}
                             onClick={() => setActiveSection(section.id)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors ${activeSection === section.id
-                                    ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
-                                    : 'text-neutral-600 hover:bg-neutral-50'
+                                ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
+                                : 'text-neutral-600 hover:bg-neutral-50'
                                 }`}
                         >
                             {section.icon}
@@ -257,8 +265,8 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                                     key={section.id}
                                     onClick={() => setActiveSection(section.id)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeSection === section.id
-                                            ? 'bg-blue-100 text-blue-700'
-                                            : 'text-neutral-600 hover:bg-neutral-100'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'text-neutral-600 hover:bg-neutral-100'
                                         }`}
                                 >
                                     {section.icon}

@@ -17,6 +17,8 @@ import { Globe, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Sparkles,
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useWPSitesLegacy } from '@/features/wordpress/model/wpSiteStore';
 import { useCampaignStore } from '@/features/campaigns/model/campaignStore';
+import type { EnrichedKeyword, HuntCampaignContext } from '@/features/campaigns/model/campaignContext';
+import { captureHuntDataForDomain, useHuntDataRegistry } from '@/features/hunt/model/huntDataRegistry';
 
 interface HostingOrder {
     id: string;
@@ -54,6 +56,10 @@ interface CreateSiteButtonProps {
     domain: string;
     niche?: string;
     keywords?: string[];
+    /** Full enriched keywords from Hunt analysis */
+    enrichedKeywords?: EnrichedKeyword[];
+    /** Selected trends from Hunt */
+    trends?: { topic: string; source: string; niche?: string }[];
     onSuccess?: (result: ProvisionResult) => void;
     onError?: (error: string) => void;
     className?: string;
@@ -64,6 +70,8 @@ export function CreateSiteButton({
     domain,
     niche,
     keywords,
+    enrichedKeywords,
+    trends,
     onSuccess,
     onError,
     className = '',
@@ -149,6 +157,15 @@ export function CreateSiteButton({
             setResult(data);
 
             if (data.success) {
+                // Capture Hunt data in registry for future reference
+                const keywordsToCapture = enrichedKeywords ||
+                    (keywords?.map(k => ({ keyword: k, niche })) || []);
+
+                captureHuntDataForDomain(domain, keywordsToCapture, trends, niche);
+
+                // Link WP Site to domain in registry
+                const registry = useHuntDataRegistry.getState();
+
                 // Auto-register the site in WordPress store with full metadata
                 let wpSiteId = '';
                 try {
@@ -164,16 +181,30 @@ export function CreateSiteButton({
                         provisionedVia: 'hostinger-mcp',
                     });
                     wpSiteId = newSite.id;
+
+                    // Link WP Site to domain in registry
+                    registry.linkWPSite(domain, wpSiteId);
+
                     console.log(`[CreateSite] Auto-registered ${domain} in WordPress store (ID: ${wpSiteId}, niche: ${niche})`);
                 } catch (regError) {
                     console.error('[CreateSite] Failed to auto-register site:', regError);
                 }
 
-                // Auto-create draft campaign linked to this site
-                if (wpSiteId && keywords && keywords.length > 0) {
+                // Auto-create draft campaign linked to this site with FULL Hunt context
+                const hasKeywords = (enrichedKeywords && enrichedKeywords.length > 0) ||
+                    (keywords && keywords.length > 0);
+
+                if (wpSiteId && hasKeywords) {
                     try {
                         const { createCampaign } = useCampaignStore.getState();
-                        createCampaign({
+
+                        // Build huntContext from captured data
+                        const huntContext: HuntCampaignContext | undefined = registry.buildCampaignContext(domain);
+
+                        // Get keywords for source config
+                        const keywordStrings = enrichedKeywords?.map(k => k.keyword) || keywords || [];
+
+                        const newCampaign = createCampaign({
                             name: `${domain} - ${niche || 'Content Campaign'}`,
                             description: `Auto-created campaign for ${domain}`,
                             status: 'draft',
@@ -183,12 +214,14 @@ export function CreateSiteButton({
                                 type: 'keywords',
                                 config: {
                                     type: 'keywords',
-                                    keywords: keywords,
+                                    keywords: keywordStrings,
                                     rotateMode: 'sequential',
                                     currentIndex: 0,
                                     skipUsed: true
                                 }
                             },
+                            // NEW: Full Hunt context with enriched data
+                            huntContext,
                             aiConfig: {
                                 provider: 'gemini',
                                 articleType: 'pillar',
@@ -206,7 +239,13 @@ export function CreateSiteButton({
                                 pauseOnError: true
                             }
                         });
-                        console.log(`[CreateSite] Auto-created campaign for ${domain} with ${keywords.length} keywords`);
+
+                        // Link campaign to domain in registry
+                        if (newCampaign?.id) {
+                            registry.linkCampaign(domain, newCampaign.id);
+                        }
+
+                        console.log(`[CreateSite] Auto-created campaign for ${domain} with ${keywordStrings.length} keywords (huntContext: ${huntContext ? 'yes' : 'no'})`);
                     } catch (campError) {
                         console.error('[CreateSite] Failed to create campaign:', campError);
                     }

@@ -30,6 +30,7 @@ export type ActionCategory =
     | 'domain'      // Domain analysis, scoring, profile
     | 'keyword'     // Keyword research, analysis
     | 'content'     // Article generation, editing
+    | 'campaign'    // Campaign execution, content pipeline
     | 'ai'          // AI capability calls
     | 'network'     // API calls, fetches
     | 'file'        // File operations
@@ -137,6 +138,8 @@ export interface GlobalActionStatusActions {
     updateAction: (id: ActionId, message: string) => void;
     /** Add a step to an action */
     addStep: (id: ActionId, stepMessage: string, phase?: 'running' | 'success' | 'error') => string;
+    /** Update a step message and optionally phase */
+    updateStep: (id: ActionId, stepId: string, message: string, phase?: 'running' | 'success' | 'error') => void;
     /** Complete a step */
     completeStep: (id: ActionId, stepId: string, success?: boolean) => void;
     /** Set progress for determinate actions */

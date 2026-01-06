@@ -5,12 +5,14 @@
  * FSD: components/adsense/LegalPagesManager.tsx
  * 
  * Allows users to generate and publish legal pages to their WordPress site.
+ * Now includes Complianz plugin installation via Hostinger MCP with SSE tracking.
  */
 
-import { useState } from 'react';
-import { FileText, Check, Loader2, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, Check, Loader2, AlertCircle, ExternalLink, RefreshCw, Shield, Download } from 'lucide-react';
 import type { WPSite } from '@/features/wordpress/model/types';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { usePluginSync } from '@/features/wordpress/hooks/usePluginSync';
 
 interface LegalPagesManagerProps {
     site: WPSite;
@@ -45,17 +47,36 @@ export function LegalPagesManager({ site, siteName, domain, niche = 'general' }:
     const geminiKeys = providerKeys.gemini || [];
     const apiKey = geminiKeys[0]?.key || '';
 
+    // Plugin sync hook for Complianz detection & install
+    const {
+        detectedFeatures,
+        syncing,
+        syncPlugins,
+        installPlugin,
+        installingPlugin
+    } = usePluginSync(site);
+
+    // Auto-sync on mount if site has Hostinger integration
+    useEffect(() => {
+        if (site.hostingerAccountId && !detectedFeatures) {
+            syncPlugins();
+        }
+    }, [site.hostingerAccountId, detectedFeatures, syncPlugins]);
+
     // Check existing pages
     const checkExistingPages = async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams({
-                siteUrl: site.url,
-                username: site.username,
-                appPassword: site.appPassword,
+            // Use POST to avoid exposing credentials in URL/logs
+            const res = await fetch('/api/legal-pages/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteUrl: site.url,
+                    username: site.username,
+                    appPassword: site.appPassword,
+                }),
             });
-
-            const res = await fetch(`/api/legal-pages?${params}`);
             const data = await res.json();
 
             if (data.success && data.pages) {
@@ -144,8 +165,14 @@ export function LegalPagesManager({ site, siteName, domain, niche = 'general' }:
         }
     };
 
+    // Handle Complianz install
+    const handleInstallComplianz = async () => {
+        await installPlugin('complianz-gdpr', 'Complianz GDPR');
+    };
+
     const completedCount = Object.values(pageStatuses).filter(s => s.exists).length;
-    const requiredCount = LEGAL_PAGES.filter(p => p.required).length;
+    const hasComplianz = detectedFeatures?.hasComplianz ?? false;
+    const canInstallPlugin = !!site.hostingerAccountId;
 
     return (
         <div className="bg-white rounded-xl border border-neutral-200 p-6">
@@ -262,21 +289,76 @@ export function LegalPagesManager({ site, siteName, domain, niche = 'general' }:
                 Generate All Missing Pages
             </button>
 
-            {/* Plugin Recommendation */}
-            <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <p className="text-sm text-amber-800">
-                    <strong>💡 Tip:</strong> Install the{' '}
-                    <a
-                        href="https://wordpress.org/plugins/complianz-gdpr/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline font-medium"
-                    >
-                        Complianz GDPR plugin
-                    </a>
-                    {' '}for cookie consent banners and automatic privacy law compliance.
-                </p>
+            {/* Complianz Plugin Section - Dynamic based on detection */}
+            <div className={`mt-4 p-4 rounded-lg border ${hasComplianz
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-amber-50 border-amber-200'
+                }`}>
+                <div className="flex items-start gap-3">
+                    <Shield className={`w-5 h-5 mt-0.5 ${hasComplianz ? 'text-green-600' : 'text-amber-600'}`} />
+                    <div className="flex-1">
+                        {hasComplianz ? (
+                            <>
+                                <p className="text-sm font-medium text-green-800">
+                                    ✅ Complianz GDPR Active
+                                </p>
+                                <p className="text-xs text-green-600 mt-1">
+                                    Cookie consent & privacy compliance configured
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-sm font-medium text-amber-800">
+                                    Cookie Consent Required
+                                </p>
+                                <p className="text-xs text-amber-600 mt-1">
+                                    GDPR/CCPA compliance is required for AdSense
+                                </p>
+                                {canInstallPlugin ? (
+                                    <button
+                                        onClick={handleInstallComplianz}
+                                        disabled={installingPlugin === 'complianz-gdpr' || syncing}
+                                        className="mt-3 flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors"
+                                    >
+                                        {installingPlugin === 'complianz-gdpr' ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Installing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Download className="w-4 h-4" />
+                                                Install Complianz GDPR
+                                            </>
+                                        )}
+                                    </button>
+                                ) : (
+                                    <a
+                                        href="https://wordpress.org/plugins/complianz-gdpr/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="mt-2 inline-flex items-center gap-1 text-sm text-amber-700 hover:underline"
+                                    >
+                                        <ExternalLink className="w-3 h-3" />
+                                        Install from WordPress.org
+                                    </a>
+                                )}
+                            </>
+                        )}
+                    </div>
+                    {!hasComplianz && detectedFeatures === null && (
+                        <button
+                            onClick={syncPlugins}
+                            disabled={syncing}
+                            className="text-amber-600 hover:text-amber-700"
+                            title="Sync plugins"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );
 }
+

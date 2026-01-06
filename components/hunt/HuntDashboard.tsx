@@ -26,6 +26,7 @@ import {
 // State management
 import { useHuntStore, AnalyzeCandidate } from '@/stores/huntStore';
 import { useKeywordStore, type EnrichedKeyword } from '@/stores/keywordStore';
+import { useWPSitesLegacy } from '@/features/wordpress/model/wpSiteStore';
 import type { KeywordItem } from '@/lib/keywords/types';
 
 // Subtab 1: Keywords/Niches
@@ -64,6 +65,13 @@ export default function HuntDashboard() {
 
     // Get research results from keyword store for passing to Domain Acquire
     const researchResults = useKeywordStore(state => state.researchResults);
+
+    // Get WP Sites for cross-referencing existing websites
+    const { sites: wpSites } = useWPSitesLegacy();
+    // Extract domain names from WP sites URLs for comparison
+    const wpSiteDomains = wpSites.map(s => {
+        try { return new URL(s.url).hostname; } catch { return s.url; }
+    });
 
     // Handle navigation from KeywordHunter to Domain Acquire tab
     const handleNavigateToDomains = useCallback((keywords: string[]) => {
@@ -364,6 +372,7 @@ export default function HuntDashboard() {
                                 <PurchaseQueue
                                     queue={purchaseQueue}
                                     ownedDomains={ownedDomains}
+                                    hostingerDomains={wpSiteDomains}
                                     onRemove={removeFromPurchase}
                                     onClear={clearPurchaseQueue}
                                     onMarkPurchased={handleMarkAsPurchased}

@@ -5,10 +5,10 @@
  * FSD: features/wordpress/ui/SiteProfileSection.tsx
  * 
  * Displays and edits site metadata: niche, siteType, hosting info.
- * Note: Essential Pages are handled by LegalPagesManager - no duplication here.
+ * Also shows Hunt Profile data if loaded (profileData).
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Building2,
     Tag,
@@ -17,8 +17,14 @@ import {
     Edit2,
     Save,
     X,
+    Download,
+    Loader2,
+    CheckCircle,
+    Key,
+    Lightbulb,
+    AlertTriangle,
 } from 'lucide-react';
-import { useWPSitesLegacy } from '../model/wpSiteStore';
+import { useWPSitesStore } from '../model/wpSiteStore';
 import type { WPSite, WPSiteType } from '../model/wpSiteTypes';
 
 interface SiteProfileSectionProps {
@@ -34,12 +40,31 @@ const SITE_TYPES: { value: WPSiteType; label: string }[] = [
 ];
 
 export function SiteProfileSection({ site }: SiteProfileSectionProps) {
-    const { updateSite } = useWPSitesLegacy();
+    const { updateSite, loadHuntProfile } = useWPSitesStore();
     const [isEditing, setIsEditing] = useState(false);
+    const [loadingProfile, setLoadingProfile] = useState(false);
+    const [hasHuntProfile, setHasHuntProfile] = useState(false);
     const [editData, setEditData] = useState({
         niche: site.niche || '',
         siteType: site.siteType || 'general',
     });
+
+    // Extract domain from URL
+    const domain = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+    // Check if Hunt has a profile for this domain
+    useEffect(() => {
+        const checkHuntProfile = async () => {
+            try {
+                const { getOwnedDomains } = await import('@/features/hunt');
+                const owned = getOwnedDomains();
+                setHasHuntProfile(owned.some(d => d.domain === domain && d.profile));
+            } catch {
+                setHasHuntProfile(false);
+            }
+        };
+        checkHuntProfile();
+    }, [domain]);
 
     const handleSave = () => {
         updateSite(site.id, {
@@ -58,8 +83,23 @@ export function SiteProfileSection({ site }: SiteProfileSectionProps) {
         setIsEditing(false);
     };
 
+    const handleLoadHuntProfile = async () => {
+        setLoadingProfile(true);
+        const success = await loadHuntProfile(site.id, domain);
+        setLoadingProfile(false);
+        if (success) {
+            // Refresh edit data with new profile niche
+            setEditData(prev => ({
+                ...prev,
+                niche: site.niche || prev.niche,
+            }));
+        }
+    };
+
+    const profileData = site.profileData;
+
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
             {/* Header with Edit */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -93,6 +133,92 @@ export function SiteProfileSection({ site }: SiteProfileSectionProps) {
                     </div>
                 )}
             </div>
+
+            {/* Load Hunt Profile Button */}
+            {!profileData && hasHuntProfile && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 text-amber-700 text-sm">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            <span>Hunt profile available for this domain</span>
+                        </div>
+                        <button
+                            onClick={handleLoadHuntProfile}
+                            disabled={loadingProfile}
+                            className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                            {loadingProfile ? (
+                                <>
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Loading...
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="w-3 h-3" />
+                                    Load Hunt Profile
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Hunt Profile Data (if loaded) */}
+            {profileData && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-3">
+                    <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                        <CheckCircle className="w-4 h-4" />
+                        Hunt Profile Loaded
+                        <span className="text-xs font-normal text-green-600">
+                            ({new Date(profileData.loadedFromHuntAt).toLocaleDateString()})
+                        </span>
+                    </div>
+
+                    {/* Keywords */}
+                    {profileData.primaryKeywords.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-1 text-xs text-green-600 mb-1">
+                                <Key className="w-3 h-3" />
+                                Primary Keywords
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                                {profileData.primaryKeywords.slice(0, 5).map((kw, i) => (
+                                    <span key={i} className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded">
+                                        {kw}
+                                    </span>
+                                ))}
+                                {profileData.primaryKeywords.length > 5 && (
+                                    <span className="text-xs text-green-600">
+                                        +{profileData.primaryKeywords.length - 5} more
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Topics */}
+                    {profileData.suggestedTopics.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-1 text-xs text-green-600 mb-1">
+                                <Lightbulb className="w-3 h-3" />
+                                Suggested Topics
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                                {profileData.suggestedTopics.slice(0, 3).map((topic, i) => (
+                                    <span key={i} className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded">
+                                        {topic}
+                                    </span>
+                                ))}
+                                {profileData.suggestedTopics.length > 3 && (
+                                    <span className="text-xs text-green-600">
+                                        +{profileData.suggestedTopics.length - 3} more
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Niche */}
             <div className="flex items-start gap-2">
@@ -162,4 +288,3 @@ export function SiteProfileSection({ site }: SiteProfileSectionProps) {
 }
 
 export default SiteProfileSection;
-

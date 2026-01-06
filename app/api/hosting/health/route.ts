@@ -34,14 +34,18 @@ interface HealthResponse {
 }
 
 /**
- * GET - Fetch health status for all Hostinger websites
+ * POST - Fetch health status for all Hostinger websites
+ * 
+ * Uses POST to keep API key in request body (not exposed in URL/logs)
  */
-export async function GET(request: NextRequest): Promise<NextResponse<HealthResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse<HealthResponse>> {
     const lastChecked = new Date().toISOString();
 
     try {
-        const apiKey = request.headers.get('x-hostinger-api-key') ||
-            request.nextUrl.searchParams.get('apiKey') ||
+        // Read API key from request body (secure - not in URL)
+        const body = await request.json().catch(() => ({}));
+        const apiKey = body.apiKey ||
+            request.headers.get('x-hostinger-api-key') ||
             process.env.HOSTINGER_API_TOKEN;
 
         if (!apiKey) {

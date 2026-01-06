@@ -34,6 +34,11 @@ export interface UseDomainImportReturn {
     spamzillaImportStats: SpamZillaImportResult['stats'] | null;
     spamzillaPreset: string;
 
+    // External/Owned domains (no API call, just list)
+    externalDomains: DomainItem[];
+    addExternalDomains: (domains: string[]) => void;
+    clearExternal: () => void;
+
     // CSV upload handler (auto-detects format)
     handleCSVUpload: (file: File) => Promise<void>;
 
@@ -115,6 +120,9 @@ export function useDomainImport(): UseDomainImportReturn {
     const [spamzillaDomains, setSpamzillaDomains] = useState<DomainItem[]>([]);
     const [spamzillaImportStats, setSpamzillaImportStats] = useState<SpamZillaImportResult['stats'] | null>(null);
     const [spamzillaPreset, setSpamzillaPreset] = useState<string>('');
+
+    // External/Owned domains state
+    const [externalDomains, setExternalDomains] = useState<DomainItem[]>([]);
 
     // Parse manual text input
     const parseManualDomains = useCallback(async () => {
@@ -231,8 +239,38 @@ export function useDomainImport(): UseDomainImportReturn {
         });
     }, []);
 
+    // Add external/owned domains (no API call, just add to list)
+    const addExternalDomains = useCallback((domains: string[]) => {
+        const validDomains = domains
+            .map(d => d.trim().toLowerCase())
+            .filter(d => /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z]{2,})+$/.test(d));
+
+        const newItems: DomainItem[] = validDomains.map(domain => {
+            const { tld, length } = parseDomain(domain);
+            const scoreResult = scoreDomain({ domain, tld, length, dataSource: 'manual' });
+            return {
+                domain,
+                tld,
+                source: 'external' as const,
+                status: 'owned' as const,
+                fetchedAt: Date.now(),
+                score: scoreResult,
+            };
+        });
+
+        setExternalDomains(prev => {
+            const existing = new Set(prev.map(d => d.domain));
+            const unique = newItems.filter(d => !existing.has(d.domain));
+            return [...prev, ...unique];
+        });
+    }, []);
+
+    const clearExternal = useCallback(() => {
+        setExternalDomains([]);
+    }, []);
+
     // Combine all domains
-    const allDomains = [...manualDomains, ...freeDomains, ...spamzillaDomains];
+    const allDomains = [...manualDomains, ...freeDomains, ...spamzillaDomains, ...externalDomains];
 
     return {
         // Manual
@@ -252,6 +290,10 @@ export function useDomainImport(): UseDomainImportReturn {
         spamzillaDomains,
         spamzillaImportStats,
         spamzillaPreset,
+        // External/Owned
+        externalDomains,
+        addExternalDomains,
+        clearExternal,
         // Upload
         handleCSVUpload,
         // Combined

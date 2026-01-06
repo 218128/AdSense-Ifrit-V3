@@ -89,6 +89,8 @@ export default function ExpiredDomainFinder({
         fetchFreeDomains,
         spamzillaDomains,
         spamzillaPreset,
+        externalDomains,
+        addExternalDomains,
         handleCSVUpload,
         allDomains,
     } = useDomainImport();
@@ -207,14 +209,25 @@ export default function ExpiredDomainFinder({
                 score: d.score?.overall || 0,
                 recommendation: d.score?.recommendation || 'consider',
                 estimatedValue: d.score?.estimatedValue,
+                // Pass ALL enrichment data from SpamZilla/other sources
                 spamzillaData: {
                     domainAge: d.domainAge,
+                    trustFlow: d.trustFlow,
+                    citationFlow: d.citationFlow,
+                    domainAuthority: d.domainRating,
+                    // majesticTopics from SpamZilla if available
                 },
+                // Pass keyword context from Keywords/Niches research
+                keywordContext: keywordContext ? {
+                    keywords: keywordContext.keywords,
+                    research: keywordContext.research,
+                    niche: keywordContext.keywords[0], // Use first keyword as niche hint
+                } : undefined,
             }));
 
         onAnalyze(selected);
         setSelectedDomains(new Set());
-    }, [onAnalyze, selectedDomains, filteredDomains]);
+    }, [onAnalyze, selectedDomains, filteredDomains, keywordContext]);
 
     const handleQuickQueueSelected = useCallback(() => {
         if (!onQuickQueue || selectedDomains.size === 0) return;
@@ -264,7 +277,10 @@ export default function ExpiredDomainFinder({
                     preset={spamzillaPreset}
                 />
 
-                <ExternalDomainImport />
+                <ExternalDomainImport
+                    onAddDomains={addExternalDomains}
+                    importedCount={externalDomains.length}
+                />
             </div>
 
             {/* Filters */}

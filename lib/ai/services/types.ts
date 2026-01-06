@@ -91,8 +91,15 @@ export const DEFAULT_CAPABILITIES: Omit<Capability, 'isEnabled' | 'defaultHandle
     {
         id: 'images',
         name: 'Image Generation',
-        description: 'Generate images using AI',
+        description: 'Generate images using AI (Gemini, OpenRouter, etc.)',
         icon: 'Image',
+        isDefault: true,
+    },
+    {
+        id: 'search-images',
+        name: 'Image Search',
+        description: 'Search stock photos (Unsplash, Pexels, Brave, Perplexity)',
+        icon: 'ImageSearch',
         isDefault: true,
     },
     {

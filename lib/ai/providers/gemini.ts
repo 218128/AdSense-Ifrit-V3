@@ -139,6 +139,63 @@ export class GeminiProvider implements ProviderAdapter {
     }
 
     /**
+     * Generate image using Gemini image model
+     * Uses gemini-2.5-flash-image per GEMINI_GUIDELINES.md
+     * Returns base64 data URL
+     */
+    async generateImage(apiKey: string, options: GenerateOptions): Promise<GenerateResult> {
+        const modelId = 'gemini-2.5-flash-image';
+
+        try {
+            const genai = new GoogleGenAI({ apiKey });
+
+            const response = await genai.models.generateContent({
+                model: modelId,
+                contents: options.prompt,
+            });
+
+            // Check for image parts in the response
+            const candidate = response.candidates?.[0];
+            if (!candidate?.content?.parts) {
+                return errorResult('No image generated', modelId);
+            }
+
+            // Find the image part
+            for (const part of candidate.content.parts) {
+                if (part.text) {
+                    // Sometimes model returns text description instead
+                    continue;
+                }
+                // Check for inlineData (base64 image)
+                const inlineData = part.inlineData as { data?: string; mimeType?: string } | undefined;
+                if (inlineData?.data) {
+                    const mimeType = inlineData.mimeType || 'image/png';
+                    const dataUrl = `data:${mimeType};base64,${inlineData.data}`;
+                    return {
+                        success: true,
+                        content: dataUrl,
+                        model: modelId,
+                    };
+                }
+            }
+
+            // No image found - model might have returned text instead
+            const textContent = candidate.content.parts.find(p => p.text)?.text;
+            if (textContent) {
+                return errorResult(`Model returned text instead of image: ${textContent.substring(0, 100)}`, modelId);
+            }
+
+            return errorResult('No image data in response', modelId);
+
+        } catch (error) {
+            return errorResult(
+                error instanceof Error ? error.message : 'Gemini image generation failed',
+                modelId
+            );
+        }
+    }
+
+    /**
      * Stream content generation using Gemini SDK
      */
     async *stream(apiKey: string, options: GenerateOptions): AsyncGenerator<string, void, unknown> {

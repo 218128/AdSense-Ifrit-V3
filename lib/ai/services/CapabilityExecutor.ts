@@ -130,6 +130,23 @@ const CAPABILITY_VALIDATORS: Record<string, ValidationRule[]> = {
             errorMessage: 'Scraped content is empty'
         }
     ],
+    'search-images': [
+        {
+            validate: (data) => {
+                // Accept array of image objects or single URL string
+                if (Array.isArray(data) && data.length > 0) {
+                    return data.some((img: unknown) =>
+                        typeof img === 'object' && img !== null && 'url' in img
+                    );
+                }
+                if (typeof data === 'string') {
+                    return data.startsWith('http');
+                }
+                return false;
+            },
+            errorMessage: 'No valid images returned'
+        }
+    ],
 };
 
 // ============================================

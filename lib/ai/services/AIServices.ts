@@ -352,30 +352,18 @@ class AIServicesClass {
         });
 
         // ============================================
-        // IMAGE INTEGRATION HANDLERS
+        // IMAGE SEARCH HANDLERS (search-images capability)
         // ============================================
 
-        // Unsplash - stock photos for images capability
-        this.registerHandler({
-            id: 'unsplash',
-            name: 'Unsplash',
-            source: 'integration',
-            capabilities: ['images'],
-            priority: 85,  // High priority for images
-            isAvailable: true,  // Free tier available
-            requiresApiKey: false,  // Optional API key for higher rate limits
-        });
-
-        // Pexels - free stock photos
-        this.registerHandler({
-            id: 'pexels',
-            name: 'Pexels',
-            source: 'integration',
-            capabilities: ['images'],
-            priority: 80,
-            isAvailable: true,
-            requiresApiKey: false,
-        });
+        // Import and register image search handlers
+        try {
+            const { imageSearchHandlers } = await import('../handlers/imageSearchHandlers');
+            for (const handler of imageSearchHandlers) {
+                this.registerHandler(handler);
+            }
+        } catch (e) {
+            console.warn('[AIServices] Failed to load image search handlers:', e);
+        }
 
         // ============================================
         // HUNT FEATURE HANDLERS
@@ -399,6 +387,14 @@ class AIServicesClass {
             }
         } catch (e) {
             console.warn('[AIServices] Failed to load domain handlers:', e);
+        }
+
+        // Import and register scrape handler (Web Scraping)
+        try {
+            const { scrapeHandler } = await import('../handlers/scrapeHandler');
+            this.registerHandler(scrapeHandler);
+        } catch (e) {
+            console.warn('[AIServices] Failed to load scrape handler:', e);
         }
 
     }
@@ -944,17 +940,29 @@ class AIServicesClass {
             // Server-side: direct SDK call
             if (isServer && apiKey) {
                 const provider = await this.importProvider(providerId);
-                const result = await provider.chat(apiKey, {
-                    prompt: options.prompt,
-                    systemPrompt: options.systemPrompt,
-                    maxTokens: options.maxTokens,
-                    temperature: options.temperature,
-                    model: options.model,
-                });
+
+                // Use generateImage for images capability (Gemini only)
+                const isImageGeneration = options.capability === 'images' && providerId === 'gemini';
+
+                let result;
+                if (isImageGeneration && 'generateImage' in provider) {
+                    result = await (provider as { generateImage: typeof provider.chat }).generateImage(apiKey, {
+                        prompt: options.prompt,
+                    });
+                } else {
+                    result = await provider.chat(apiKey, {
+                        prompt: options.prompt,
+                        systemPrompt: options.systemPrompt,
+                        maxTokens: options.maxTokens,
+                        temperature: options.temperature,
+                        model: options.model,
+                    });
+                }
 
                 return {
                     success: result.success,
                     text: result.content || result.text,
+                    data: isImageGeneration ? result.content : undefined, // For images, put URL in data too
                     error: result.error,
                     handlerUsed: providerId,
                     source: 'ai-provider',

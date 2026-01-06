@@ -5,9 +5,9 @@
  * FSD: features/campaigns/ui/EditorSteps.tsx
  */
 
-import { Globe } from 'lucide-react';
+import { Globe, Languages } from 'lucide-react';
 import type { WPSite } from '@/features/wordpress';
-import type { AIConfig } from '../model/types';
+import type { AIConfig, LanguageMapping } from '../model/types';
 
 // ============================================================================
 // Types
@@ -19,12 +19,18 @@ export interface EditorFormState {
     targetSiteId: string;
     targetCategoryId?: number;
     postStatus: 'publish' | 'draft' | 'pending';
-    sourceType: 'keywords' | 'rss' | 'trends' | 'manual';
+    sourceType: 'keywords' | 'rss' | 'trends' | 'manual' | 'translation';
     keywords: string;
     rssFeedUrls: string;  // RSS: one URL per line
     rssAiRewrite: boolean; // RSS: AI rewrite content
     trendsRegion: string;  // Trends: region code
     trendsCategory: string; // Trends: category filter
+    // Translation source
+    translationSourceSiteId: string;  // Site to fetch posts from
+    translationTargetLanguages: LanguageMapping[];  // Target languages with sites
+    translationHumanize: boolean;  // Run through humanizer
+    translationOptimizeReadability: boolean;  // Optimize readability
+    // AI config
     provider: AIConfig['provider'];
     articleType: AIConfig['articleType'];
     tone: AIConfig['tone'];
@@ -141,12 +147,13 @@ interface SourceStepProps {
     updateField: FormUpdater;
 }
 
-export function SourceStep({ form, updateField }: SourceStepProps) {
-    const sourceTypes = ['keywords', 'rss', 'trends', 'manual'] as const;
+export function SourceStep({ form, updateField, sites }: SourceStepProps & { sites?: WPSite[] }) {
+    const sourceTypes = ['keywords', 'rss', 'trends', 'translation', 'manual'] as const;
     const descriptions = {
         keywords: 'Generate from keyword list',
         rss: 'Import from RSS feeds',
         trends: 'Auto-generate from Google Trends',
+        translation: 'Translate existing posts',
         manual: 'Coming soon'
     };
 
@@ -187,8 +194,9 @@ export function SourceStep({ form, updateField }: SourceStepProps) {
                                 : 'border-neutral-200 hover:border-neutral-300'
                                 } ${type === 'manual' ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                            <div className="font-medium capitalize">
-                                {type === 'rss' ? 'RSS Feed' : type === 'trends' ? 'Google Trends' : type}
+                            <div className="font-medium capitalize flex items-center gap-1">
+                                {type === 'translation' && <Languages className="w-4 h-4" />}
+                                {type === 'rss' ? 'RSS Feed' : type === 'trends' ? 'Google Trends' : type === 'translation' ? 'Translation' : type}
                             </div>
                             <div className="text-xs text-neutral-500">{descriptions[type]}</div>
                         </button>
@@ -270,6 +278,13 @@ export function SourceStep({ form, updateField }: SourceStepProps) {
                     </div>
                 </>
             )}
+            {form.sourceType === 'translation' && sites && (
+                <TranslationSourceConfig
+                    form={form}
+                    updateField={updateField}
+                    sites={sites}
+                />
+            )}
         </div>
     );
 }
@@ -286,20 +301,13 @@ interface AIStepProps {
 export function AIStep({ form, updateField }: AIStepProps) {
     return (
         <div className="space-y-4">
+            {/* Info about AI configuration */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                <strong>Note:</strong> AI providers are configured in Settings → Capabilities.
+                The system will use your configured default provider with automatic fallback.
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">AI Provider</label>
-                    <select
-                        value={form.provider}
-                        onChange={(e) => updateField('provider', e.target.value as AIConfig['provider'])}
-                        className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                        <option value="gemini">Gemini</option>
-                        <option value="deepseek">DeepSeek</option>
-                        <option value="openrouter">OpenRouter</option>
-                        <option value="perplexity">Perplexity</option>
-                    </select>
-                </div>
                 <div>
                     <label className="block text-sm font-medium text-neutral-700 mb-1">Article Type</label>
                     <select
@@ -313,6 +321,18 @@ export function AIStep({ form, updateField }: AIStepProps) {
                         <option value="review">Review</option>
                         <option value="listicle">Listicle</option>
                     </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Target Length</label>
+                    <input
+                        type="number"
+                        value={form.targetLength}
+                        onChange={(e) => updateField('targetLength', Number(e.target.value))}
+                        min={500}
+                        max={5000}
+                        step={100}
+                        className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
                 </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -328,18 +348,6 @@ export function AIStep({ form, updateField }: AIStepProps) {
                         <option value="authoritative">Authoritative</option>
                         <option value="friendly">Friendly</option>
                     </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">Target Length</label>
-                    <input
-                        type="number"
-                        value={form.targetLength}
-                        onChange={(e) => updateField('targetLength', Number(e.target.value))}
-                        min={500}
-                        max={5000}
-                        step={100}
-                        className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
                 </div>
             </div>
 
@@ -400,3 +408,161 @@ function Checkbox({ label, checked, onChange }: { label: string; checked: boolea
         </label>
     );
 }
+
+// ============================================================================
+// Translation Source Config
+// ============================================================================
+
+const SUPPORTED_LANGUAGES = [
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'de', name: 'German' },
+    { code: 'ar', name: 'Arabic' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'it', name: 'Italian' },
+    { code: 'nl', name: 'Dutch' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'zh', name: 'Chinese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'tr', name: 'Turkish' },
+    { code: 'pl', name: 'Polish' },
+    { code: 'hi', name: 'Hindi' },
+];
+
+interface TranslationSourceConfigProps {
+    form: EditorFormState;
+    updateField: <K extends keyof EditorFormState>(field: K, value: EditorFormState[K]) => void;
+    sites: WPSite[];
+}
+
+function TranslationSourceConfig({ form, updateField, sites }: TranslationSourceConfigProps) {
+    const handleAddLanguage = () => {
+        const newLang: LanguageMapping = {
+            language: 'es',
+            languageName: 'Spanish',
+            targetSiteId: sites[0]?.id || '',
+        };
+        updateField('translationTargetLanguages', [...form.translationTargetLanguages, newLang]);
+    };
+
+    const handleRemoveLanguage = (index: number) => {
+        const updated = form.translationTargetLanguages.filter((_, i) => i !== index);
+        updateField('translationTargetLanguages', updated);
+    };
+
+    const handleUpdateLanguage = (index: number, updates: Partial<LanguageMapping>) => {
+        const updated = form.translationTargetLanguages.map((lang, i) =>
+            i === index ? { ...lang, ...updates } : lang
+        );
+        updateField('translationTargetLanguages', updated);
+    };
+
+    return (
+        <div className="space-y-4">
+            {/* Source Site */}
+            <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    <Globe className="w-4 h-4 inline mr-1" />
+                    Source Site (fetch posts from)
+                </label>
+                <select
+                    value={form.translationSourceSiteId}
+                    onChange={(e) => updateField('translationSourceSiteId', e.target.value)}
+                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                >
+                    <option value="">— Select source site —</option>
+                    {sites.map(site => (
+                        <option key={site.id} value={site.id}>{site.name} ({site.url})</option>
+                    ))}
+                </select>
+            </div>
+
+            {/* Target Languages */}
+            <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    <Languages className="w-4 h-4 inline mr-1" />
+                    Target Languages
+                </label>
+
+                {form.translationTargetLanguages.length === 0 ? (
+                    <div className="p-4 border border-dashed border-neutral-300 rounded-lg text-center text-neutral-500 text-sm">
+                        No languages added. Click &quot;Add Language&quot; to start.
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {form.translationTargetLanguages.map((lang, index) => (
+                            <div key={index} className="flex items-center gap-2 p-3 bg-neutral-50 rounded-lg">
+                                <select
+                                    value={lang.language}
+                                    onChange={(e) => {
+                                        const selected = SUPPORTED_LANGUAGES.find(l => l.code === e.target.value);
+                                        handleUpdateLanguage(index, {
+                                            language: e.target.value,
+                                            languageName: selected?.name || e.target.value,
+                                        });
+                                    }}
+                                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    {SUPPORTED_LANGUAGES.map(l => (
+                                        <option key={l.code} value={l.code}>{l.name} ({l.code})</option>
+                                    ))}
+                                </select>
+                                <span className="text-neutral-400">→</span>
+                                <select
+                                    value={lang.targetSiteId}
+                                    onChange={(e) => handleUpdateLanguage(index, { targetSiteId: e.target.value })}
+                                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value="">— Select target site —</option>
+                                    {sites.map(site => (
+                                        <option key={site.id} value={site.id}>{site.name}</option>
+                                    ))}
+                                </select>
+                                <button
+                                    onClick={() => handleRemoveLanguage(index)}
+                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Remove"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                <button
+                    onClick={handleAddLanguage}
+                    className="mt-2 px-4 py-2 text-sm border border-indigo-300 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+                >
+                    + Add Language
+                </button>
+            </div>
+
+            {/* Post Processing Options */}
+            <div className="pt-3 border-t border-neutral-200">
+                <h4 className="text-sm font-medium text-neutral-700 mb-2">Post-Processing</h4>
+                <div className="space-y-2">
+                    <Checkbox
+                        label="Humanize content after translation"
+                        checked={form.translationHumanize}
+                        onChange={(v) => updateField('translationHumanize', v)}
+                    />
+                    <Checkbox
+                        label="Optimize readability"
+                        checked={form.translationOptimizeReadability}
+                        onChange={(v) => updateField('translationOptimizeReadability', v)}
+                    />
+                </div>
+            </div>
+
+            {/* Info Note */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                <strong>How it works:</strong> Posts from the source site will be translated to each
+                target language and published to the corresponding target site. Already-translated
+                posts are automatically skipped.
+            </div>
+        </div>
+    );
+}
+

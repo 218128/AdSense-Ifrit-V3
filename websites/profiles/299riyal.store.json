@@ -1,12 +1,12 @@
 {
   "domain": "299riyal.store",
-  "niche": "General",
+  "niche": "Budget E-commerce Deals",
   "purchaseType": "external",
-  "purchasedAt": 1767046374050,
+  "purchasedAt": 1767487917693,
   "deepAnalysis": {
     "score": {
-      "overall": 35,
-      "authority": 35,
+      "overall": 50,
+      "authority": 0,
       "trustworthiness": 0,
       "relevance": 50,
       "emailPotential": 50,
@@ -27,7 +27,7 @@
       "positives": [],
       "negatives": []
     },
-    "analyzedAt": 1767046374050
+    "analyzedAt": 1767487917693
   },
   "keywordAnalysis": {
     "sourceKeywords": [
@@ -37,7 +37,7 @@
     ],
     "analysisResults": [
       {
-        "keyword": "tips",
+        "keyword": "products under 299 riyals",
         "searchVolume": 0,
         "cpc": 0,
         "competition": "medium",
@@ -47,7 +47,7 @@
         "relatedKeywords": []
       },
       {
-        "keyword": "guide",
+        "keyword": "online deals 299 sar",
         "searchVolume": 0,
         "cpc": 0,
         "competition": "medium",
@@ -57,7 +57,7 @@
         "relatedKeywords": []
       },
       {
-        "keyword": "how to",
+        "keyword": "affordable electronics Saudi Arabia",
         "searchVolume": 0,
         "cpc": 0,
         "competition": "medium",
@@ -67,7 +67,7 @@
         "relatedKeywords": []
       },
       {
-        "keyword": "best",
+        "keyword": "best value items 300 riyals",
         "searchVolume": 0,
         "cpc": 0,
         "competition": "medium",
@@ -77,7 +77,7 @@
         "relatedKeywords": []
       },
       {
-        "keyword": "reviews",
+        "keyword": "discount shopping KSA",
         "searchVolume": 0,
         "cpc": 0,
         "competition": "medium",
@@ -88,99 +88,109 @@
       }
     ],
     "primaryKeywords": [
-      "tips",
-      "guide",
-      "how to",
-      "best",
-      "reviews"
+      "products under 299 riyals",
+      "online deals 299 sar",
+      "affordable electronics Saudi Arabia",
+      "best value items 300 riyals",
+      "discount shopping KSA"
     ],
     "secondaryKeywords": [
-      "beginner guide",
-      "expert tips",
-      "complete guide",
-      "step by step",
-      "ultimate guide"
+      "what to buy for 299 riyals KSA",
+      "gadgets under 299 riyals online",
+      "home essentials 299 sar budget",
+      "gift ideas under 300 riyals",
+      "cheap fashion Saudi Arabia 299",
+      "kitchen accessories 299 sar",
+      "electronics sales 299 riyal",
+      "best budget friendly products riyal",
+      "shopping guide 299 riyals",
+      "where to find 299 riyal deals"
     ],
     "questionKeywords": [
-      "how to get started",
-      "what is the best way",
-      "why should I",
-      "when to use",
-      "where to find"
+      "What can you buy for 299 riyals?",
+      "How to find the best deals under 300 riyals online?",
+      "What are the top value products at 299 SAR?",
+      "Is 299 riyals a good budget for gifts?",
+      "How to maximize shopping budget in Saudi Arabia?"
     ],
     "totalSearchVolume": 0,
     "averageCPC": 0,
-    "analyzedAt": 1767046374050
+    "analyzedAt": 1767487917693
   },
   "aiNiche": {
-    "niche": "General",
+    "niche": "Budget E-commerce Deals",
     "suggestedTopics": [
-      "Getting Started Guide",
-      "Top 10 Tips",
-      "Complete Beginner Tutorial",
-      "Expert Strategies",
-      "Common Mistakes to Avoid"
+      "Top 10 Must-Have Gadgets Under 299 Riyals in KSA",
+      "The Ultimate Gift Guide: Amazing Presents for 299 SAR or Less",
+      "Home Makeover on a Budget: Decorating Ideas Under 299 Riyals",
+      "Smart Shopping: How to Score the Best Deals on Electronics for Under 300 Riyals",
+      "Beyond the Price Tag: Finding Quality Products for 299 SAR"
     ],
     "primaryKeywords": [
-      "tips",
-      "guide",
-      "how to",
-      "best",
-      "reviews"
+      "products under 299 riyals",
+      "online deals 299 sar",
+      "affordable electronics Saudi Arabia",
+      "best value items 300 riyals",
+      "discount shopping KSA"
     ],
     "contentAngles": [
-      "Beginner-friendly tutorials",
-      "Expert deep-dives",
-      "Comparison reviews"
+      "**The 'Smart Buyer' Guide:** Empower users to make informed decisions for maximum value at the 299 riyal price point, emphasizing quality and utility.",
+      "**Curated 'Best of' Lists:** Position the site as an expert curator, highlighting hand-picked products that genuinely offer exceptional value within the budget.",
+      "**Problem-Solution for Budget Shoppers:** Address common challenges (e.g., finding quality gifts, specific items) within a strict budget, offering practical solutions and recommendations."
     ],
-    "targetAudience": "People interested in general",
-    "monetizationStrategy": "Use informational content for high ad engagement. Create comparison articles for commercial keywords",
+    "targetAudience": "People interested in budget e-commerce deals",
+    "monetizationStrategy": "**High Ad Density on Product/Review Pages:** Since users are actively looking for products, relevant shopping ads (e.g., Google Shopping Ads via AdSense) will perform exceptionally well. Ensure ad units are strategically placed near product comparisons, reviews, or buying guides.. **Contextual Ad Placement for Buying Guides:** Use article content to recommend products within the 299 riyal range, allowing AdSense to display highly relevant ads for similar products, increasing click-through rates.. **Optimize for Mobile Responsiveness:** A significant portion of e-commerce browsing and research happens on mobile devices in the target region. Ensure seamless user experience and ad delivery on all devices for optimal AdSense performance.",
     "generatedBy": "gemini",
-    "generatedAt": 1767046374050
+    "generatedAt": 1767487917693
   },
   "primaryKeywords": [
-    "tips",
-    "guide",
-    "how to",
-    "best",
-    "reviews"
+    "products under 299 riyals",
+    "online deals 299 sar",
+    "affordable electronics Saudi Arabia",
+    "best value items 300 riyals",
+    "discount shopping KSA"
   ],
   "secondaryKeywords": [
-    "beginner guide",
-    "expert tips",
-    "complete guide",
-    "step by step",
-    "ultimate guide"
+    "what to buy for 299 riyals KSA",
+    "gadgets under 299 riyals online",
+    "home essentials 299 sar budget",
+    "gift ideas under 300 riyals",
+    "cheap fashion Saudi Arabia 299",
+    "kitchen accessories 299 sar",
+    "electronics sales 299 riyal",
+    "best budget friendly products riyal",
+    "shopping guide 299 riyals",
+    "where to find 299 riyal deals"
   ],
   "questionKeywords": [
-    "how to get started",
-    "what is the best way",
-    "why should I",
-    "when to use",
-    "where to find"
+    "What can you buy for 299 riyals?",
+    "How to find the best deals under 300 riyals online?",
+    "What are the top value products at 299 SAR?",
+    "Is 299 riyals a good budget for gifts?",
+    "How to maximize shopping budget in Saudi Arabia?"
   ],
   "suggestedTopics": [
-    "Getting Started Guide",
-    "Top 10 Tips",
-    "Complete Beginner Tutorial",
-    "Expert Strategies",
-    "Common Mistakes to Avoid"
+    "Top 10 Must-Have Gadgets Under 299 Riyals in KSA",
+    "The Ultimate Gift Guide: Amazing Presents for 299 SAR or Less",
+    "Home Makeover on a Budget: Decorating Ideas Under 299 Riyals",
+    "Smart Shopping: How to Score the Best Deals on Electronics for Under 300 Riyals",
+    "Beyond the Price Tag: Finding Quality Products for 299 SAR"
   ],
   "suggestedCategories": [
-    "Guides",
-    "Tips",
-    "Reviews",
-    "News"
+    "Electronics & Gadgets (Under 299 SAR)",
+    "Home & Lifestyle Deals",
+    "Fashion & Accessories (Budget Buys)",
+    "Gift Ideas (299 Riyal Limit)"
   ],
   "competitorUrls": [],
   "contentGaps": [
-    "Beginner-friendly tutorials",
-    "Expert deep-dives",
-    "Comparison reviews"
+    "**The 'Smart Buyer' Guide:** Empower users to make informed decisions for maximum value at the 299 riyal price point, emphasizing quality and utility.",
+    "**Curated 'Best of' Lists:** Position the site as an expert curator, highlighting hand-picked products that genuinely offer exceptional value within the budget.",
+    "**Problem-Solution for Budget Shoppers:** Address common challenges (e.g., finding quality gifts, specific items) within a strict budget, offering practical solutions and recommendations."
   ],
-  "trafficPotential": 35,
+  "trafficPotential": 50,
   "difficultyScore": 50,
-  "researchedAt": 1767046374050,
-  "notes": "Auto-generated from domain name. A general purpose website",
+  "researchedAt": 1767487917693,
+  "notes": "Auto-generated from domain name. Focuses on providing curated product recommendations and deals specifically priced around 299 Saudi Riyals (SAR) or similar affordable budgets.",
   "transferredToWebsite": false
 }

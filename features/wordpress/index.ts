@@ -54,6 +54,23 @@ export {
 } from './lib/adsenseChecker';
 
 // ============================================================================
+// WP Site Service (Business Logic - SoC extracted from store)
+// ============================================================================
+
+export {
+    loadHuntProfileForDomain,
+    transformProfileToSiteData,
+    validateSiteUrl,
+    checkEssentialPages,
+    calculateAdsenseReadiness,
+    calculateSiteStats,
+    getRecommendedActions,
+    type WPSiteProfileData,
+    type LoadHuntProfileResult,
+    type SiteHealthCheck,
+} from './lib/wpSiteService';
+
+// ============================================================================
 // Content Prompts
 // ============================================================================
 
@@ -135,3 +152,106 @@ export { WPSitesDashboard } from './ui/WPSitesDashboard';
 export { AddWPSiteModal } from './ui/AddWPSiteModal';
 export { WPSiteCard } from './ui/WPSiteCard';
 export { AdSenseReadinessDashboard } from './ui/AdSenseReadinessDashboard';
+export { MediaGeneratorCard } from './ui/MediaGeneratorCard';
+export { AnalyticsMetricsPanel } from './ui/AnalyticsMetricsPanel';
+
+// ============================================================================
+// Hooks
+// ============================================================================
+
+export {
+    usePluginSync,
+    RECOMMENDED_PLUGINS as RECOMMENDED_WP_PLUGINS,
+    type PluginInfo,
+    type DetectedFeatures,
+    type SyncResult,
+    type UsePluginSyncReturn,
+} from './hooks/usePluginSync';
+
+export {
+    useWPSiteMedia,
+    type GeneratedMediaAsset,
+    type UseWPSiteMediaReturn,
+} from './hooks/useWPSiteMedia';
+
+export {
+    useSiteAnalytics,
+    generateMockAnalytics,
+    type UseSiteAnalyticsReturn,
+} from './hooks/useSiteAnalytics';
+
+// ============================================================================
+// Analytics Types
+// ============================================================================
+
+export type {
+    SiteAnalytics,
+    MultiSiteAnalytics,
+    SearchConsoleMetrics,
+    AnalyticsMetrics,
+    AdSenseMetrics,
+    PageSpeedMetrics,
+} from './model/analyticsTypes';
+
+// ============================================================================
+// Ifrit Plugin API
+// ============================================================================
+
+export {
+    checkPluginHealth,
+    getPluginSiteInfo,
+    getPluginAnalytics,
+    createPostViaPlugin,
+    updatePostViaPlugin,
+    uploadMediaViaPlugin,
+    setPluginWebhookUrl,
+    installPluginRemotely,
+} from './api/ifritPluginApi';
+
+export type {
+    PluginHealthResponse,
+    PluginSiteInfo,
+    PluginAnalyticsResponse,
+    CreatePostRequest,
+    CreatePostResponse,
+    UploadMediaRequest,
+    UploadMediaResponse,
+} from './api/ifritPluginApi';
+
+// ============================================================================
+// Legal Pages Generator
+// ============================================================================
+
+export {
+    generateLegalPages,
+    publishLegalPages,
+    checkLegalPagesExist,
+    type LegalPageConfig,
+    type GeneratedLegalPage,
+    type LegalPagesResult,
+} from './lib/legalPagesGenerator';
+
+// ============================================================================
+// AdSense Readiness UI
+// ============================================================================
+
+export { PortfolioAdSenseWidget } from './ui/PortfolioAdSenseWidget';
+// Note: adsenseChecker functions already exported in "AdSense Checker" section above
+
+// ============================================================================
+// Plugin Monitoring
+// ============================================================================
+
+export {
+    checkSiteHealth,
+    isReadyToPublish,
+    getCategoryIcon,
+    getSeverityStyle,
+    REQUIRED_PLUGINS,
+    type PluginHealthCheck,
+    type SiteHealthReport,
+    type PluginCategory,
+    type HealthSeverity,
+} from './lib/pluginMonitor';
+
+export { SiteHealthWidget, SiteHealthBadge } from './ui/SiteHealthWidget';

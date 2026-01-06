@@ -91,6 +91,11 @@ interface WPSitesActions {
     }) => void;
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Hunt Artifact Consumption
+    // ─────────────────────────────────────────────────────────────────────────
+    loadHuntProfile: (siteId: string, domain: string) => Promise<boolean>;
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Selection
     // ─────────────────────────────────────────────────────────────────────────
     setActiveSite: (id: string | null) => void;
@@ -325,6 +330,36 @@ export const useWPSitesStore = create<WPSitesState & WPSitesActions>()(
                     authors: data.authors,
                     syncedAt: now(),
                 });
+            },
+
+            // ─────────────────────────────────────────────────────────────────
+            // Hunt Artifact Consumption
+            // ─────────────────────────────────────────────────────────────────
+
+            loadHuntProfile: async (siteId, domain) => {
+                const site = get().sites[siteId];
+                if (!site) {
+                    console.warn(`[WPSites] Site ${siteId} not found`);
+                    return false;
+                }
+
+                // Delegate to service (SoC: store doesn't do cross-feature imports)
+                const { loadHuntProfileForDomain } = await import('../lib/wpSiteService');
+                const result = await loadHuntProfileForDomain(domain);
+
+                if (!result.success || !result.profileData) {
+                    console.warn(`[WPSites] ${result.error || 'No profile found'}`);
+                    return false;
+                }
+
+                // Service returned data, store just updates state
+                get().updateSite(siteId, {
+                    niche: result.niche || site.niche,
+                    profileData: result.profileData,
+                });
+
+                console.log(`[WPSites] Hunt profile loaded for ${domain}`);
+                return true;
             },
 
             // ─────────────────────────────────────────────────────────────────

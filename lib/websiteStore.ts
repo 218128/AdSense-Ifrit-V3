@@ -1,473 +1,60 @@
 /**
- * Unified Website Store
+ * Legacy Websites System
  * 
- * Single source of truth for all website data.
- * File-based storage in /websites/[domain]/ with:
- * - metadata.json: Full website config
- * - versions/: Template version history (last 5)
- * - content/: Local content staging before deploy
+ * ⚠️ DEPRECATED: This module is part of the Legacy Websites system.
+ * 
+ * DO NOT USE for new features. Use `features/wordpress` for WP Sites instead.
+ * 
+ * The Legacy Websites system was designed for GitHub-based static site
+ * generation with Vercel deployment. It is no longer the recommended
+ * approach but remains in the codebase for backward compatibility.
+ * 
+ * ## System Boundaries
+ * 
+ * ### Legacy Websites (THIS SYSTEM)
+ * - Storage: `websites/` directory (file-based)
+ * - Store: `lib/websiteStore/` and `lib/websiteStore.ts`
+ * - API: `app/api/websites/`
+ * - UI: `components/websites/`
+ * - Features: GitHub repo creation, Vercel deployment, static generation
+ * 
+ * ### WP Sites (NEW SYSTEM)
+ * - Storage: `localStorage` (moving to Supabase)
+ * - Store: `features/wordpress/model/wpSiteStore.ts`
+ * - Service: `features/wordpress/lib/wpSiteService.ts`
+ * - API: `features/wordpress/api/wordpressApi.ts`
+ * - UI: `features/wordpress/ui/`
+ * - Features: Hostinger WordPress, REST API, AdSense optimization
+ * 
+ * ## Key Differences
+ * 
+ * | Aspect | Legacy Websites | WP Sites |
+ * |--------|-----------------|----------|
+ * | Hosting | Vercel (static) | Hostinger (WordPress) |
+ * | Content | File-based MD | WordPress REST API |
+ * | Deployment | GitHub + Vercel | Direct publish |
+ * | Templates | Next.js themes | WordPress themes |
+ * | Profiles | `websites/profiles/` | Hunt integration |
+ * 
+ * ## No Cross-Contamination
+ * 
+ * These systems are completely separate:
+ * - Legacy NEVER imports from `features/wordpress`
+ * - WP Sites NEVER imports from `lib/websiteStore`
+ * - Each has its own API routes
+ * - Each has its own UI components
+ * 
+ * @deprecated Use `features/wordpress` for new WordPress site management
+ * @see features/wordpress/index.ts for the modern WP Sites system
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+// Re-export from websiteStore for backward compatibility
+export * from './websiteStore/index';
 
-// ============================================
-// TYPES - Re-exported from types.ts for backwards compatibility
-// ============================================
-
-export type {
-    TemplateId,
-    WebsiteStatus,
-    TemplateInfo,
-    ProviderUsage,
-    AIFingerprint,
-    DeploymentInfo,
-    WebsiteStats,
-    WebsiteVersion,
-    ContentCompatibilityWarning,
-    Website,
-    CoverImage,
-    ContentImage,
-    Article,
-    ArticleVersion,
-    StructuralPageType,
-    ThemeConfig,
-    ThemeVersion,
-    PendingChanges,
-    DomainProfile
-} from './websiteStore/types';
-
-import type {
-    Website,
-    WebsiteStatus,
-    WebsiteVersion,
-    ContentCompatibilityWarning,
-    Article,
-    ArticleVersion,
-    ThemeConfig,
-    ThemeVersion,
-    StructuralPageType,
-    DomainProfile,
-    PendingChanges,
-    CoverImage,
-    ContentImage
-} from './websiteStore/types';
-
-
-// ============================================
-// PATHS - Re-exported from paths.ts for backwards compatibility
-// ============================================
-
-export {
-    WEBSITES_DIR,
-    PROFILES_DIR,
-    getWebsiteDir,
-    getMetadataPath,
-    getVersionsDir,
-    getContentDir,
-    getArticlesDir,
-    getArticlePath,
-    getImagesDir,
-    getArticleImagesDir,
-    getArticleCoverDir,
-    getArticleContentImagesDir,
-    ensureArticleImageDirs,
-    getPagesDir,
-    getPagePath,
-    getThemeDir,
-    getThemeVersionsDir,
-    getPluginsDir,
-    ensureWebsitesDirs,
-    ensureWebsiteDir,
-    ensureThemeDir,
-    ensurePluginsDir
-} from './websiteStore/paths';
-
-import {
-    WEBSITES_DIR,
-    PROFILES_DIR,
-    getWebsiteDir,
-    getMetadataPath,
-    getVersionsDir,
-    getContentDir,
-    getArticlesDir,
-    getArticlePath,
-    getImagesDir,
-    getPagesDir,
-    getPagePath,
-    getThemeDir,
-    getThemeVersionsDir,
-    getPluginsDir,
-    ensureWebsitesDirs,
-    ensureWebsiteDir,
-    ensureThemeDir,
-    ensurePluginsDir
-} from './websiteStore/paths';
-
-// ============================================
-// ARTICLE CRUD - Re-exported from articleCrud.ts
-// ============================================
-
-export {
-    generateArticleId,
-    saveArticle,
-    getArticle,
-    getArticleBySlug,
-    listArticles,
-    updateArticle,
-    saveArticleVersion,
-    listArticleVersions,
-    getArticleVersion,
-    restoreArticleVersion,
-    deleteArticle,
-    updateArticleStats
-} from './websiteStore/articleCrud';
-
-import {
-    _initArticleCrudDeps,
-    generateArticleId,
-    saveArticle,
-    listArticles,
-    updateArticleStats
-} from './websiteStore/articleCrud';
-
-// ============================================
-// THEME CRUD - Re-exported from themeCrud.ts
-// ============================================
-
-export {
-    saveTheme,
-    getTheme,
-    saveThemeVersion,
-    listThemeVersions,
-    restoreThemeVersion
-} from './websiteStore/themeCrud';
-
-import {
-    saveTheme,
-    getTheme
-} from './websiteStore/themeCrud';
-
-// ============================================
-// PLUGIN - Re-exported from pluginCrud.ts
-// ============================================
-
-export type { Plugin } from './websiteStore/pluginCrud';
-export {
-    getInstalledPlugins,
-    installPlugin,
-    uninstallPlugin,
-    getMergedPackageJson
-} from './websiteStore/pluginCrud';
-
-import {
-    getInstalledPlugins
-} from './websiteStore/pluginCrud';
-
-// ============================================
-// VERSION CONTROL - Re-exported from versionControl.ts
-// ============================================
-
-export {
-    addVersion,
-    getVersionHistory,
-    updateVersionCommit,
-    checkContentCompatibility,
-    rollbackToVersion
-} from './websiteStore/versionControl';
-
-import {
-    _initVersionControlDeps
-} from './websiteStore/versionControl';
-
-// ============================================
-// PROFILE CRUD - Re-exported from profileCrud.ts
-// ============================================
-
-export {
-    saveDomainProfile,
-    getDomainProfile,
-    listDomainProfiles,
-    deleteDomainProfile,
-    markProfileTransferred
-} from './websiteStore/profileCrud';
-
-import { _initProfileCrudDeps } from './websiteStore/profileCrud';
-
-// ============================================
-// MIGRATION - Re-exported from migration.ts
-// ============================================
-
-export { migrateFromLegacy } from './websiteStore/migration';
-import { _initMigrationDeps } from './websiteStore/migration';
-
-// ============================================
-// PAGES - Re-exported from pageCrud.ts
-// ============================================
-
-export {
-    listPages,
-    getPage,
-    savePage,
-    updatePage,
-    deletePage,
-    createDefaultPages
-} from './websiteStore/pageCrud';
-
-import { listPages, _initPageCrudDeps } from './websiteStore/pageCrud';
-
-// ============================================
-// EXTERNAL CONTENT - Re-exported from externalContent.ts
-// ============================================
-
-export {
-    importExternalContent,
-    generateSlug
-} from './websiteStore/externalContent';
-
-import { _initExternalContentDeps } from './websiteStore/externalContent';
-
-// ============================================
-// SELECTIVE DEPLOY - Re-exported from selectiveDeploy.ts
-// ============================================
-
-export { getPendingChanges } from './websiteStore/selectiveDeploy';
-import { _initSelectiveDeployDeps } from './websiteStore/selectiveDeploy';
-
-// ============================================
-// WEBSITE CRUD
-// ============================================
-
-/**
- * Save a website to storage
- */
-export function saveWebsite(website: Website): void {
-    ensureWebsiteDir(website.domain);
-    const metadataPath = getMetadataPath(website.domain);
-    fs.writeFileSync(metadataPath, JSON.stringify(website, null, 2));
-}
-
-/**
- * Get a website by domain
- */
-export function getWebsite(domain: string): Website | null {
-    const metadataPath = getMetadataPath(domain);
-
-    if (!fs.existsSync(metadataPath)) {
-        return null;
-    }
-
-    try {
-        const data = fs.readFileSync(metadataPath, 'utf-8');
-        return JSON.parse(data) as Website;
-    } catch (error) {
-        console.error(`Failed to load website ${domain}:`, error);
-        return null;
-    }
-}
-
-/**
- * List all websites
- */
-export function listWebsites(): Website[] {
-    ensureWebsitesDirs();
-
-    if (!fs.existsSync(WEBSITES_DIR)) {
-        return [];
-    }
-
-    const websites: Website[] = [];
-    const entries = fs.readdirSync(WEBSITES_DIR, { withFileTypes: true });
-
-    for (const entry of entries) {
-        if (entry.isDirectory()) {
-            const metadataPath = path.join(WEBSITES_DIR, entry.name, 'metadata.json');
-            if (fs.existsSync(metadataPath)) {
-                try {
-                    const data = fs.readFileSync(metadataPath, 'utf-8');
-                    websites.push(JSON.parse(data));
-                } catch {
-                    // Skip invalid entries
-                }
-            }
-        }
-    }
-
-    return websites.sort((a, b) => b.updatedAt - a.updatedAt);
-}
-
-/**
- * Delete a website
- */
-export function deleteWebsite(domain: string): boolean {
-    const websiteDir = getWebsiteDir(domain);
-
-    if (fs.existsSync(websiteDir)) {
-        fs.rmSync(websiteDir, { recursive: true });
-        return true;
-    }
-
-    return false;
-}
-
-/**
- * Update website status
- */
-export function updateWebsiteStatus(domain: string, status: WebsiteStatus): void {
-    const website = getWebsite(domain);
-    if (website) {
-        website.status = status;
-        website.updatedAt = Date.now();
-        saveWebsite(website);
-    }
-}
-
-/**
- * Increment pending changes count
- */
-export function incrementPendingChanges(domain: string): void {
-    const website = getWebsite(domain);
-    if (website) {
-        website.deployment.pendingChanges++;
-        website.updatedAt = Date.now();
-        saveWebsite(website);
-    }
-}
-
-/**
- * Clear pending changes (after deploy)
- */
-export function clearPendingChanges(domain: string, commitSha: string): void {
-    const website = getWebsite(domain);
-    if (website) {
-        website.deployment.pendingChanges = 0;
-        website.deployment.lastDeployAt = Date.now();
-        website.deployment.lastDeployCommit = commitSha;
-        website.updatedAt = Date.now();
-        saveWebsite(website);
-    }
-}
-
-/**
- * Track AI provider usage for a website
- */
-export function trackProviderUsage(
-    domain: string,
-    provider: string,
-    model?: string
-): void {
-    const website = getWebsite(domain);
-    if (!website) return;
-
-    // Ensure providerHistory exists
-    if (!website.fingerprint.providerHistory) {
-        website.fingerprint.providerHistory = [];
-    }
-
-    const now = Date.now();
-
-    // Find existing entry for this provider
-    const existingIdx = website.fingerprint.providerHistory.findIndex(
-        p => p.provider === provider
+// Mark as deprecated in runtime
+if (typeof console !== 'undefined') {
+    console.warn(
+        '[DEPRECATED] lib/websiteStore is part of the Legacy Websites system. ' +
+        'For new features, use features/wordpress instead.'
     );
-
-    if (existingIdx >= 0) {
-        // Update existing entry
-        website.fingerprint.providerHistory[existingIdx].articlesGenerated++;
-        website.fingerprint.providerHistory[existingIdx].lastUsedAt = now;
-        if (model) {
-            website.fingerprint.providerHistory[existingIdx].model = model;
-        }
-    } else {
-        // Add new entry
-        website.fingerprint.providerHistory.push({
-            provider,
-            model,
-            articlesGenerated: 1,
-            firstUsedAt: now,
-            lastUsedAt: now
-        });
-    }
-
-    // Update summary providers list
-    if (!website.fingerprint.providers.includes(provider)) {
-        website.fingerprint.providers.push(provider);
-    }
-
-    website.updatedAt = now;
-    saveWebsite(website);
 }
-
-/**
- * Save article with AI generation tracking
- */
-export function saveArticleWithTracking(
-    domain: string,
-    article: Article,
-    aiInfo?: { provider: string; model?: string; promptVersion?: string }
-): void {
-    // Set AI generation info if provided
-    if (aiInfo) {
-        article.aiGeneration = {
-            provider: aiInfo.provider,
-            model: aiInfo.model,
-            generatedAt: Date.now(),
-            promptVersion: aiInfo.promptVersion
-        };
-        article.generatedBy = aiInfo.provider; // Legacy field
-        article.generatedAt = Date.now();
-        article.source = 'ai-generated';
-
-        // Track provider usage at website level
-        trackProviderUsage(domain, aiInfo.provider, aiInfo.model);
-    }
-
-    // Save article
-    saveArticle(domain, article);
-}
-
-// Initialize article CRUD dependencies (resolves circular imports)
-_initArticleCrudDeps({
-    getWebsite,
-    saveWebsite,
-    incrementPendingChanges
-});
-
-// Initialize page CRUD dependencies
-_initPageCrudDeps({
-    incrementPendingChanges
-});
-
-// Initialize version control dependencies
-_initVersionControlDeps({
-    getWebsite,
-    saveWebsite,
-    listArticles
-});
-
-// Initialize migration dependencies
-_initMigrationDeps({
-    getWebsite,
-    saveWebsite
-});
-
-// Initialize profile CRUD dependencies
-_initProfileCrudDeps({
-    PROFILES_DIR
-});
-
-// Initialize external content dependencies
-_initExternalContentDeps({
-    generateArticleId,
-    saveArticle
-});
-
-// Initialize selective deploy dependencies
-_initSelectiveDeployDeps({
-    getWebsite,
-    listArticles,
-    listPages,
-    getTheme,
-    getInstalledPlugins
-});
-

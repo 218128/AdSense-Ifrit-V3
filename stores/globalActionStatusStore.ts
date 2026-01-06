@@ -156,6 +156,43 @@ export const useGlobalActionStatusStore = create<GlobalActionStatusStore>()(
                 },
 
                 /**
+                 * Update a sub-step message and optionally phase
+                 * @param id - Action ID
+                 * @param stepId - Step ID
+                 * @param message - New message
+                 * @param phase - Optional new phase
+                 */
+                updateStep: (id: ActionId, stepId: string, message: string, phase?: 'running' | 'success' | 'error'): void => {
+                    const now = Date.now();
+
+                    set((state) => ({
+                        actions: state.actions.map((action) =>
+                            action.id === id
+                                ? {
+                                    ...action,
+                                    message, // Update main action message too
+                                    steps: action.steps.map((step) =>
+                                        step.id === stepId
+                                            ? {
+                                                ...step,
+                                                message,
+                                                ...(phase && {
+                                                    phase,
+                                                    completedAt: phase !== 'running' ? now : step.completedAt,
+                                                    durationMs: phase !== 'running' ? now - step.startedAt : undefined,
+                                                }),
+                                            }
+                                            : step
+                                    ),
+                                }
+                                : action
+                        ),
+                    }));
+
+                    console.log(`[GlobalActionStatus] UpdateStep ${id}/${stepId}: ${message}`);
+                },
+
+                /**
                  * Set progress for determinate actions
                  * @param id - Action ID
                  * @param current - Current step number

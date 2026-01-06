@@ -45,6 +45,7 @@ export interface QueuedDomain {
 interface PurchaseQueueProps {
     queue: QueuedDomain[];
     ownedDomains?: OwnedDomain[];
+    hostingerDomains?: string[];  // List of domains from Hostinger for cross-reference
     onRemove: (domain: string) => void;
     onClear: () => void;
     onMarkPurchased: (domain: string) => void;
@@ -105,6 +106,7 @@ const TIPS = [
 export default function PurchaseQueue({
     queue,
     ownedDomains = [],
+    hostingerDomains = [],
     onRemove,
     onClear,
     onMarkPurchased,
@@ -112,6 +114,10 @@ export default function PurchaseQueue({
     onSiteCreated,
 }: PurchaseQueueProps) {
     const [showTips, setShowTips] = useState(true);
+
+    // Check if domain exists on Hostinger
+    const isHostingerSite = (domain: string) =>
+        hostingerDomains.some(hd => hd === domain || hd.includes(domain));
 
     const getProfileStatusBadge = (status: ProfileStatus, error?: string) => {
         switch (status) {
@@ -486,12 +492,17 @@ export default function PurchaseQueue({
                                             </button>
                                         )}
 
-                                        {/* Create Website button - available regardless of profile status */}
-                                        {domain.siteCreated ? (
-                                            <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium flex items-center gap-1">
-                                                <CheckCircle className="w-4 h-4" />
-                                                Site Created
-                                            </span>
+                                        {/* Create Website button - check siteCreated OR if exists on Hostinger */}
+                                        {(domain.siteCreated || isHostingerSite(domain.domain)) ? (
+                                            <a
+                                                href={`https://${domain.domain}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-green-200 transition-colors"
+                                            >
+                                                <ExternalLink className="w-4 h-4" />
+                                                Go to Website
+                                            </a>
                                         ) : (
                                             <CreateSiteButton
                                                 domain={domain.domain}

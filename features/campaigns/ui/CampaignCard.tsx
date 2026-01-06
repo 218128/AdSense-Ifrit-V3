@@ -18,6 +18,7 @@ import {
     RefreshCw,
     Globe,
     Zap,
+    Image,
 } from 'lucide-react';
 import type { Campaign } from '../model/types';
 import { useCampaignStore } from '../model/campaignStore';
@@ -31,6 +32,7 @@ interface CampaignCardProps {
 
 export function CampaignCard({ campaign, onEdit, onRun }: CampaignCardProps) {
     const [running, setRunning] = useState(false);
+    const [retryingImages, setRetryingImages] = useState(false);
     const { pauseCampaign, resumeCampaign, deleteCampaign } = useCampaignStore();
     const { sites } = useWPSitesLegacy();
 
@@ -56,6 +58,35 @@ export function CampaignCard({ campaign, onEdit, onRun }: CampaignCardProps) {
     const handleDelete = () => {
         if (confirm(`Delete campaign "${campaign.name}"? This cannot be undone.`)) {
             deleteCampaign(campaign.id);
+        }
+    };
+
+    const handleRetryImages = async () => {
+        if (!targetSite || campaign.stats.totalPublished === 0) return;
+
+        setRetryingImages(true);
+        try {
+            // Call API to retry images for this campaign's posts
+            const response = await fetch(`/api/campaigns/${campaign.id}/retry-images`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    wpSiteId: campaign.targetSiteId,
+                    aiConfig: campaign.aiConfig,
+                }),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert(`✅ Images regenerated for ${result.updatedCount || 0} post(s)`);
+            } else {
+                alert(`❌ ${result.error || 'Image retry failed'}`);
+            }
+        } catch (error) {
+            alert('Failed to retry images');
+            console.error(error);
+        } finally {
+            setRetryingImages(false);
         }
     };
 
@@ -158,6 +189,14 @@ export function CampaignCard({ campaign, onEdit, onRun }: CampaignCardProps) {
                         </span>
                     </div>
                 )}
+                {targetSite && campaign.stats.totalPublished >= 5 && (
+                    <div className="flex items-center justify-between text-neutral-600 pt-2 border-t border-neutral-100 mt-2">
+                        <span>Site AdSense:</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                            Check Readiness →
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* Actions */}
@@ -194,6 +233,20 @@ export function CampaignCard({ campaign, onEdit, onRun }: CampaignCardProps) {
                             <Play className="w-4 h-4" />
                         )}
                     </button>
+                    {campaign.stats.totalGenerated > 0 && (
+                        <button
+                            onClick={handleRetryImages}
+                            disabled={retryingImages}
+                            className="p-2 text-neutral-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Retry Images for Published Posts"
+                        >
+                            {retryingImages ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Image className="w-4 h-4" />
+                            )}
+                        </button>
+                    )}
                     <button
                         onClick={() => onEdit?.(campaign)}
                         className="p-2 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
