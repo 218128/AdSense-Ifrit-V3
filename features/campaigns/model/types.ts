@@ -151,6 +151,25 @@ export interface AIConfig {
     authorHealthRequired?: boolean;      // Require healthy author for generation
     injectEEATSignals?: boolean;         // Auto-inject experience/expertise phrases
     qualityGateEnabled?: boolean;        // Run quality scoring before publish
+
+    // Content optimization (Phase 2)
+    humanize?: boolean;                  // Run through humanizer
+    optimizeReadability?: boolean;       // Optimize readability post-generation
+
+    // Multi-site publishing (Phase 2)
+    enableMultiSite?: boolean;           // Enable multi-site publishing
+    additionalSiteIds?: string[];        // Additional WP site IDs
+    multiSiteStaggerMinutes?: number;    // Minutes between multi-site posts
+
+    // Analytics (Phase 2)
+    analyticsEnabled?: boolean;          // Enable analytics tracking
+
+    // Affiliate content (Phase 2)
+    enableAffiliateLinks?: boolean;      // Inject affiliate product links
+    affiliateDisclosureType?: 'amazon' | 'ebay' | 'general';
+
+    // A/B Testing (Phase 2)
+    enableABTesting?: boolean;           // Create title variations for testing
 }
 
 // ============================================================================
@@ -263,6 +282,9 @@ export interface PipelineContext {
     needsManualReview?: boolean;
     reviewItemId?: string;
     autoApproved?: boolean;
+
+    // Phase 2: A/B Testing
+    abTestId?: string;
 }
 
 export interface SourceItem {

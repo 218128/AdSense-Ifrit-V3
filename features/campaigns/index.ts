@@ -80,18 +80,33 @@ export {
     createRun,
 } from './lib/processor';
 
-// Pipeline Runner (Enhanced with checkpointing)
+// Unified Pipeline (New - replaces PipelineRunner)
 export {
-    PipelineRunner,
-    runPipelineWithCheckpointing,
-    defaultPipelineRunner,
-    type Checkpoint,
+    hasCheckpoint,
+    getCheckpointInfo,
+    allStages,
+    getTotalStageCount,
+    getStageById,
+    type StageGroup,
     type PipelineStage,
     type StageResult,
     type StageStatus,
     type PipelineProgress,
     type ProgressCallback,
-} from './lib/PipelineRunner';
+    type PipelineOptions,
+    type Checkpoint,
+} from './lib/pipeline';
+
+// Pipeline Stage Groups (for customization)
+export {
+    validationStages,
+    enrichmentStages,
+    generationStages,
+    enhancementStages,
+    qualityStages,
+    optimizationStages,
+    publishStages,
+} from './lib/pipeline';
 
 export {
     useDeduplicationStore,

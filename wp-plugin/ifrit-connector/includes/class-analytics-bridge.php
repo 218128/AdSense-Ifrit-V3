@@ -20,7 +20,17 @@ class Ifrit_Analytics_Bridge
      */
     public function is_site_kit_active()
     {
-        return defined('GOOGLESITEKIT_VERSION') || is_plugin_active('google-site-kit/google-site-kit.php');
+        // Check constant first (faster)
+        if (defined('GOOGLESITEKIT_VERSION')) {
+            return true;
+        }
+
+        // is_plugin_active() is only available in admin, need to include it
+        if (!function_exists('is_plugin_active')) {
+            include_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        return function_exists('is_plugin_active') && is_plugin_active('google-site-kit/google-site-kit.php');
     }
 
     /**
@@ -184,7 +194,7 @@ class Ifrit_Analytics_Bridge
             'category' => 'performance',
         ), 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed');
 
-        $response = wp_remote_get($url, array('timeout' => 30));
+        $response = wp_remote_get($url, array('timeout' => 10));
 
         if (is_wp_error($response)) {
             return null;

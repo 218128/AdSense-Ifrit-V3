@@ -145,40 +145,42 @@ export {
 } from './lib/recommendedStacks';
 
 // ============================================================================
-// UI Components
+// UI Components - IMPORT DIRECTLY for client components
 // ============================================================================
+// These components use React hooks internally. Import directly in client components:
+//   import { WPSitesDashboard } from '@/features/wordpress/ui/WPSitesDashboard';
+//   import { WPSiteCard } from '@/features/wordpress/ui/WPSiteCard';
+//   import { SiteHealthWidget } from '@/features/wordpress/ui/SiteHealthWidget';
 
-export { WPSitesDashboard } from './ui/WPSitesDashboard';
+// Server-safe UI exports (no hooks)
 export { AddWPSiteModal } from './ui/AddWPSiteModal';
-export { WPSiteCard } from './ui/WPSiteCard';
 export { AdSenseReadinessDashboard } from './ui/AdSenseReadinessDashboard';
 export { MediaGeneratorCard } from './ui/MediaGeneratorCard';
 export { AnalyticsMetricsPanel } from './ui/AnalyticsMetricsPanel';
 
 // ============================================================================
-// Hooks
+// Hooks - IMPORT DIRECTLY to avoid server/client conflicts
 // ============================================================================
+// Client hooks should be imported directly from their files to avoid
+// polluting server component imports:
+//   import { usePluginSync } from '@/features/wordpress/hooks/usePluginSync';
+//   import { useWPSiteMedia } from '@/features/wordpress/hooks/useWPSiteMedia';
+//   import { useSiteAnalytics } from '@/features/wordpress/hooks/useSiteAnalytics';
 
-export {
-    usePluginSync,
-    RECOMMENDED_PLUGINS as RECOMMENDED_WP_PLUGINS,
-    type PluginInfo,
-    type DetectedFeatures,
-    type SyncResult,
-    type UsePluginSyncReturn,
-} from './hooks/usePluginSync';
+// Export types and constants from server-safe file (does NOT import React)
+export type {
+    PluginInfo,
+    DetectedFeatures,
+    SyncResult,
+    UsePluginSyncReturn,
+} from './hooks/pluginSyncTypes';
 
-export {
-    useWPSiteMedia,
-    type GeneratedMediaAsset,
-    type UseWPSiteMediaReturn,
-} from './hooks/useWPSiteMedia';
+export { RECOMMENDED_PLUGINS as RECOMMENDED_WP_PLUGINS } from './hooks/pluginSyncTypes';
 
-export {
-    useSiteAnalytics,
-    generateMockAnalytics,
-    type UseSiteAnalyticsReturn,
-} from './hooks/useSiteAnalytics';
+// NOTE: These type exports are commented out because importing from the hook files
+// still causes React to load (even for type-only imports in Next.js 16)
+// Types should be imported directly from the hook files when needed.
+
 
 // ============================================================================
 // Analytics Types
@@ -254,4 +256,5 @@ export {
     type HealthSeverity,
 } from './lib/pluginMonitor';
 
-export { SiteHealthWidget, SiteHealthBadge } from './ui/SiteHealthWidget';
+// SiteHealthWidget uses usePluginSync hook - import directly:
+//   import { SiteHealthWidget, SiteHealthBadge } from '@/features/wordpress/ui/SiteHealthWidget';

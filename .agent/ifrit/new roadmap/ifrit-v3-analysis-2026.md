@@ -323,7 +323,7 @@ interface VideoMonetization {
 
 **Deliverables:**
 - [ ] YouTube Shorts metadata optimization
-- [ ] TikTok-to-YouTube Reels repurposing automation
+- [ ] TikTok-to-YouTube Reels repurposing au tomation
 - [ ] Video ad placement A/B testing
 - [ ] Creator fund eligibility checker
 

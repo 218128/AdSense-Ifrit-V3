@@ -50,16 +50,16 @@ class Ifrit_Admin_Settings
         register_setting('ifrit_settings', 'ifrit_webhook_url', array(
             'sanitize_callback' => 'esc_url_raw',
         ));
-        register_setting('ifrit_settings', 'webhooks_enabled', array(
+        register_setting('ifrit_settings', 'ifrit_webhooks_enabled', array(
             'sanitize_callback' => 'rest_sanitize_boolean',
         ));
-        register_setting('ifrit_settings', 'analytics_sync_enabled', array(
+        register_setting('ifrit_settings', 'ifrit_analytics_sync_enabled', array(
             'sanitize_callback' => 'rest_sanitize_boolean',
         ));
-        register_setting('ifrit_settings', 'content_receiver_enabled', array(
+        register_setting('ifrit_settings', 'ifrit_content_receiver_enabled', array(
             'sanitize_callback' => 'rest_sanitize_boolean',
         ));
-        register_setting('ifrit_settings', 'remote_management_enabled', array(
+        register_setting('ifrit_settings', 'ifrit_remote_management_enabled', array(
             'sanitize_callback' => 'rest_sanitize_boolean',
         ));
     }
@@ -69,9 +69,17 @@ class Ifrit_Admin_Settings
      */
     public function render_settings_page()
     {
-        $token = Ifrit_Connector::get_api_token();
+        $token = get_option('ifrit_api_token', '');
+
+        // Auto-generate token if empty
+        if (empty($token)) {
+            $token = wp_generate_password(64, false);
+            update_option('ifrit_api_token', $token);
+        }
+
         $site_url = home_url();
         $api_endpoint = rest_url('ifrit/v1/');
+        $nonce = wp_create_nonce('ifrit_admin_nonce');
         ?>
         <div class="wrap">
             <h1>
@@ -102,9 +110,8 @@ class Ifrit_Admin_Settings
                         <th>API Token</th>
                         <td>
                             <code id="ifrit-token"
-                                style="display: inline-block; padding: 8px 12px; background: #f0f0f1; border-radius: 4px; font-size: 14px; max-width: 400px; overflow: hidden; text-overflow: ellipsis;"><?php echo esc_html($token); ?></code>
-                            <button type="button" class="button"
-                                onclick="navigator.clipboard.writeText('<?php echo esc_js($token); ?>'); this.textContent='Copied!';">Copy</button>
+                                style="display: inline-block; padding: 8px 12px; background: #f0f0f1; border-radius: 4px; font-size: 14px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; word-break: break-all;"><?php echo esc_html($token); ?></code>
+                            <button type="button" class="button" id="ifrit-copy-token">Copy</button>
                             <button type="button" class="button" id="regenerate-token">Regenerate</button>
                         </td>
                     </tr>
@@ -155,7 +162,7 @@ class Ifrit_Admin_Settings
                         </th>
                         <td>
                             <label>
-                                <input type="checkbox" name="webhooks_enabled" value="1" <?php checked(get_option('webhooks_enabled', true)); ?>>
+                                <input type="checkbox" name="ifrit_webhooks_enabled" value="1" <?php checked(get_option('ifrit_webhooks_enabled', true)); ?>>
                                 <?php _e('Send webhook notifications when posts are published, updated, or deleted', 'ifrit-connector'); ?>
                             </label>
                         </td>
@@ -166,7 +173,7 @@ class Ifrit_Admin_Settings
                         </th>
                         <td>
                             <label>
-                                <input type="checkbox" name="analytics_sync_enabled" value="1" <?php checked(get_option('analytics_sync_enabled', true)); ?>>
+                                <input type="checkbox" name="ifrit_analytics_sync_enabled" value="1" <?php checked(get_option('ifrit_analytics_sync_enabled', true)); ?>>
                                 <?php _e('Allow Ifrit to fetch analytics data (from Site Kit or WordPress stats)', 'ifrit-connector'); ?>
                             </label>
                         </td>
@@ -177,7 +184,7 @@ class Ifrit_Admin_Settings
                         </th>
                         <td>
                             <label>
-                                <input type="checkbox" name="content_receiver_enabled" value="1" <?php checked(get_option('content_receiver_enabled', true)); ?>>
+                                <input type="checkbox" name="ifrit_content_receiver_enabled" value="1" <?php checked(get_option('ifrit_content_receiver_enabled', true)); ?>>
                                 <?php _e('Allow Ifrit to publish and update content on this site', 'ifrit-connector'); ?>
                             </label>
                         </td>
@@ -188,7 +195,7 @@ class Ifrit_Admin_Settings
                         </th>
                         <td>
                             <label>
-                                <input type="checkbox" name="remote_management_enabled" value="1" <?php checked(get_option('remote_management_enabled', false)); ?>>
+                                <input type="checkbox" name="ifrit_remote_management_enabled" value="1" <?php checked(get_option('ifrit_remote_management_enabled', false)); ?>>
                                 <?php _e('Allow Ifrit to install plugins remotely', 'ifrit-connector'); ?>
                             </label>
                             <p class="description" style="color: #d63638;">
@@ -257,11 +264,55 @@ class Ifrit_Admin_Settings
 
         <script>
             jQuery(document).ready(function ($) {
+                var nonce = '<?php echo esc_js($nonce); ?>';
+
+                // Copy button - with fallback for older browsers
+                $('#ifrit-copy-token').on('click', function () {
+                    var button = $(this);
+                    var token = $('#ifrit-token').text().trim();
+
+                    if (!token) {
+                        alert('No token to copy!');
+                        return;
+                    }
+
+                    // Try modern clipboard API first
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(token).then(function () {
+                            button.text('✓ Copied!');
+                            setTimeout(function () { button.text('Copy'); }, 2000);
+                        }).catch(function () {
+                            fallbackCopy(token, button);
+                        });
+                    } else {
+                        fallbackCopy(token, button);
+                    }
+                });
+
+                function fallbackCopy(text, button) {
+                    var temp = $('<textarea>');
+                    $('body').append(temp);
+                    temp.val(text).select();
+                    try {
+                        document.execCommand('copy');
+                        button.text('✓ Copied!');
+                    } catch (e) {
+                        button.text('✗ Failed');
+                        alert('Copy failed. Token: ' + text);
+                    }
+                    temp.remove();
+                    setTimeout(function () { button.text('Copy'); }, 2000);
+                }
+
+                // Test webhook
                 $('#test-webhook').on('click', function () {
                     var button = $(this);
                     button.text('Testing...').prop('disabled', true);
 
-                    $.post(ajaxurl, { action: 'ifrit_test_webhook' }, function (response) {
+                    $.post(ajaxurl, {
+                        action: 'ifrit_test_webhook',
+                        _wpnonce: nonce
+                    }, function (response) {
                         if (response.success) {
                             button.text('✓ Success!');
                         } else {
@@ -271,22 +322,39 @@ class Ifrit_Admin_Settings
                         setTimeout(function () {
                             button.text('Test Webhook').prop('disabled', false);
                         }, 2000);
+                    }).fail(function () {
+                        button.text('✗ Error');
+                        setTimeout(function () {
+                            button.text('Test Webhook').prop('disabled', false);
+                        }, 2000);
                     });
                 });
 
+                // Regenerate token
                 $('#regenerate-token').on('click', function () {
-                    if (!confirm('Are you sure? This will invalidate the current token.')) return;
+                    if (!confirm('Are you sure? This will invalidate the current token and you will need to update it in Ifrit.')) return;
 
                     var button = $(this);
                     button.text('Regenerating...').prop('disabled', true);
 
-                    $.post(ajaxurl, { action: 'ifrit_regenerate_token' }, function (response) {
-                        if (response.success) {
+                    $.post(ajaxurl, {
+                        action: 'ifrit_regenerate_token',
+                        _wpnonce: nonce
+                    }, function (response) {
+                        if (response.success && response.data && response.data.token) {
                             $('#ifrit-token').text(response.data.token);
-                            button.text('✓ Done');
+                            button.text('✓ Done!');
+                            alert('New token generated! Copy it and update in your Ifrit WP Sites settings.');
                         } else {
                             button.text('✗ Failed');
+                            alert('Failed to regenerate token: ' + (response.data || 'Unknown error'));
                         }
+                        setTimeout(function () {
+                            button.text('Regenerate').prop('disabled', false);
+                        }, 2000);
+                    }).fail(function (xhr, status, error) {
+                        button.text('✗ Error');
+                        alert('AJAX Error: ' + error);
                         setTimeout(function () {
                             button.text('Regenerate').prop('disabled', false);
                         }, 2000);

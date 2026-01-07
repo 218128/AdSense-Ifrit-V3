@@ -7,7 +7,7 @@
  */
 
 import type { WPSite } from '../model/wpSiteTypes';
-import type { DetectedFeatures, PluginInfo } from '../hooks/usePluginSync';
+import type { DetectedFeatures, PluginInfo } from '../hooks/pluginSyncTypes';
 
 // ============================================================================
 // Types

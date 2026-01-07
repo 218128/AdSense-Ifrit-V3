@@ -64,6 +64,12 @@ export function CampaignEditor({ campaign, onClose }: CampaignEditorProps) {
         // Content spinner defaults
         enableSpinner: false,
         spinnerMode: 'moderate',
+        // Phase 2: Quality & Author defaults
+        authorId: campaign?.authorId || '',
+        injectEEATSignals: campaign?.aiConfig.injectEEATSignals ?? false,
+        qualityGateEnabled: campaign?.aiConfig.qualityGateEnabled ?? false,
+        humanize: campaign?.aiConfig.humanize ?? false,
+        optimizeReadability: campaign?.aiConfig.optimizeReadability ?? false,
         // Schedule
         scheduleType: campaign?.schedule.type || 'manual',
         intervalHours: campaign?.schedule.intervalHours || 24,
@@ -230,6 +236,11 @@ function buildCampaignData(form: EditorFormState) {
             // Content spinner
             enableSpinner: form.enableSpinner,
             spinnerMode: form.spinnerMode,
+            // Phase 2: Quality & E-E-A-T
+            injectEEATSignals: form.injectEEATSignals,
+            qualityGateEnabled: form.qualityGateEnabled,
+            humanize: form.humanize,
+            optimizeReadability: form.optimizeReadability,
         } as AIConfig,
         schedule: { type: form.scheduleType, intervalHours: form.intervalHours, maxPostsPerRun: form.maxPostsPerRun, pauseOnError: true } as ScheduleConfig,
         // Multi-site config (stored in campaign for future use)

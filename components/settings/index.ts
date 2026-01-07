@@ -4,9 +4,11 @@ export { AIKeyManager } from './AIKeyManager';
 export { AIUsagePanel } from './AIUsagePanel';
 export { UsageStatsPanel } from './UsageStatsPanel';
 
-// Section components
-export { AISection } from './sections/AISection';
-export { ConnectionsSection } from './sections/ConnectionsSection';
+// Section components (new 6-tab structure)
+export { AIProvidersSection } from './sections/AIProvidersSection';
+export { default as CapabilitiesPanel } from './CapabilitiesPanel';
+export { MCPSection } from './sections/MCPSection';
+export { IntegrationsSection } from './sections/IntegrationsSection';
 export { MonetizationSection } from './sections/MonetizationSection';
 export { DataSection } from './sections/DataSection';
 

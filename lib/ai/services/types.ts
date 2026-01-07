@@ -160,6 +160,72 @@ export const DEFAULT_CAPABILITIES: Omit<Capability, 'isEnabled' | 'defaultHandle
         icon: 'FileUser',
         isDefault: true,
     },
+    // E-E-A-T & Quality Capabilities (Campaign/Content Quality)
+    {
+        id: 'eeat-scoring',
+        name: 'E-E-A-T Scoring',
+        description: 'Score content for Experience, Expertise, Authority, Trust',
+        icon: 'ShieldCheck',
+        isDefault: true,
+    },
+    {
+        id: 'fact-check',
+        name: 'Fact Check',
+        description: 'Verify claims and citations in content',
+        icon: 'CheckCircle',
+        isDefault: true,
+    },
+    {
+        id: 'quality-review',
+        name: 'Quality Review',
+        description: 'Auto-review content quality before publishing',
+        icon: 'Star',
+        isDefault: true,
+    },
+    // SEO Capabilities
+    {
+        id: 'seo-optimize',
+        name: 'SEO Optimize',
+        description: 'Optimize content for search engines',
+        icon: 'TrendingUp',
+        isDefault: true,
+    },
+    {
+        id: 'schema-generate',
+        name: 'Schema Generate',
+        description: 'Generate structured data/schema markup for articles',
+        icon: 'Database',
+        isDefault: true,
+    },
+    {
+        id: 'internal-link',
+        name: 'Internal Linking',
+        description: 'Suggest and add internal links between articles',
+        icon: 'Link',
+        isDefault: true,
+    },
+    // Publishing Capabilities
+    {
+        id: 'wp-publish',
+        name: 'WP Publish',
+        description: 'Publish content to WordPress sites',
+        icon: 'Upload',
+        isDefault: true,
+    },
+    {
+        id: 'author-match',
+        name: 'Author Match',
+        description: 'Match content to appropriate author profile',
+        icon: 'UserCheck',
+        isDefault: true,
+    },
+    {
+        id: 'campaign-run',
+        name: 'Campaign Run',
+        description: 'Execute content campaigns with pipelines',
+        icon: 'Play',
+        isDefault: true,
+    },
 ];
 
 // ============================================

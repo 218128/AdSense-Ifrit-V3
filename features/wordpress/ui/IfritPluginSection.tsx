@@ -50,18 +50,27 @@ export function IfritPluginSection({ site }: IfritPluginSectionProps) {
             return;
         }
 
+        // Validate site URL exists (form saves as 'url', API expects 'siteUrl')
+        const siteUrl = site.url || site.siteUrl;
+        if (!siteUrl) {
+            setError('Site URL is not configured. Please edit the site and add your WordPress URL.');
+            return;
+        }
+
         setChecking(true);
         setError(null);
 
         try {
             const result = await checkPluginHealth({
                 ...site,
+                siteUrl: siteUrl,  // Explicitly pass resolved URL
                 ifritToken: tokenInput,
             });
 
-            if (result.active) {
+            // Check if result exists and plugin is active
+            if (result && result.active) {
                 setPluginStatus('active');
-                setPluginVersion(result.version);
+                setPluginVersion(result.version || 'unknown');
 
                 // Save token to site
                 updateSite(site.id, {
@@ -73,14 +82,17 @@ export function IfritPluginSection({ site }: IfritPluginSectionProps) {
                 // Configure webhook URL
                 try {
                     const webhookUrl = `${window.location.origin}/api/webhooks/wordpress`;
-                    await setPluginWebhookUrl({ ...site, ifritToken: tokenInput }, webhookUrl);
+                    await setPluginWebhookUrl({ ...site, siteUrl, ifritToken: tokenInput }, webhookUrl);
                     updateSite(site.id, { ifritWebhookConfigured: true });
                 } catch {
                     console.warn('[IfritPlugin] Webhook configuration failed');
                 }
+            } else if (result && !result.active) {
+                setPluginStatus('inactive');
+                setError('Plugin installed but not active');
             } else {
                 setPluginStatus('inactive');
-                setError('Plugin not active or token invalid');
+                setError('Could not connect to WordPress site. Check the token and site URL.');
             }
         } catch (err) {
             setPluginStatus('inactive');

@@ -127,12 +127,17 @@ export async function generateContent(
         console.warn('[Generate] Could not get API key from KeyManager');
     }
 
+    // Use generous token limit for complete article generation
+    // Full HTML articles with TOC, sections, FAQ need substantial tokens
+    // Quality over cost - no artificial limits
+    const minTokensForQuality = 16384;
+
     const response = await fetch('/api/capabilities/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             prompt: fullPrompt,
-            maxTokens: Math.ceil(aiConfig.targetLength * 2), // HTML is larger
+            maxTokens: minTokensForQuality,  // No artificial limits - complete articles only
             temperature: 0.7,
             topic: sourceItem.topic,
             itemType: 'html-article',

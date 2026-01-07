@@ -8,6 +8,7 @@
 import { Globe, Languages } from 'lucide-react';
 import type { WPSite } from '@/features/wordpress';
 import type { AIConfig, LanguageMapping } from '../model/types';
+import { AuthorSelector } from '../components/AuthorSelector';
 
 // ============================================================================
 // Types
@@ -47,6 +48,12 @@ export interface EditorFormState {
     // Content spinner
     enableSpinner: boolean;
     spinnerMode: 'light' | 'moderate' | 'heavy';
+    // Phase 2: Quality & Author
+    authorId: string;           // Selected author profile
+    injectEEATSignals: boolean; // Auto-inject E-E-A-T phrases
+    qualityGateEnabled: boolean; // Enable quality scoring
+    humanize: boolean;          // Run through humanizer
+    optimizeReadability: boolean; // Optimize readability
     // Schedule
     scheduleType: 'manual' | 'interval' | 'cron';
     intervalHours: number;
@@ -390,6 +397,52 @@ export function AIStep({ form, updateField }: AIStepProps) {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Quality & E-E-A-T (Phase 2) */}
+            <div className="pt-2 border-t border-neutral-200">
+                <h4 className="text-sm font-medium text-neutral-700 mb-2">Quality & E-E-A-T</h4>
+                <p className="text-xs text-neutral-500 mb-3">
+                    Enhance content quality with author expertise and Google E-E-A-T signals.
+                </p>
+                <div className="space-y-2">
+                    <Checkbox
+                        label="Inject E-E-A-T signals (experience phrases, author bio)"
+                        checked={form.injectEEATSignals}
+                        onChange={(v) => updateField('injectEEATSignals', v)}
+                    />
+                    <Checkbox
+                        label="Enable quality gate (score content before publishing)"
+                        checked={form.qualityGateEnabled}
+                        onChange={(v) => updateField('qualityGateEnabled', v)}
+                    />
+                    <Checkbox
+                        label="Humanize content (reduce AI detection)"
+                        checked={form.humanize}
+                        onChange={(v) => updateField('humanize', v)}
+                    />
+                    <Checkbox
+                        label="Optimize readability (Flesch score improvement)"
+                        checked={form.optimizeReadability}
+                        onChange={(v) => updateField('optimizeReadability', v)}
+                    />
+                </div>
+
+                {/* Author Selection */}
+                {form.injectEEATSignals && (
+                    <div className="mt-4">
+                        <AuthorSelector
+                            selectedAuthorId={form.authorId || undefined}
+                            siteId={form.targetSiteId}
+                            minHealthScore={40}
+                            required={false}
+                            onChange={(id) => updateField('authorId', id || '')}
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">
+                            Author expertise will be matched to content topic for E-E-A-T signals
+                        </p>
+                    </div>
+                )}
             </div>
         </div>
     );

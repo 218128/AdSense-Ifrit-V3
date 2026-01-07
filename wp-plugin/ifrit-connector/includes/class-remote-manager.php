@@ -86,8 +86,8 @@ class Ifrit_Remote_Manager
             );
         }
 
-        // Install the plugin
-        $upgrader = new Plugin_Upgrader(new Ifrit_Upgrader_Skin());
+        // Install the plugin using silent upgrader skin
+        $upgrader = new Plugin_Upgrader(new Ifrit_Silent_Upgrader_Skin());
         $install_result = $upgrader->install($api->download_link);
 
         if (is_wp_error($install_result)) {
@@ -172,19 +172,24 @@ class Ifrit_Remote_Manager
 
 /**
  * Silent upgrader skin (no output)
+ * Note: Must be defined AFTER class-wp-upgrader.php is loaded
+ * This is safe because this file is only included when needed
  */
-class Ifrit_Upgrader_Skin extends WP_Upgrader_Skin
-{
-    public function feedback($string, ...$args)
+if (class_exists('WP_Upgrader_Skin')) {
+    class Ifrit_Silent_Upgrader_Skin extends WP_Upgrader_Skin
     {
-    }
-    public function header()
-    {
-    }
-    public function footer()
-    {
-    }
-    public function error($errors)
-    {
+        public function feedback($string, ...$args)
+        {
+        }
+        public function header()
+        {
+        }
+        public function footer()
+        {
+        }
+        public function error($errors)
+        {
+        }
     }
 }
+

@@ -26,8 +26,8 @@ import { HuntDashboard } from '@/components/hunt';
 import { WebsitesView } from '@/components/websites';
 import { SettingsView } from '@/components/settings';
 
-// WordPress feature module
-import { WPSitesDashboard } from '@/features/wordpress';
+// WordPress feature module (direct import to avoid server/client conflicts)
+import { WPSitesDashboard } from '@/features/wordpress/ui/WPSitesDashboard';
 
 // Campaigns feature module
 import { CampaignsDashboard } from '@/features/campaigns';

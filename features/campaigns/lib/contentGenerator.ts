@@ -97,12 +97,17 @@ export async function generateContent(
 
     options?.onProgress?.('Generating content with AI...');
 
+    // Calculate generous token limit for complete article generation
+    // Full HTML articles with TOC, sections, FAQ, and conclusion need substantial tokens
+    // Use 16384 (Gemini Pro max) to ensure no truncation - quality over cost
+    const minTokensForQuality = 16384;
+
     const response = await fetch('/api/capabilities/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             prompt: fullPrompt,
-            maxTokens: Math.ceil(aiConfig.targetLength * 2), // HTML is larger
+            maxTokens: minTokensForQuality,  // No artificial limits - complete articles only
             temperature: 0.7,
             topic: sourceItem.topic,
             itemType: 'html-article',

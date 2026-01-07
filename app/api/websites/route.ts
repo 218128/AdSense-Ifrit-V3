@@ -19,12 +19,19 @@
 
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-    listWebsites,
-    saveWebsite,
-    Website
-} from '@/lib/websiteStore';
+import { Website } from '@/lib/websiteStore';
 import { getCurrentVersion } from '@/lib/templateVersions';
+
+// Stub functions for deprecated legacy system
+// These functions have been removed but the API is kept for backward compatibility
+function listWebsites(): Website[] {
+    console.warn('[DEPRECATED] Legacy listWebsites called - system is deprecated');
+    return [];
+}
+
+function saveWebsite(_website: Website): void {
+    console.warn('[DEPRECATED] Legacy saveWebsite called - system is deprecated');
+}
 
 export async function GET() {
     try {
@@ -32,7 +39,9 @@ export async function GET() {
         return NextResponse.json({
             success: true,
             websites,
-            count: websites.length
+            count: websites.length,
+            deprecated: true,
+            message: 'Legacy Websites system is deprecated. Use /api/wp-sites for WP sites.'
         });
     } catch (error) {
         console.error('Error listing websites:', error);

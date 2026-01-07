@@ -85,6 +85,58 @@ export interface CapabilitiesConfig {
 
 export type ProviderId = 'gemini' | 'deepseek' | 'openrouter' | 'vercel' | 'perplexity';
 
+// Provider metadata for UI
+export interface ProviderConfig {
+    id: ProviderId;
+    name: string;
+    models: string[];
+    defaultModel: string;
+    keyPrefix?: string;
+    docsUrl?: string;
+}
+
+export const PROVIDER_CONFIGS: Record<ProviderId, ProviderConfig> = {
+    gemini: {
+        id: 'gemini',
+        name: 'Google Gemini',
+        models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+        defaultModel: 'gemini-2.5-flash',
+        keyPrefix: 'AIza',
+        docsUrl: 'https://ai.google.dev/gemini-api/docs/api-key',
+    },
+    deepseek: {
+        id: 'deepseek',
+        name: 'DeepSeek',
+        models: ['deepseek-chat', 'deepseek-coder'],
+        defaultModel: 'deepseek-chat',
+        keyPrefix: 'sk-',
+        docsUrl: 'https://platform.deepseek.com/',
+    },
+    openrouter: {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        models: ['anthropic/claude-3.5-sonnet', 'openai/gpt-4o', 'google/gemini-pro'],
+        defaultModel: 'anthropic/claude-3.5-sonnet',
+        keyPrefix: 'sk-or-',
+        docsUrl: 'https://openrouter.ai/docs',
+    },
+    vercel: {
+        id: 'vercel',
+        name: 'Vercel AI',
+        models: ['gpt-4o', 'claude-3-sonnet'],
+        defaultModel: 'gpt-4o',
+        docsUrl: 'https://vercel.com/docs/ai',
+    },
+    perplexity: {
+        id: 'perplexity',
+        name: 'Perplexity',
+        models: ['sonar', 'sonar-pro'],
+        defaultModel: 'sonar',
+        keyPrefix: 'pplx-',
+        docsUrl: 'https://docs.perplexity.ai/',
+    },
+};
+
 export interface ExportedSettings {
     version: string;
     exportedAt: string;

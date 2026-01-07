@@ -1,17 +1,10 @@
 /**
- * Integrations Store
- * FSD: stores/integrationsStore.ts
+ * Integration Configurations
+ * FSD: lib/config/integrationConfigs.ts
  * 
- * Focused store for third-party service integrations:
- * - Grouped by purpose (Hosting, Domains, Media, Analytics, Legacy)
- * - Token validation
- * - Connection status tracking
- * 
- * Extracted from settingsStore.ts for better SoC
+ * Centralized metadata for all third-party integrations.
+ * Used by IntegrationsSection and other components that need integration info.
  */
-
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 // ============================================================================
 // Types
@@ -35,12 +28,6 @@ export interface IntegrationField {
     type: 'text' | 'password' | 'url';
     placeholder?: string;
     required?: boolean;
-}
-
-export interface ConnectionStatus {
-    connected: boolean;
-    lastChecked: number;
-    error?: string;
 }
 
 // ============================================================================
@@ -212,141 +199,17 @@ export const INTEGRATIONS: IntegrationMeta[] = [
 ];
 
 // ============================================================================
-// Store Interface
+// Helper Functions
 // ============================================================================
 
-interface IntegrationsStore {
-    // Token Storage (all fields)
-    tokens: Record<string, string>;
-
-    // Connection Status
-    connectionStatus: Record<string, ConnectionStatus>;
-
-    // Token Management
-    setToken: (key: string, value: string) => void;
-    getToken: (key: string) => string;
-    clearToken: (key: string) => void;
-    hasToken: (key: string) => boolean;
-
-    // Integration Helpers
-    getIntegrationTokens: (integrationId: string) => Record<string, string>;
-    isIntegrationConfigured: (integrationId: string) => boolean;
-    getConfiguredIntegrations: () => string[];
-    getIntegrationsByCategory: (category: IntegrationCategory) => IntegrationMeta[];
-
-    // Connection Status
-    setConnectionStatus: (integrationId: string, status: ConnectionStatus) => void;
-    getConnectionStatus: (integrationId: string) => ConnectionStatus | undefined;
-
-    // Bulk Operations
-    importTokens: (tokens: Record<string, string>) => number;
-    exportTokens: () => Record<string, string>;
-    clearAllTokens: () => void;
-}
-
-// ============================================================================
-// Store Implementation
-// ============================================================================
-
-export const useIntegrationsStore = create<IntegrationsStore>()(
-    persist(
-        (set, get) => ({
-            // ============ State ============
-            tokens: {},
-            connectionStatus: {},
-
-            // ============ Token Management ============
-
-            setToken: (key, value) => set(state => ({
-                tokens: { ...state.tokens, [key]: value }
-            })),
-
-            getToken: (key) => get().tokens[key] || '',
-
-            clearToken: (key) => set(state => {
-                const { [key]: _, ...rest } = state.tokens;
-                return { tokens: rest };
-            }),
-
-            hasToken: (key) => {
-                const token = get().tokens[key];
-                return !!token && token.length > 0;
-            },
-
-            // ============ Integration Helpers ============
-
-            getIntegrationTokens: (integrationId) => {
-                const integration = INTEGRATIONS.find(i => i.id === integrationId);
-                if (!integration) return {};
-
-                const tokens: Record<string, string> = {};
-                for (const field of integration.fields) {
-                    tokens[field.key] = get().tokens[field.key] || '';
-                }
-                return tokens;
-            },
-
-            isIntegrationConfigured: (integrationId) => {
-                const integration = INTEGRATIONS.find(i => i.id === integrationId);
-                if (!integration) return false;
-
-                const requiredFields = integration.fields.filter(f => f.required);
-                return requiredFields.every(f => get().hasToken(f.key));
-            },
-
-            getConfiguredIntegrations: () => {
-                return INTEGRATIONS
-                    .filter(i => get().isIntegrationConfigured(i.id))
-                    .map(i => i.id);
-            },
-
-            getIntegrationsByCategory: (category) => {
-                return INTEGRATIONS.filter(i => i.category === category);
-            },
-
-            // ============ Connection Status ============
-
-            setConnectionStatus: (integrationId, status) => set(state => ({
-                connectionStatus: { ...state.connectionStatus, [integrationId]: status }
-            })),
-
-            getConnectionStatus: (integrationId) => get().connectionStatus[integrationId],
-
-            // ============ Bulk Operations ============
-
-            importTokens: (tokens) => {
-                let count = 0;
-                for (const [key, value] of Object.entries(tokens)) {
-                    if (value && value.length > 0) {
-                        get().setToken(key, value);
-                        count++;
-                    }
-                }
-                return count;
-            },
-
-            exportTokens: () => ({ ...get().tokens }),
-
-            clearAllTokens: () => set({ tokens: {}, connectionStatus: {} }),
-        }),
-        {
-            name: 'ifrit_integrations',
-            partialize: (state) => ({
-                tokens: state.tokens,
-            }),
-        }
-    )
-);
-
-// ============================================================================
-// Selectors
-// ============================================================================
-
-export const selectIntegrationsByCategory = (category: IntegrationCategory) =>
+export const getIntegrationsByCategory = (category: IntegrationCategory): IntegrationMeta[] =>
     INTEGRATIONS.filter(i => i.category === category);
 
-export const selectActiveIntegrations = (state: IntegrationsStore) =>
-    INTEGRATIONS.filter(i => state.isIntegrationConfigured(i.id) && !i.deprecated);
+export const getIntegrationById = (id: string): IntegrationMeta | undefined =>
+    INTEGRATIONS.find(i => i.id === id);
 
-export const selectLegacyIntegrations = () =>
+export const getLegacyIntegrations = (): IntegrationMeta[] =>
     INTEGRATIONS.filter(i => i.deprecated);
+
+export const getActiveIntegrations = (): IntegrationMeta[] =>
+    INTEGRATIONS.filter(i => !i.deprecated);

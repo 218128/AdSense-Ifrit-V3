@@ -10,23 +10,27 @@
  * - Media Services (Unsplash, Pexels)
  * - Analytics (Umami)
  * - Social (Dev.to, YouTube, Twitter)
- * - Legacy (GitHub, Vercel) - collapsed by default
+ * - Legacy (GitHub, Vercel) - collapsed by default with Test Connection
  * 
- * Uses new integrationsStore for state
+ * Uses useIntegrations helper that wraps settingsStore
  */
 
 import { useState, useCallback } from 'react';
 import {
     ChevronDown, ChevronRight, ExternalLink, Check, AlertCircle,
-    Server, Globe, Image, BarChart3, Share2, Archive, Eye, EyeOff
+    Server, Globe, Image, BarChart3, Share2, Archive, Eye, EyeOff, Loader2
 } from 'lucide-react';
 import {
-    useIntegrationsStore,
+    useIntegrations,
     INTEGRATIONS,
     type IntegrationCategory,
     type IntegrationMeta,
     type IntegrationField,
-} from '@/stores/integrationsStore';
+} from '@/lib/config/integrationsHelpers';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { HealthStatusIndicator } from '../HealthStatusIndicator';
+import type { ServiceHealth } from '@/lib/config/healthMonitor';
+
 
 // ============================================================================
 // Category Configuration
@@ -136,9 +140,58 @@ interface IntegrationCardProps {
 }
 
 function IntegrationCard({ integration }: IntegrationCardProps) {
-    const { getToken, setToken, isIntegrationConfigured } = useIntegrationsStore();
+    const { getToken, setToken, isIntegrationConfigured } = useIntegrations();
+    const { setHealthStatus, healthStatus } = useSettingsStore();
+    const [testing, setTesting] = useState(false);
 
     const isConfigured = isIntegrationConfigured(integration.id);
+    const serviceId = `integration:${integration.id}`;
+    const health = healthStatus[serviceId];
+
+    // Test connection handler
+    const handleTestConnection = useCallback(async () => {
+        // Build credentials from all fields
+        const credentials: Record<string, string> = {};
+        for (const field of integration.fields) {
+            credentials[field.key] = getToken(field.key);
+        }
+
+        setTesting(true);
+        try {
+            const response = await fetch('/api/integrations/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    integration: integration.id,
+                    credentials,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setHealthStatus(serviceId, {
+                    status: 'healthy',
+                    lastCheck: Date.now(),
+                    message: data.message,
+                });
+            } else {
+                setHealthStatus(serviceId, {
+                    status: 'error',
+                    lastCheck: Date.now(),
+                    message: data.message || 'Connection failed',
+                });
+            }
+        } catch (error) {
+            setHealthStatus(serviceId, {
+                status: 'error',
+                lastCheck: Date.now(),
+                message: error instanceof Error ? error.message : 'Test failed',
+            });
+        } finally {
+            setTesting(false);
+        }
+    }, [integration.id, integration.fields, getToken, setHealthStatus, serviceId]);
 
     if (integration.fields.length === 0) {
         // Hostinger uses MCP, no direct configuration
@@ -200,6 +253,170 @@ function IntegrationCard({ integration }: IntegrationCardProps) {
                     />
                 ))}
             </div>
+
+            {/* Test Connection Button */}
+            {isConfigured && (
+                <div className="mt-4 flex items-center gap-3">
+                    <button
+                        onClick={handleTestConnection}
+                        disabled={testing}
+                        className="px-3 py-1.5 text-xs font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                        {testing ? (
+                            <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                Testing...
+                            </>
+                        ) : (
+                            'Test Connection'
+                        )}
+                    </button>
+                    {health && (
+                        <HealthStatusIndicator health={health} />
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+// ============================================================================
+// Legacy Integration Card (GitHub/Vercel with Test Connection)
+// ============================================================================
+
+interface LegacyIntegrationCardProps {
+    integration: IntegrationMeta;
+}
+
+function LegacyIntegrationCard({ integration }: LegacyIntegrationCardProps) {
+    const { getToken, setToken, isIntegrationConfigured } = useIntegrations();
+    const { integrations, setIntegration, healthStatus, setHealthStatus } = useSettingsStore();
+    const [testing, setTesting] = useState(false);
+
+    const isConfigured = isIntegrationConfigured(integration.id);
+    const serviceId = `integration:${integration.id}`;
+    const health = healthStatus[serviceId];
+
+    const handleTestConnection = async () => {
+        const tokenKey = integration.id === 'github' ? 'githubToken' : 'vercelToken';
+        const token = integrations[tokenKey];
+        if (!token) return;
+
+        setTesting(true);
+        try {
+            const endpoint = integration.id === 'github' ? '/api/github-setup' : '/api/vercel-setup';
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'validate', token })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                const userKey = integration.id === 'github' ? 'githubUser' : 'vercelUser';
+                setIntegration(userKey, data.user?.username || '');
+                setHealthStatus(serviceId, {
+                    status: 'healthy',
+                    lastCheck: Date.now(),
+                });
+            } else {
+                setHealthStatus(serviceId, {
+                    status: 'error',
+                    lastCheck: Date.now(),
+                    message: data.error || 'Connection failed'
+                });
+            }
+        } catch (err) {
+            setHealthStatus(serviceId, {
+                status: 'error',
+                lastCheck: Date.now(),
+                message: 'Network error'
+            });
+        } finally {
+            setTesting(false);
+        }
+    };
+
+    const tokenKey = integration.id === 'github' ? 'githubToken' : 'vercelToken';
+    const userKey = integration.id === 'github' ? 'githubUser' : 'vercelUser';
+    const hasToken = !!integrations[tokenKey];
+    const connectedUser = integrations[userKey];
+
+    return (
+        <div className={`
+            p-4 bg-white rounded-lg border transition-colors
+            ${isConfigured ? 'border-green-200' : 'border-neutral-200'}
+        `}>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-neutral-800">{integration.name}</h4>
+                    <span className="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded">
+                        Legacy
+                    </span>
+                    {health && (
+                        <HealthStatusIndicator
+                            serviceId={serviceId}
+                            serviceName={integration.name}
+                            health={health}
+                            onCheck={handleTestConnection}
+                            size="sm"
+                        />
+                    )}
+                </div>
+                {integration.docsUrl && (
+                    <a
+                        href={integration.docsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-500 hover:underline flex items-center gap-1"
+                    >
+                        Docs <ExternalLink className="w-3 h-3" />
+                    </a>
+                )}
+            </div>
+
+            <p className="text-xs text-neutral-500 mb-3">{integration.description}</p>
+
+            {/* Fields */}
+            <div className="space-y-3">
+                {integration.fields.map(field => (
+                    <FieldInput
+                        key={field.key}
+                        field={field}
+                        value={getToken(field.key)}
+                        onChange={(value) => setToken(field.key, value)}
+                    />
+                ))}
+            </div>
+
+            {/* Test Connection Button */}
+            <button
+                onClick={handleTestConnection}
+                disabled={!hasToken || testing}
+                className={`
+                    w-full mt-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${integration.id === 'github'
+                        ? 'bg-neutral-800 text-white hover:bg-neutral-700'
+                        : 'bg-black text-white hover:bg-neutral-800'}
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+            >
+                {testing ? (
+                    <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Testing...
+                    </span>
+                ) : connectedUser ? (
+                    <span className="flex items-center justify-center gap-2">
+                        <Check className="w-4 h-4" />
+                        Connected as {connectedUser}
+                    </span>
+                ) : (
+                    'Test Connection'
+                )}
+            </button>
         </div>
     );
 }
@@ -214,7 +431,7 @@ interface CategoryGroupProps {
 
 function CategoryGroup({ category }: CategoryGroupProps) {
     const [expanded, setExpanded] = useState(category.defaultExpanded);
-    const { isIntegrationConfigured } = useIntegrationsStore();
+    const { isIntegrationConfigured } = useIntegrations();
 
     const integrations = INTEGRATIONS.filter(i => i.category === category.id);
     const configuredCount = integrations.filter(i => isIntegrationConfigured(i.id)).length;
@@ -264,7 +481,9 @@ function CategoryGroup({ category }: CategoryGroupProps) {
             {expanded && (
                 <div className="p-4 bg-neutral-50 border-t border-neutral-200 space-y-3">
                     {integrations.map(integration => (
-                        <IntegrationCard key={integration.id} integration={integration} />
+                        category.id === 'legacy'
+                            ? <LegacyIntegrationCard key={integration.id} integration={integration} />
+                            : <IntegrationCard key={integration.id} integration={integration} />
                     ))}
                 </div>
             )}
@@ -277,7 +496,7 @@ function CategoryGroup({ category }: CategoryGroupProps) {
 // ============================================================================
 
 export function IntegrationsSection() {
-    const { getConfiguredIntegrations } = useIntegrationsStore();
+    const { getConfiguredIntegrations } = useIntegrations();
 
     const configuredIds = getConfiguredIntegrations();
     const activeCount = configuredIds.filter(id =>

@@ -9,7 +9,7 @@
  * - Handler assignment
  * - Global settings (MCP preference, fallback, diagnostics)
  * 
- * Uses new capabilitiesStore for state
+ * Uses useCapabilities helper that wraps settingsStore
  */
 
 import { useState } from 'react';
@@ -17,11 +17,7 @@ import {
     Search, PenLine, Target, FileText, Languages, Image, Brain, Code,
     ChevronDown, ChevronRight, Settings2, Check, X, Info
 } from 'lucide-react';
-import {
-    useCapabilitiesStore,
-    DEFAULT_CAPABILITIES,
-    type CapabilitySettings
-} from '@/stores/capabilitiesStore';
+import { useCapabilities, DEFAULT_CAPABILITIES } from '@/lib/config/capabilitiesHelpers';
 
 // ============================================================================
 // Capability Icons
@@ -57,7 +53,7 @@ function CapabilityCard({ id, name, description, isCustom }: CapabilityCardProps
         getDefaultHandler,
         setDefaultHandler,
         getFallbackHandlers,
-    } = useCapabilitiesStore();
+    } = useCapabilities();
 
     const enabled = isCapabilityEnabled(id);
     const defaultHandler = getDefaultHandler(id);
@@ -163,7 +159,7 @@ function GlobalSettings() {
         setAutoFallback,
         setVerbosity,
         setLogDiagnostics,
-    } = useCapabilitiesStore();
+    } = useCapabilities();
 
     return (
         <div className="bg-neutral-50 rounded-xl p-4 space-y-4">
@@ -257,7 +253,7 @@ function GlobalSettings() {
 // ============================================================================
 
 export function CapabilitiesSection() {
-    const { getAllCapabilities, getEnabledCapabilities } = useCapabilitiesStore();
+    const { getAllCapabilities, getEnabledCapabilities } = useCapabilities();
 
     const allCapabilities = getAllCapabilities();
     const enabledCount = getEnabledCapabilities().length;

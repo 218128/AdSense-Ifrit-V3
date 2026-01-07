@@ -289,11 +289,16 @@ class AIServicesClass {
         // 2. Keys may be added after registration (user configures later)
         // 3. The execute function fails gracefully with clear error if no key
 
-        // All text-based capabilities that any AI provider can potentially handle
+        // AI-based capabilities (require language model to process)
         // User decides which provider to use for each in Settings
         const textCapabilities = [
+            // Core capabilities
             'generate', 'research', 'keywords', 'analyze', 'keyword-analyze',
-            'summarize', 'translate', 'reasoning', 'code', 'domain-profile'
+            'summarize', 'translate', 'reasoning', 'code', 'domain-profile',
+            // Quality capabilities that need AI reasoning
+            'quality-review',
+            // SEO capabilities that need AI reasoning
+            'seo-optimize',
         ];
 
         // Image capabilities - only some providers support
@@ -349,6 +354,187 @@ class AIServicesClass {
             isAvailable: hasOpenrouterKeys,
             requiresApiKey: true,
             execute: (opts) => this.executeProviderDirect('openrouter', opts),
+        });
+
+        // ============================================
+        // LOCAL HANDLERS (Non-AI Capabilities)
+        // ============================================
+
+        // E-E-A-T Scoring - uses lib/contentQuality/eeatScorer.ts
+        this.registerHandler({
+            id: 'local-eeat-scorer',
+            name: 'E-E-A-T Scorer (Local)',
+            source: 'local',
+            capabilities: ['eeat-scoring'],
+            priority: 100,  // Local handlers have highest priority
+            isAvailable: true,
+            execute: async (opts) => {
+                try {
+                    const { calculateEEATScore } = await import('@/lib/contentQuality/eeatScorer');
+                    const score = calculateEEATScore(opts.prompt);
+                    return { success: true, data: score, handlerUsed: 'local-eeat-scorer', source: 'local', latencyMs: 0 };
+                } catch (e) {
+                    return { success: false, error: String(e), handlerUsed: 'local-eeat-scorer', source: 'local', latencyMs: 0 };
+                }
+            },
+        });
+
+        // Schema.org Generator - uses lib/formatting/schemaOrg.ts
+        this.registerHandler({
+            id: 'local-schema-generator',
+            name: 'Schema.org Generator (Local)',
+            source: 'local',
+            capabilities: ['schema-generate'],
+            priority: 100,
+            isAvailable: true,
+            execute: async (opts) => {
+                try {
+                    const schemaOrg = await import('@/lib/formatting/schemaOrg');
+                    // Parse context for schema type and options
+                    const schemaType = (opts.context?.schemaType as string) || 'article';
+                    const schemaOpts = opts.context?.options as Record<string, unknown> || {};
+
+                    let schema;
+                    switch (schemaType) {
+                        case 'article':
+                            schema = schemaOrg.generateArticleSchema(schemaOpts as any);
+                            break;
+                        case 'faq':
+                            schema = schemaOrg.generateFAQSchema(schemaOpts as any);
+                            break;
+                        case 'howto':
+                            schema = schemaOrg.generateHowToSchema(schemaOpts as any);
+                            break;
+                        default:
+                            schema = schemaOrg.generateArticleSchema(schemaOpts as any);
+                    }
+                    return { success: true, data: schema, handlerUsed: 'local-schema-generator', source: 'local', latencyMs: 0 };
+                } catch (e) {
+                    return { success: false, error: String(e), handlerUsed: 'local-schema-generator', source: 'local', latencyMs: 0 };
+                }
+            },
+        });
+
+        // Author Match - uses features/authors matching logic
+        this.registerHandler({
+            id: 'local-author-matcher',
+            name: 'Author Matcher (Local)',
+            source: 'local',
+            capabilities: ['author-match'],
+            priority: 100,
+            isAvailable: true,
+            execute: async (opts) => {
+                try {
+                    // Import author matching logic
+                    const { matchAuthorToContent } = await import('@/features/authors');
+                    const topic = opts.context?.topic as string || opts.prompt;
+                    const niche = opts.context?.niche as string;
+                    const match = matchAuthorToContent(topic, niche);
+                    return { success: true, data: match, handlerUsed: 'local-author-matcher', source: 'local', latencyMs: 0 };
+                } catch (e) {
+                    return { success: false, error: String(e), handlerUsed: 'local-author-matcher', source: 'local', latencyMs: 0 };
+                }
+            },
+        });
+
+        // WP Publish - integration handler (uses WP REST API)
+        this.registerHandler({
+            id: 'integration-wp-publish',
+            name: 'WordPress Publisher',
+            source: 'integration',
+            capabilities: ['wp-publish'],
+            priority: 100,
+            isAvailable: true,  // Availability checked at execution time
+            execute: async (opts) => {
+                // WP publishing is handled by specific WP API routes
+                return {
+                    success: false,
+                    error: 'WP publishing should be called via /api/wp-sites routes, not through aiServices.execute()',
+                    handlerUsed: 'integration-wp-publish',
+                    source: 'integration',
+                    latencyMs: 0
+                };
+            },
+        });
+
+        // Campaign Run - orchestrator (local)
+        this.registerHandler({
+            id: 'local-campaign-runner',
+            name: 'Campaign Pipeline Runner',
+            source: 'local',
+            capabilities: ['campaign-run'],
+            priority: 100,
+            isAvailable: true,
+            execute: async (opts) => {
+                // Campaign running is handled by features/campaigns pipeline
+                return {
+                    success: false,
+                    error: 'Campaign running should use the Campaign Pipeline directly, not aiServices.execute()',
+                    handlerUsed: 'local-campaign-runner',
+                    source: 'local',
+                    latencyMs: 0
+                };
+            },
+        });
+
+        // Fact Check - Google Fact Check API integration
+        // Primary handler uses Google API, can fallback to AI for additional verification
+        this.registerHandler({
+            id: 'integration-google-factcheck',
+            name: 'Google Fact Check API',
+            source: 'integration',
+            capabilities: ['fact-check'],
+            priority: 90,  // High priority for dedicated API
+            isAvailable: true,  // Availability checked at execution time via API key
+            execute: async (opts) => {
+                try {
+                    const { factCheckContent, searchFactChecks } = await import('@/lib/contentQuality/factChecker');
+
+                    // If content is provided, do full content fact-check
+                    if (opts.context?.html || opts.prompt.length > 200) {
+                        const result = await factCheckContent(opts.context?.html as string || opts.prompt);
+                        return { success: true, data: result, handlerUsed: 'integration-google-factcheck', source: 'integration', latencyMs: 0 };
+                    }
+
+                    // Otherwise, search for specific claim
+                    const result = await searchFactChecks(opts.prompt);
+                    return { success: true, data: result, handlerUsed: 'integration-google-factcheck', source: 'integration', latencyMs: 0 };
+                } catch (e) {
+                    return { success: false, error: String(e), handlerUsed: 'integration-google-factcheck', source: 'integration', latencyMs: 0 };
+                }
+            },
+        });
+
+        // Internal Linking - local keyword matching algorithm
+        this.registerHandler({
+            id: 'local-internal-linker',
+            name: 'Internal Linker (Local)',
+            source: 'local',
+            capabilities: ['internal-link'],
+            priority: 100,
+            isAvailable: true,
+            execute: async (opts) => {
+                try {
+                    const { findLinkOpportunities, injectInternalLinks } = await import('@/features/campaigns/lib/internalLinking');
+
+                    const content = opts.context?.html as string || opts.prompt;
+                    const existingPosts = opts.context?.existingPosts as any[] || [];
+                    const maxLinks = (opts.context?.maxLinks as number) || 5;
+
+                    // Find opportunities
+                    const suggestions = findLinkOpportunities(content, existingPosts, maxLinks);
+
+                    // Optionally inject links if requested
+                    if (opts.context?.inject) {
+                        const result = injectInternalLinks(content, suggestions, maxLinks);
+                        return { success: true, data: result, handlerUsed: 'local-internal-linker', source: 'local', latencyMs: 0 };
+                    }
+
+                    return { success: true, data: { suggestions }, handlerUsed: 'local-internal-linker', source: 'local', latencyMs: 0 };
+                } catch (e) {
+                    return { success: false, error: String(e), handlerUsed: 'local-internal-linker', source: 'local', latencyMs: 0 };
+                }
+            },
         });
 
         // ============================================

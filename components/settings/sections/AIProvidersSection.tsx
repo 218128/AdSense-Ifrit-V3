@@ -9,20 +9,24 @@
  * - Model selection
  * - Task model assignments
  * 
- * Uses new aiProvidersStore for state
+ * Uses settingsStore for state (consolidated)
  */
 
 import { useState, useCallback } from 'react';
 import {
     Key, Eye, EyeOff, Plus, Trash2, Check, AlertCircle,
-    Zap, Brain, Code, Sparkles, Globe
+    Zap, Brain, Code, Sparkles, Globe, BarChart3
 } from 'lucide-react';
 import {
-    useAIProvidersStore,
+    useSettingsStore,
     PROVIDER_CONFIGS,
     type ProviderId,
     type StoredKey
-} from '@/stores/aiProvidersStore';
+} from '@/stores/settingsStore';
+import { AIUsagePanel } from '../AIUsagePanel';
+import { UsageStatsPanel } from '../UsageStatsPanel';
+
+type AISubsection = 'providers' | 'usage';
 
 // ============================================================================
 // Provider Icons
@@ -128,13 +132,12 @@ function ProviderCard({ providerId }: ProviderCardProps) {
         providerKeys,
         enabledProviders,
         selectedModels,
-        addKey,
-        removeKey,
-        updateKey,
+        addProviderKey,
+        removeProviderKey,
+        updateProviderKey,
         toggleProvider,
-        setModel,
-        hasValidKeys,
-    } = useAIProvidersStore();
+        setSelectedModel,
+    } = useSettingsStore();
 
     const [newKey, setNewKey] = useState('');
     const [showAdd, setShowAdd] = useState(false);
@@ -142,20 +145,19 @@ function ProviderCard({ providerId }: ProviderCardProps) {
     const keys = providerKeys[providerId] || [];
     const isEnabled = enabledProviders.includes(providerId);
     const currentModel = selectedModels[providerId] || config.defaultModel;
+    const hasValidKeys = keys.length > 0 && keys.some(k => k.key && k.key.length > 10);
 
     const handleAddKey = useCallback(() => {
         if (!newKey.trim()) return;
 
-        const success = addKey(providerId, {
+        addProviderKey(providerId, {
             key: newKey.trim(),
             label: `Key ${keys.length + 1}`,
         });
 
-        if (success) {
-            setNewKey('');
-            setShowAdd(false);
-        }
-    }, [newKey, providerId, keys.length, addKey]);
+        setNewKey('');
+        setShowAdd(false);
+    }, [newKey, providerId, keys.length, addProviderKey]);
 
     return (
         <div className={`
@@ -204,7 +206,7 @@ function ProviderCard({ providerId }: ProviderCardProps) {
             <div className="space-y-2 mb-4">
                 <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-neutral-600">API Keys</span>
-                    {!hasValidKeys(providerId) && keys.length === 0 && (
+                    {!hasValidKeys && keys.length === 0 && (
                         <span className="flex items-center gap-1 text-xs text-amber-600">
                             <AlertCircle className="w-3 h-3" />
                             No keys configured
@@ -217,8 +219,8 @@ function ProviderCard({ providerId }: ProviderCardProps) {
                         key={key.key.slice(0, 10) + index}
                         storedKey={key}
                         provider={providerId}
-                        onRemove={() => removeKey(providerId, key.key)}
-                        onUpdate={(updates) => updateKey(providerId, key.key, updates)}
+                        onRemove={() => removeProviderKey(providerId, key.key)}
+                        onUpdate={(updates) => updateProviderKey(providerId, key.key, updates)}
                     />
                 ))}
 
@@ -264,7 +266,7 @@ function ProviderCard({ providerId }: ProviderCardProps) {
                 </label>
                 <select
                     value={currentModel}
-                    onChange={(e) => setModel(providerId, e.target.value)}
+                    onChange={(e) => setSelectedModel(providerId, e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     {config.models.map(model => (
@@ -281,33 +283,80 @@ function ProviderCard({ providerId }: ProviderCardProps) {
 // ============================================================================
 
 export function AIProvidersSection() {
+    const [activeSubsection, setActiveSubsection] = useState<AISubsection>('providers');
     const providers = Object.keys(PROVIDER_CONFIGS) as ProviderId[];
-    const { enabledProviders, hasValidKeys } = useAIProvidersStore();
+    const { enabledProviders, providerKeys } = useSettingsStore();
 
-    const configuredCount = providers.filter(p => hasValidKeys(p)).length;
+    const hasValidKeysForProvider = (p: ProviderId) => {
+        const keys = providerKeys[p] || [];
+        return keys.length > 0 && keys.some(k => k.key && k.key.length > 10);
+    };
+    const configuredCount = providers.filter(p => hasValidKeysForProvider(p)).length;
     const enabledCount = enabledProviders.length;
 
     return (
-        <div className="space-y-6">
-            {/* Summary */}
-            <div className="flex items-center gap-4 text-sm text-neutral-600">
-                <span>
-                    <span className="font-semibold text-neutral-800">{configuredCount}</span>
-                    {' '}providers configured
-                </span>
-                <span className="text-neutral-300">•</span>
-                <span>
-                    <span className="font-semibold text-neutral-800">{enabledCount}</span>
-                    {' '}enabled
-                </span>
+        <div className="space-y-4">
+            {/* Subsection tabs */}
+            <div className="flex gap-1 border-b border-neutral-200 pb-2">
+                <button
+                    onClick={() => setActiveSubsection('providers')}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeSubsection === 'providers'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'text-neutral-600 hover:bg-neutral-100'
+                        }`}
+                >
+                    <Sparkles className="w-4 h-4" />
+                    Providers
+                </button>
+                <button
+                    onClick={() => setActiveSubsection('usage')}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeSubsection === 'usage'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'text-neutral-600 hover:bg-neutral-100'
+                        }`}
+                >
+                    <BarChart3 className="w-4 h-4" />
+                    Usage & Costs
+                </button>
             </div>
 
             {/* Provider Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {providers.map(providerId => (
-                    <ProviderCard key={providerId} providerId={providerId} />
-                ))}
-            </div>
+            {activeSubsection === 'providers' && (
+                <div className="space-y-6">
+                    {/* Summary */}
+                    <div className="flex items-center gap-4 text-sm text-neutral-600">
+                        <span>
+                            <span className="font-semibold text-neutral-800">{configuredCount}</span>
+                            {' '}providers configured
+                        </span>
+                        <span className="text-neutral-300">•</span>
+                        <span>
+                            <span className="font-semibold text-neutral-800">{enabledCount}</span>
+                            {' '}enabled
+                        </span>
+                    </div>
+
+                    {/* Provider Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {providers.map(providerId => (
+                            <ProviderCard key={providerId} providerId={providerId} />
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Usage & Costs */}
+            {activeSubsection === 'usage' && (
+                <div className="space-y-6">
+                    <p className="text-sm text-neutral-500">
+                        Track AI usage, token consumption, and estimated costs across all providers.
+                    </p>
+                    <AIUsagePanel />
+                    <div className="border-t border-neutral-200 pt-6">
+                        <UsageStatsPanel />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

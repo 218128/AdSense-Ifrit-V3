@@ -127,19 +127,35 @@ export interface UploadMediaResponse {
 /**
  * Check if site has ifrit-connector plugin installed
  */
-export async function checkPluginHealth(site: WPSite): Promise<PluginHealthResponse | null> {
+export async function checkPluginHealth(site: WPSite): Promise<(PluginHealthResponse & { active: boolean }) | null> {
+    const url = `${site.siteUrl}/wp-json/ifrit/v1/health`;
+    console.log('[PluginAPI] Checking health at:', url);
+
     try {
-        const response = await fetch(`${site.siteUrl}/wp-json/ifrit/v1/health`, {
+        const response = await fetch(url, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
+            // Important: need mode for CORS
+            mode: 'cors',
         });
 
+        console.log('[PluginAPI] Response status:', response.status, response.statusText);
+
         if (!response.ok) {
+            const text = await response.text();
+            console.error('[PluginAPI] Non-OK response:', text);
             return null;
         }
 
-        return await response.json();
-    } catch {
+        const data = await response.json();
+        console.log('[PluginAPI] Health response:', data);
+        return { ...data, active: true };
+    } catch (err) {
+        console.error('[PluginAPI] Fetch error:', err);
+        // Check if it's a network error (CORS, timeout, etc.)
+        if (err instanceof TypeError) {
+            console.error('[PluginAPI] Network/CORS error - check if plugin is installed and updated');
+        }
         return null;
     }
 }

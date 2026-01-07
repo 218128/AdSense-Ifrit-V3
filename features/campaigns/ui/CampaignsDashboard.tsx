@@ -6,19 +6,22 @@
  */
 
 import { useState } from 'react';
-import { Zap, Plus, Play, Pause, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Zap, Plus, Play, Pause, CheckCircle, AlertCircle, Clock, FileCheck } from 'lucide-react';
 import { useCampaignStore } from '../model/campaignStore';
 import { useWPSitesLegacy } from '@/features/wordpress/model/wpSiteStore';
 import { CampaignCard } from './CampaignCard';
 import { CampaignEditor } from './CampaignEditor';
 import type { Campaign } from '../model/types';
 import { runPipeline, createRun } from '../lib/processor';
+import { ReviewDashboard, useReviewStore } from '@/features/editorial';
 
 export function CampaignsDashboard() {
     const { campaigns, addRun, updateRun, incrementGenerated, incrementPublished, incrementFailed, updateStats, updateSchedule } = useCampaignStore();
     const { sites } = useWPSitesLegacy();
     const [showEditor, setShowEditor] = useState(false);
     const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+    const [activeTab, setActiveTab] = useState<'campaigns' | 'review'>('campaigns');
+    const pendingReviewCount = useReviewStore(state => state.items.filter(i => i.status === 'pending').length);
 
     const activeCount = campaigns.filter(c => c.status === 'active').length;
     const pausedCount = campaigns.filter(c => c.status === 'paused').length;
@@ -33,6 +36,12 @@ export function CampaignsDashboard() {
         const site = sites.find(s => s.id === campaign.targetSiteId);
         if (!site) {
             alert('Target WordPress site not found or not connected.');
+            return;
+        }
+
+        // Handle translation campaigns differently
+        if (campaign.source.type === 'translation') {
+            await handleTranslationCampaign(campaign, site, sites);
             return;
         }
 
@@ -217,38 +226,74 @@ export function CampaignsDashboard() {
                 </div>
             )}
 
-            {/* Campaigns Grid */}
-            {campaigns.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-neutral-200 p-12 text-center">
-                    <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Zap className="w-8 h-8 text-neutral-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-neutral-900 mb-2">
-                        No campaigns yet
-                    </h3>
-                    <p className="text-neutral-500 mb-6">
-                        Create your first campaign to start generating AI content automatically.
-                    </p>
-                    <button
-                        onClick={() => setShowEditor(true)}
-                        disabled={connectedSites === 0}
-                        className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <Plus className="w-5 h-5" />
-                        Create Campaign
-                    </button>
-                </div>
+            {/* Tab Navigation */}
+            <div className="flex gap-1 bg-neutral-100 p-1 rounded-lg w-fit">
+                <button
+                    onClick={() => setActiveTab('campaigns')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2
+                        ${activeTab === 'campaigns'
+                            ? 'bg-white text-neutral-900 shadow-sm'
+                            : 'text-neutral-600 hover:text-neutral-900'}`}
+                >
+                    <Zap className="w-4 h-4" />
+                    Campaigns
+                </button>
+                <button
+                    onClick={() => setActiveTab('review')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2
+                        ${activeTab === 'review'
+                            ? 'bg-white text-neutral-900 shadow-sm'
+                            : 'text-neutral-600 hover:text-neutral-900'}`}
+                >
+                    <FileCheck className="w-4 h-4" />
+                    Review Queue
+                    {pendingReviewCount > 0 && (
+                        <span className="px-1.5 py-0.5 bg-amber-500 text-white text-xs rounded-full">
+                            {pendingReviewCount}
+                        </span>
+                    )}
+                </button>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'review' ? (
+                <ReviewDashboard />
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {campaigns.map((campaign) => (
-                        <CampaignCard
-                            key={campaign.id}
-                            campaign={campaign}
-                            onEdit={handleEdit}
-                            onRun={handleRunCampaign}
-                        />
-                    ))}
-                </div>
+                <>
+                    {/* Campaigns Grid */}
+                    {campaigns.length === 0 ? (
+                        <div className="bg-white rounded-2xl border border-neutral-200 p-12 text-center">
+                            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Zap className="w-8 h-8 text-neutral-400" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+                                No campaigns yet
+                            </h3>
+                            <p className="text-neutral-500 mb-6">
+                                Create your first campaign to start generating AI content automatically.
+                            </p>
+                            <button
+                                onClick={() => setShowEditor(true)}
+                                disabled={connectedSites === 0}
+                                className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Plus className="w-5 h-5" />
+                                Create Campaign
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {campaigns.map((campaign) => (
+                                <CampaignCard
+                                    key={campaign.id}
+                                    campaign={campaign}
+                                    onEdit={handleEdit}
+                                    onRun={handleRunCampaign}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
 
             {/* Campaign Editor Modal */}
@@ -293,5 +338,52 @@ function getSourceItems(campaign: Campaign) {
         }
         default:
             return [];
+    }
+}
+
+/**
+ * Handle translation campaign execution using translation action runner
+ */
+async function handleTranslationCampaign(
+    campaign: Campaign,
+    sourceSite: import('@/features/wordpress').WPSite,
+    allSites: import('@/features/wordpress').WPSite[]
+) {
+    const { runTranslationCampaignWithStatus } = await import('../lib/translationActionRunner');
+    const { getTranslationHistory } = await import('../model/translationHistory');
+
+    const config = campaign.source.config as import('../model/types').TranslationSourceConfig;
+
+    // Build target sites map from language mappings
+    const targetSites = new Map<string, import('@/features/wordpress').WPSite>();
+    for (const mapping of config.targetLanguages) {
+        const targetSite = allSites.find(s => s.id === mapping.siteId);
+        if (targetSite) {
+            targetSites.set(mapping.languageCode, targetSite);
+        }
+    }
+
+    if (targetSites.size === 0) {
+        alert('No valid target sites configured for translation languages.');
+        return;
+    }
+
+    // Get existing translations to avoid duplicates
+    const existingTranslations = getTranslationHistory(campaign.id);
+
+    try {
+        const result = await runTranslationCampaignWithStatus({
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+            sourceSite,
+            sourceConfig: config,
+            targetSites,
+            existingTranslations,
+            runId: `run_${Date.now()}`,
+        });
+
+        console.log('[TranslationCampaign] Complete:', result.summary);
+    } catch (error) {
+        console.error('[TranslationCampaign] Failed:', error);
     }
 }
