@@ -134,11 +134,13 @@ export async function getEnrichedContext(
         context = createEmptyContext();
 
         // Add keywords from source if available
-        if (campaign.source.type === 'keywords' && campaign.source.config.keywords) {
-            const keywords = campaign.source.config.keywords as string[];
-            context.keywords = keywords.map(kw =>
-                createSourced<EnrichedKeyword>({ keyword: kw }, 'built-in', 0.3)
-            );
+        if (campaign.source.type === 'keywords') {
+            const keywordConfig = campaign.source.config as { keywords?: string[] };
+            if (keywordConfig.keywords) {
+                context.keywords = keywordConfig.keywords.map(kw =>
+                    createSourced<EnrichedKeyword>({ keyword: kw }, 'built-in', 0.3)
+                );
+            }
         }
     }
 
@@ -178,9 +180,9 @@ async function runEnrichmentPipeline(
                 },
             });
 
-            if (result.success && result.result) {
+            if (result.success && result.data) {
                 // Apply transformation
-                const updates = step.transform(result.result, enrichedContext, keyword);
+                const updates = step.transform(result.data, enrichedContext, keyword);
                 enrichedContext = { ...enrichedContext, ...updates };
 
                 // Track source
@@ -246,10 +248,10 @@ export async function enrichKeywordResearch(
             context: { keyword, niche: context.niche.value.name },
         });
 
-        if (result.success && result.result) {
-            const findings = typeof result.result === 'string'
-                ? result.result.split('\n').filter(Boolean)
-                : Array.isArray(result.result) ? result.result : [];
+        if (result.success && result.data) {
+            const findings = typeof result.data === 'string'
+                ? result.data.split('\n').filter(Boolean)
+                : Array.isArray(result.data) ? result.data : [];
 
             return {
                 ...context,
@@ -257,7 +259,7 @@ export async function enrichKeywordResearch(
                     ...context.research,
                     [keyword]: createSourced(findings, 'campaign-enrichment', 0.7),
                 },
-                contributingSources: [...new Set([...context.contributingSources, 'campaign-enrichment'])],
+                contributingSources: [...new Set([...context.contributingSources, 'campaign-enrichment' as const])],
                 lastUpdated: Date.now(),
             };
         }
@@ -287,7 +289,7 @@ export async function enrichCompetition(
             context: { niche: context.niche.value.name, keywords },
         });
 
-        if (result.success && result.result) {
+        if (result.success && result.data) {
             // Parse competition data from AI response
             const competition: CompetitionData = {
                 level: 'medium', // Default, would parse from result
@@ -298,7 +300,7 @@ export async function enrichCompetition(
             return {
                 ...context,
                 competition: createSourced(competition, 'campaign-enrichment', 0.6),
-                contributingSources: [...new Set([...context.contributingSources, 'campaign-enrichment'])],
+                contributingSources: [...new Set([...context.contributingSources, 'campaign-enrichment' as const])],
                 lastUpdated: Date.now(),
             };
         }
@@ -329,13 +331,13 @@ export async function enrichContentSuggestions(
             context: { niche: context.niche.value.name, format: 'json' },
         });
 
-        if (result.success && result.result) {
+        if (result.success && result.data) {
             let suggestions: ContentSuggestions = { themes: [], gaps: [], angles: [] };
 
             try {
-                const parsed = typeof result.result === 'string'
-                    ? JSON.parse(result.result)
-                    : result.result;
+                const parsed = typeof result.data === 'string'
+                    ? JSON.parse(result.data)
+                    : result.data;
                 suggestions = {
                     themes: parsed.themes || [],
                     gaps: parsed.gaps || [],
@@ -348,7 +350,7 @@ export async function enrichContentSuggestions(
             return {
                 ...context,
                 contentSuggestions: createSourced(suggestions, 'campaign-enrichment', 0.7),
-                contributingSources: [...new Set([...context.contributingSources, 'campaign-enrichment'])],
+                contributingSources: [...new Set([...context.contributingSources, 'campaign-enrichment' as const])],
                 lastUpdated: Date.now(),
             };
         }

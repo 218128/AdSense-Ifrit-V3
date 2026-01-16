@@ -38,13 +38,13 @@ import {
     Send
 } from 'lucide-react';
 import BuildingProgress from './BuildingProgress';
-import GenerateArticleModal from './GenerateArticleModal';
+// GenerateArticleModal removed - called dead /api/generate
 import DNSConfigPanel from './DNSConfigPanel';
 import GenerationHistory, { addToGenerationHistory } from './GenerationHistory';
 import ArticleActionsMenu from './ArticleActionsMenu';
 import SmartDropZone from './SmartDropZone';
 import PromptExporter from './PromptExporter';
-import BulkArticleQueue from './BulkArticleQueue';
+// BulkArticleQueue removed - called dead /api/generate
 import ArticleEditor from './ArticleEditor';
 import PendingImports from './PendingImports';
 import PagesTab from './PagesTab';
@@ -411,18 +411,7 @@ export default function WebsiteDetail({ domain, onBack }: WebsiteDetailProps) {
                 )}
             </div>
 
-            {/* Generate Article Modal (accessible from any tab via quick actions) */}
-            {showGenerateModal && (
-                <GenerateArticleModal
-                    domain={domain}
-                    niche={website?.niche || ''}
-                    onClose={() => setShowGenerateModal(false)}
-                    onGenerated={() => {
-                        setShowGenerateModal(false);
-                        fetchWebsite();
-                    }}
-                />
-            )}
+            {/* GenerateArticleModal removed - was dead code calling /api/generate */}
         </div>
     );
 }
@@ -1038,14 +1027,7 @@ function ContentTab({
                 />
             )}
 
-            {/* Bulk Article Queue */}
-            {showBulkQueue && (
-                <BulkArticleQueue
-                    domain={domain}
-                    niche={niche}
-                    onComplete={onRefresh}
-                />
-            )}
+            {/* BulkArticleQueue removed - was dead code calling /api/generate */}
 
             {/* Manual Editor Modal */}
             {(showEditor || editingArticle) && (
@@ -1211,18 +1193,7 @@ function ContentTab({
                 <GenerationHistory />
             </div>
 
-            {/* Generate Article Modal */}
-            {showGenerateModal && (
-                <GenerateArticleModal
-                    domain={domain}
-                    niche={niche}
-                    onClose={() => setShowGenerateModal(false)}
-                    onGenerated={() => {
-                        setShowGenerateModal(false);
-                        onRefresh();
-                    }}
-                />
-            )}
+            {/* GenerateArticleModal removed - was dead code calling /api/generate */}
         </div>
     );
 }

@@ -98,7 +98,7 @@ export function matchAuthorForPipeline(
         // Check health requirements for auto-matched author
         if (campaign.aiConfig.authorHealthRequired && healthScore.score < minHealthScore) {
             // Try alternates
-            for (const alt of matchResult.alternates) {
+            for (const alt of matchResult.alternatives) {
                 const altHealth = calculateAuthorHealthScore(alt.author);
                 if (altHealth.score >= minHealthScore) {
                     const altPublish = canPublishWithAuthor(alt.author);

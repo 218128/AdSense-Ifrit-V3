@@ -99,7 +99,7 @@ export interface PageSpeedMetrics {
 
 export interface SiteAnalytics {
     siteId: string;
-    domain: string;
+    domain?: string;  // Optional - derived from WPSite.domain
 
     // Search Console
     searchConsole?: {

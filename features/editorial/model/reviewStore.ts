@@ -20,9 +20,9 @@ import type {
     ReviewChecklistItem,
     ReviewChangeRequest,
     CitationValidationResult,
-    DEFAULT_REVIEW_POLICY,
-    DEFAULT_REVIEW_CHECKLIST,
 } from './reviewTypes';
+// Value imports (runtime constants)
+import { DEFAULT_REVIEW_CHECKLIST } from './reviewTypes';
 import { calculateEEATScore } from '@/lib/contentQuality';
 import { quickAIOverviewCheck } from '@/lib/seo';
 

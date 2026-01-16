@@ -16,28 +16,25 @@ async function executeUnsplash(options: ExecuteOptions): Promise<ExecuteResult> 
     const startTime = Date.now();
 
     try {
-        // Get API key from settings via context or dynamic import
-        let apiKey = options.context?.unsplashKey as string;
-
-        if (!apiKey) {
-            // Try to get from settings store (client-side only)
-            if (typeof window !== 'undefined') {
-                const { useSettingsStore } = await import('@/stores/settingsStore');
-                apiKey = useSettingsStore.getState().integrations.unsplashKey;
-            }
-        }
+        // Get API key from context (must be passed from client via route)
+        // SoC: Handlers receive keys via context, never access stores directly
+        const apiKey = options.context?.unsplashKey as string;
 
         if (!apiKey) {
             return {
                 success: false,
-                error: 'Unsplash API key not configured. Add it in Settings → Integrations.',
+                error: 'Unsplash API key not provided. Ensure key is passed via context from client.',
                 handlerUsed: 'unsplash',
                 source: 'integration',
                 latencyMs: Date.now() - startTime,
             };
         }
 
-        const query = encodeURIComponent(options.prompt);
+        // Truncate long queries to improve search results (Unsplash fails on very specific queries)
+        const truncatedPrompt = options.prompt.length > 50
+            ? options.prompt.substring(0, 50).trim()
+            : options.prompt;
+        const query = encodeURIComponent(truncatedPrompt);
         const response = await fetch(
             `https://api.unsplash.com/search/photos?query=${query}&per_page=5&orientation=landscape`,
             {
@@ -74,6 +71,8 @@ async function executeUnsplash(options: ExecuteOptions): Promise<ExecuteResult> 
         const images = data.results.map((photo: {
             id: string;
             urls: { regular: string; small: string; thumb: string };
+            width: number;
+            height: number;
             alt_description?: string;
             description?: string;
             user: { name: string };
@@ -82,7 +81,10 @@ async function executeUnsplash(options: ExecuteOptions): Promise<ExecuteResult> 
             id: photo.id,
             url: photo.urls.regular,
             thumbnailUrl: photo.urls.small,
+            width: photo.width,
+            height: photo.height,
             alt: photo.alt_description || photo.description || options.prompt,
+            photographer: photo.user.name,
             attribution: `Photo by ${photo.user.name} on Unsplash`,
             sourceUrl: photo.links.html,
             source: 'unsplash',
@@ -117,19 +119,14 @@ async function executePexels(options: ExecuteOptions): Promise<ExecuteResult> {
     const startTime = Date.now();
 
     try {
-        let apiKey = options.context?.pexelsKey as string;
-
-        if (!apiKey) {
-            if (typeof window !== 'undefined') {
-                const { useSettingsStore } = await import('@/stores/settingsStore');
-                apiKey = useSettingsStore.getState().integrations.pexelsKey;
-            }
-        }
+        // Get API key from context (must be passed from client via route)
+        // SoC: Handlers receive keys via context, never access stores directly
+        const apiKey = options.context?.pexelsKey as string;
 
         if (!apiKey) {
             return {
                 success: false,
-                error: 'Pexels API key not configured. Add it in Settings → Integrations.',
+                error: 'Pexels API key not provided. Ensure key is passed via context from client.',
                 handlerUsed: 'pexels',
                 source: 'integration',
                 latencyMs: Date.now() - startTime,
@@ -170,6 +167,8 @@ async function executePexels(options: ExecuteOptions): Promise<ExecuteResult> {
 
         const images = data.photos.map((photo: {
             id: number;
+            width: number;
+            height: number;
             src: { large: string; medium: string; small: string };
             alt?: string;
             photographer: string;
@@ -178,7 +177,10 @@ async function executePexels(options: ExecuteOptions): Promise<ExecuteResult> {
             id: String(photo.id),
             url: photo.src.large,
             thumbnailUrl: photo.src.medium,
+            width: photo.width,
+            height: photo.height,
             alt: photo.alt || options.prompt,
+            photographer: photo.photographer,
             attribution: `Photo by ${photo.photographer} on Pexels`,
             sourceUrl: photo.url,
             source: 'pexels',
@@ -206,30 +208,45 @@ async function executePexels(options: ExecuteOptions): Promise<ExecuteResult> {
 }
 
 // ============================================================================
-// Brave Search Handler (Free Commercial Images)
+// Brave Search Handler (Direct API Call)
 // ============================================================================
 
 async function executeBraveSearch(options: ExecuteOptions): Promise<ExecuteResult> {
     const startTime = Date.now();
 
+    // Get API key from context (must be passed from client via route)
+    // SoC: Handlers receive keys via context, never access stores directly
+    const apiKey = options.context?.braveApiKey as string;
+
+    if (!apiKey) {
+        return {
+            success: false,
+            error: 'Brave API key not provided. Ensure key is passed via context from client.',
+            handlerUsed: 'brave-search',
+            source: 'integration',
+            latencyMs: Date.now() - startTime,
+        };
+    }
+
     try {
-        // Use research capability to find free commercial images
-        const response = await fetch('/api/capabilities/research', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                prompt: `Find 3 free commercially usable image URLs for: "${options.prompt}". 
-                         Search specifically on Unsplash, Pexels, Pixabay, or other free stock sources.
-                         Return a JSON array with objects containing: url, alt, source
-                         Example: [{"url": "https://...", "alt": "description", "source": "pixabay"}]`,
-                context: options.context,
-            }),
-        });
+        const query = encodeURIComponent(options.prompt);
+        // Brave Image Search API - per docs: https://api-dashboard.search.brave.com/app/documentation/image-search
+        // Valid safesearch values: 'strict' (default) or 'off'
+        const response = await fetch(
+            `https://api.search.brave.com/res/v1/images/search?q=${query}&count=5&safesearch=strict`,
+            {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Subscription-Token': apiKey,
+                },
+            }
+        );
 
         if (!response.ok) {
+            const errorText = await response.text().catch(() => '');
             return {
                 success: false,
-                error: 'Brave search API failed',
+                error: `Brave API error: ${response.status}${errorText ? ` - ${errorText.substring(0, 100)}` : ''}`,
                 handlerUsed: 'brave-search',
                 source: 'integration',
                 latencyMs: Date.now() - startTime,
@@ -238,51 +255,42 @@ async function executeBraveSearch(options: ExecuteOptions): Promise<ExecuteResul
 
         const data = await response.json();
 
-        if (!data.success || !data.text) {
+        if (!data.results || data.results.length === 0) {
             return {
                 success: false,
-                error: data.error || 'No results from Brave search',
+                error: `No images found for: ${options.prompt}`,
                 handlerUsed: 'brave-search',
                 source: 'integration',
                 latencyMs: Date.now() - startTime,
             };
         }
 
-        // Try to parse JSON from response
-        try {
-            const jsonMatch = data.text.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-                const images = JSON.parse(jsonMatch[0]);
-                return {
-                    success: true,
-                    data: images,
-                    text: images[0]?.url,
-                    handlerUsed: 'brave-search',
-                    source: 'integration',
-                    latencyMs: Date.now() - startTime,
-                };
-            }
-        } catch {
-            // Fall back to extracting URLs
-        }
-
-        // Extract URLs from text response
-        const urlMatches = data.text.match(/https?:\/\/[^\s"']+\.(jpg|jpeg|png|webp)/gi) || [];
-        const images = urlMatches.slice(0, 3).map((url: string, i: number) => ({
+        // Map Brave API response to standard image format
+        const images = data.results.map((img: {
+            title?: string;
+            url?: string;
+            properties?: { url?: string; width?: number; height?: number };
+            thumbnail?: { src?: string; width?: number; height?: number };
+            source?: string;
+        }, i: number) => ({
             id: `brave-${i}`,
-            url,
-            alt: options.prompt,
+            url: img.properties?.url || img.thumbnail?.src,
+            thumbnailUrl: img.thumbnail?.src,
+            width: img.properties?.width || img.thumbnail?.width,
+            height: img.properties?.height || img.thumbnail?.height,
+            alt: img.title || options.prompt,
+            sourceUrl: img.url,
             source: 'brave-search',
         }));
 
         return {
-            success: images.length > 0,
+            success: true,
             data: images,
             text: images[0]?.url,
-            error: images.length === 0 ? 'No image URLs found' : undefined,
             handlerUsed: 'brave-search',
             source: 'integration',
             latencyMs: Date.now() - startTime,
+            metadata: { returned: images.length },
         };
 
     } catch (error) {
@@ -297,30 +305,53 @@ async function executeBraveSearch(options: ExecuteOptions): Promise<ExecuteResul
 }
 
 // ============================================================================
-// Perplexity Handler (AI-powered image search)
+// Perplexity Handler (Direct API Call with Sonar model)
 // ============================================================================
 
 async function executePerplexity(options: ExecuteOptions): Promise<ExecuteResult> {
     const startTime = Date.now();
 
-    // Perplexity uses the research capability with specific handler
+    // Get API key from context (must be passed from client via route)
+    const apiKey = options.context?.perplexityApiKey as string;
+
+    if (!apiKey) {
+        return {
+            success: false,
+            error: 'Perplexity API key not provided. Ensure key is passed via context from client.',
+            handlerUsed: 'perplexity-images',
+            source: 'integration',
+            latencyMs: Date.now() - startTime,
+        };
+    }
+
     try {
-        const response = await fetch('/api/capabilities/research', {
+        // Per Perplexity docs: https://docs.perplexity.ai/guides/returning-images
+        // Use return_images: true with sonar models to get native image URLs
+        const response = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
-                prompt: `Find direct URLs to free, commercially usable images for: "${options.prompt}".
-                         Only return image URLs from legitimate free stock photo sites.
-                         Format: one URL per line, no explanations.`,
-                preferredHandler: 'perplexity',
-                context: options.context,
+                model: 'sonar',  // Sonar model supports return_images
+                messages: [
+                    {
+                        role: 'user',
+                        content: `Find high-quality images related to: "${options.prompt}"`,
+                    },
+                ],
+                return_images: true,  // KEY: Request native image URLs
+                // Optional domain filtering for stock sources
+                image_domain_filter: options.context?.imageDomainFilter as string[] || undefined,
             }),
         });
 
         if (!response.ok) {
+            const errorText = await response.text().catch(() => '');
             return {
                 success: false,
-                error: 'Perplexity API failed',
+                error: `Perplexity API error: ${response.status}${errorText ? ` - ${errorText.substring(0, 100)}` : ''}`,
                 handlerUsed: 'perplexity-images',
                 source: 'integration',
                 latencyMs: Date.now() - startTime,
@@ -329,33 +360,59 @@ async function executePerplexity(options: ExecuteOptions): Promise<ExecuteResult
 
         const data = await response.json();
 
-        if (!data.success) {
+        // Extract images from native API response (per documentation)
+        // The `images` field contains URLs when return_images=true
+        const nativeImages = data.images || [];
+
+        if (!nativeImages.length) {
+            // Fallback: try extracting from text content if API didn't return images
+            const content = data.choices?.[0]?.message?.content || '';
+            const urlMatches = content.match(/https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|webp)/gi) || [];
+
+            if (urlMatches.length > 0) {
+                const images = urlMatches.slice(0, 5).map((url: string, i: number) => ({
+                    id: `perplexity-${i}`,
+                    url: url.trim(),
+                    alt: options.prompt,
+                    source: 'perplexity',
+                }));
+
+                return {
+                    success: true,
+                    data: images,
+                    text: images[0]?.url,
+                    handlerUsed: 'perplexity-images',
+                    source: 'integration',
+                    latencyMs: Date.now() - startTime,
+                    metadata: { returned: images.length, method: 'text-extraction' },
+                };
+            }
+
             return {
                 success: false,
-                error: data.error || 'Perplexity search failed',
+                error: 'No image URLs found in Perplexity response',
                 handlerUsed: 'perplexity-images',
                 source: 'integration',
                 latencyMs: Date.now() - startTime,
             };
         }
 
-        // Extract URLs from response
-        const urlMatches = data.text?.match(/https?:\/\/[^\s"']+\.(jpg|jpeg|png|webp)/gi) || [];
-        const images = urlMatches.slice(0, 3).map((url: string, i: number) => ({
+        // Map native images array to standard format
+        const images = nativeImages.slice(0, 5).map((url: string, i: number) => ({
             id: `perplexity-${i}`,
-            url,
+            url: typeof url === 'string' ? url : (url as { url?: string }).url || '',
             alt: options.prompt,
             source: 'perplexity',
-        }));
+        })).filter((img: { url: string }) => img.url);
 
         return {
-            success: images.length > 0,
+            success: true,
             data: images,
             text: images[0]?.url,
-            error: images.length === 0 ? 'No image URLs found' : undefined,
             handlerUsed: 'perplexity-images',
             source: 'integration',
             latencyMs: Date.now() - startTime,
+            metadata: { returned: images.length, method: 'native-api' },
         };
 
     } catch (error) {
@@ -398,12 +455,13 @@ export const imageSearchHandlers: CapabilityHandler[] = [
     },
     {
         id: 'brave-search',
-        name: 'Brave Search',
+        name: 'Brave Search Images',
         source: 'integration',
         capabilities: ['search-images'],
-        priority: 70,  // Lower - uses research capability
+        priority: 70,  // Lower - depends on research capability
         isAvailable: true,
-        requiresApiKey: false,  // Uses research handler's key
+        requiresApiKey: true,  // Requires Brave API key via research capability
+        apiKeySettingName: 'braveApiKey',  // Uses get key for research
         execute: executeBraveSearch,
     },
     {
@@ -413,7 +471,8 @@ export const imageSearchHandlers: CapabilityHandler[] = [
         capabilities: ['search-images'],
         priority: 75,
         isAvailable: true,
-        requiresApiKey: false,  // Uses research handler's key
+        requiresApiKey: true,  // Requires Perplexity API key via research capability
+        apiKeySettingName: 'perplexityKey',  // Uses perplexity provider key
         execute: executePerplexity,
     },
 ];

@@ -1,17 +1,62 @@
 /**
- * Media Library - Barrel Export
+ * Media System Barrel Exports
  * FSD: lib/media/index.ts
  */
 
-export {
-    mediaAssetService,
-    DEFAULT_TEMPLATES,
-    type MediaSlotType,
-    type MediaSourceType,
-    type MediaSlot,
-    type MediaRequest,
-    type GeneratedAsset,
-    type ArticleTemplate,
+// Main service
+export { mediaAssetService, DEFAULT_TEMPLATES } from './MediaAssetService';
+export type {
+    MediaSlotType,
+    MediaSourceType,
+    MediaSlot,
+    MediaRequest,
+    GeneratedAsset,
+    ArticleTemplate,
 } from './MediaAssetService';
 
-export { useMediaAssets, type UseMediaAssetsReturn } from './hooks/useMediaAssets';
+// React hook
+export { useMediaAssets } from './hooks/useMediaAssets';
+
+// Unified types
+export * from './types';
+
+// Scoring (NEW)
+export {
+    scoreImage,
+    scoreAndRankImages,
+    pickTopImages,
+    mergeImageResults,
+    getDefaultCriteria,
+} from './scoring';
+export type {
+    ImageCandidate,
+    ScoringCriteria,
+    ScoredImage,
+} from './scoring';
+
+// SEO Validation (NEW)
+export {
+    validateImageSEO,
+    validateImagesSEO,
+    suggestAltText,
+    improveAltText,
+} from './seoValidation';
+export type {
+    SEOIssueType,
+    SEOIssue,
+    ImageSEOInput,
+    ImageSEOResult,
+} from './seoValidation';
+
+// Image Optimization (Consolidated)
+export {
+    generateAltText,
+    generateAltTextAI,
+    determineImagePlacements,
+    injectImages,
+} from './optimization';
+export type {
+    ImagePlacement,
+    GeneratedImage,
+    ImageInjectionResult,
+} from './optimization';

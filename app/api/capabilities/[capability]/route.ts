@@ -68,20 +68,54 @@ export async function POST(
         const handlers = aiServices.getHandlers();
         const config = aiServices.getConfig();
 
-        const result = await executor.execute(
-            {
-                capability,
-                prompt,
-                model,
-                maxTokens,
-                temperature,
-                systemPrompt,
-                preferredHandler,
-                context,
-            },
-            handlers,
-            config
-        );
+        // Extract integration keys from body for image search handlers
+        // SoC: Route merges integration keys into context for handlers
+        const { unsplashKey, pexelsKey, serperApiKey, braveApiKey, perplexityApiKey, aggregated } = body;
+        const mergedContext = {
+            ...context,
+            // Only include if provided (avoid overwriting with undefined)
+            ...(unsplashKey && { unsplashKey }),
+            ...(pexelsKey && { pexelsKey }),
+            ...(serperApiKey && { serperApiKey }),
+            ...(braveApiKey && { braveApiKey }),
+            ...(perplexityApiKey && { perplexityApiKey }),
+        };
+
+        // Use aggregated mode for search-images if requested
+        // This queries ALL handlers in parallel and returns merged results for scoring
+        const executeOptions = {
+            capability,
+            prompt,
+            model,
+            maxTokens,
+            temperature,
+            systemPrompt,
+            preferredHandler,
+            context: mergedContext,
+        };
+
+        let result;
+        if (capability === 'search-images' && aggregated) {
+            result = await executor.executeAggregated(
+                executeOptions,
+                handlers,
+                config
+            );
+        } else {
+            result = await executor.execute(
+                executeOptions,
+                handlers,
+                config
+            );
+        }
+        // Log detailed result for debugging (success or failure)
+        if (!result.success) {
+            console.error(`[Capability:${capability}] FAILED after trying: ${result.fallbacksAttempted?.join(', ') || 'no handlers'}`);
+            console.error(`[Capability:${capability}] Final error: ${result.error}`);
+            console.error(`[Capability:${capability}] Handler used: ${result.handlerUsed}, Latency: ${result.latencyMs}ms`);
+        } else {
+            console.log(`[Capability:${capability}] SUCCESS via ${result.handlerUsed} in ${result.latencyMs}ms`);
+        }
 
         // Log usage for cost tracking
         if (result.success && result.text) {
@@ -112,14 +146,27 @@ export async function POST(
             fallbacksAttempted: result.fallbacksAttempted,
             model: result.model,
             usage: result.usage,
+            // Include detailed error for status panel - shows each handler's actual API error
+            errorDetails: !result.success ? {
+                source: result.handlerUsed || 'capability-executor',
+                rawMessage: result.error || 'Unknown failure',
+                attemptedHandlers: result.fallbacksAttempted || [],
+                handlerErrors: (result as { handlerErrors?: Record<string, string> }).handlerErrors || {},
+            } : undefined,
         });
 
     } catch (error) {
-        console.error('Capability execution error:', error);
+        const errorMsg = error instanceof Error ? error.message : 'Capability execution failed';
+        console.error('[Capability] Uncaught exception:', errorMsg);
         return NextResponse.json(
             {
                 success: false,
-                error: error instanceof Error ? error.message : 'Capability execution failed'
+                error: errorMsg,
+                errorDetails: {
+                    source: 'capability-api-route',
+                    rawMessage: errorMsg,
+                    exception: true,
+                }
             },
             { status: 500 }
         );

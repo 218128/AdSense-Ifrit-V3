@@ -38,6 +38,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<TestResult>> 
                 return testUmami(credentials);
             case 'devto':
                 return testDevTo(credentials);
+            case 'brave':
+                return testBrave(credentials);
             default:
                 return NextResponse.json({
                     success: false,
@@ -185,8 +187,9 @@ async function testCloudflare(credentials: Record<string, string>): Promise<Next
 }
 
 async function testUnsplash(credentials: Record<string, string>): Promise<NextResponse<TestResult>> {
-    const { unsplashAccessKey } = credentials;
-    if (!unsplashAccessKey) {
+    // Try both key names for compatibility: unsplashKey (new) and unsplashAccessKey (legacy)
+    const accessKey = credentials.unsplashKey || credentials.unsplashAccessKey;
+    if (!accessKey) {
         return NextResponse.json({
             success: false,
             integration: 'unsplash',
@@ -195,25 +198,26 @@ async function testUnsplash(credentials: Record<string, string>): Promise<NextRe
     }
 
     try {
-        const response = await fetch('https://api.unsplash.com/me', {
+        // Use /photos endpoint (works with Access Key)
+        // Note: /me requires OAuth user authentication, not just Access Key
+        const response = await fetch('https://api.unsplash.com/photos?per_page=1', {
             headers: {
-                'Authorization': `Client-ID ${unsplashAccessKey}`,
+                'Authorization': `Client-ID ${accessKey}`,
             },
         });
 
         if (response.ok) {
-            const data = await response.json();
             return NextResponse.json({
                 success: true,
                 integration: 'unsplash',
                 message: 'Connected successfully',
-                user: data.username,
             });
         } else {
+            const errorText = await response.text().catch(() => '');
             return NextResponse.json({
                 success: false,
                 integration: 'unsplash',
-                message: `HTTP ${response.status}`,
+                message: `HTTP ${response.status}${errorText ? `: ${errorText.substring(0, 50)}` : ''}`,
             });
         }
     } catch (error) {
@@ -226,8 +230,9 @@ async function testUnsplash(credentials: Record<string, string>): Promise<NextRe
 }
 
 async function testPexels(credentials: Record<string, string>): Promise<NextResponse<TestResult>> {
-    const { pexelsApiKey } = credentials;
-    if (!pexelsApiKey) {
+    // Try both key names for compatibility: pexelsKey (new) and pexelsApiKey (legacy)
+    const apiKey = credentials.pexelsKey || credentials.pexelsApiKey;
+    if (!apiKey) {
         return NextResponse.json({
             success: false,
             integration: 'pexels',
@@ -238,7 +243,7 @@ async function testPexels(credentials: Record<string, string>): Promise<NextResp
     try {
         const response = await fetch('https://api.pexels.com/v1/search?query=test&per_page=1', {
             headers: {
-                'Authorization': pexelsApiKey,
+                'Authorization': apiKey,
             },
         });
 
@@ -339,6 +344,47 @@ async function testDevTo(credentials: Record<string, string>): Promise<NextRespo
         return NextResponse.json({
             success: false,
             integration: 'devto',
+            message: error instanceof Error ? error.message : 'Network error',
+        });
+    }
+}
+
+async function testBrave(credentials: Record<string, string>): Promise<NextResponse<TestResult>> {
+    const apiKey = credentials.braveApiKey;
+    if (!apiKey) {
+        return NextResponse.json({
+            success: false,
+            integration: 'brave',
+            message: 'Missing API key',
+        });
+    }
+
+    try {
+        const response = await fetch('https://api.search.brave.com/res/v1/images/search?q=test&count=1', {
+            headers: {
+                'Accept': 'application/json',
+                'X-Subscription-Token': apiKey,
+            },
+        });
+
+        if (response.ok) {
+            return NextResponse.json({
+                success: true,
+                integration: 'brave',
+                message: 'Connected successfully',
+            });
+        } else {
+            const errorText = await response.text().catch(() => '');
+            return NextResponse.json({
+                success: false,
+                integration: 'brave',
+                message: `HTTP ${response.status}${errorText ? `: ${errorText.substring(0, 50)}` : ''}`,
+            });
+        }
+    } catch (error) {
+        return NextResponse.json({
+            success: false,
+            integration: 'brave',
             message: error instanceof Error ? error.message : 'Network error',
         });
     }

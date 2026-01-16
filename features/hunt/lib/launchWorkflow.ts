@@ -48,11 +48,28 @@ export interface LaunchResult {
 /**
  * Create and optionally start a campaign from Hunt data
  * This is the main "Launch Site" action
+ * Automatically reports progress to GlobalActionStatus
  */
 export async function launchCampaignFromHunt(config: LaunchConfig): Promise<LaunchResult> {
     const { domain, keywords, trends, targetSiteId, autoStart = false } = config;
 
+    // Import status store dynamically to avoid SSR issues
+    const { useGlobalActionStatusStore } = await import('@/stores/globalActionStatusStore');
+    const statusStore = useGlobalActionStatusStore.getState();
+
+    // Start launch action
+    const actionId = statusStore.startAction(
+        `Launch: ${domain.domain}`,
+        'campaign',
+        {
+            source: 'user',
+            origin: 'hunt/launchWorkflow',
+            retryable: true,
+        }
+    );
+
     if (!targetSiteId) {
+        statusStore.failAction(actionId, 'No target WordPress site specified');
         return {
             success: false,
             error: 'No target WordPress site specified. Create a site first.',
@@ -60,19 +77,25 @@ export async function launchCampaignFromHunt(config: LaunchConfig): Promise<Laun
     }
 
     try {
-        // Build campaign source from Hunt data
+        // Step 1: Build sources from Hunt data
+        const step1Id = statusStore.addStep(actionId, '⏳ Building content sources...', 'running');
         const sources = buildSourcesFromHunt(keywords, trends, config.initialArticles);
+        statusStore.updateStep(actionId, step1Id, `✅ ${sources.length} sources built`, 'success');
 
-        // Build AI config with niche context
+        // Step 2: Build AI config
+        const step2Id = statusStore.addStep(actionId, '⏳ Configuring AI settings...', 'running');
         const aiConfig = buildAIConfig(domain, keywords, config.aiConfig);
+        statusStore.updateStep(actionId, step2Id, `✅ AI config: ${aiConfig.nicheContext || 'general'}`, 'success');
 
-        // Build schedule
+        // Step 3: Build schedule
+        const step3Id = statusStore.addStep(actionId, '⏳ Setting up schedule...', 'running');
         const schedule = buildSchedule(config.schedule);
+        statusStore.updateStep(actionId, step3Id, `✅ Schedule: ${schedule.type}`, 'success');
 
-        // Create campaign name
+        // Step 4: Create campaign
+        const step4Id = statusStore.addStep(actionId, '⏳ Creating campaign...', 'running');
         const campaignName = `${domain.domain} - Launch Campaign`;
 
-        // Create the campaign
         const campaign = useCampaignStore.getState().createCampaign({
             name: campaignName,
             description: `Auto-generated campaign for ${domain.domain} from Hunt keywords and trends.`,
@@ -84,11 +107,13 @@ export async function launchCampaignFromHunt(config: LaunchConfig): Promise<Laun
             aiConfig,
             schedule,
             status: autoStart ? 'active' : 'paused',
-            multiLang: {
-                enabled: false,
-                targetLanguages: [],
-            },
+            postStatus: 'publish',  // Default to publish
+            // Note: multiLang config would go here if feature is implemented
         });
+        statusStore.updateStep(actionId, step4Id, `✅ Campaign created: ${campaign.id}`, 'success');
+
+        // Complete action
+        statusStore.completeAction(actionId, `✅ Launched: ${domain.domain}`);
 
         return {
             success: true,
@@ -97,6 +122,7 @@ export async function launchCampaignFromHunt(config: LaunchConfig): Promise<Laun
         };
 
     } catch (error) {
+        statusStore.failAction(actionId, error instanceof Error ? error.message : 'Failed to create campaign');
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to create campaign',
@@ -123,10 +149,11 @@ function buildSourcesFromHunt(
         sources.push({
             type: 'manual',
             config: {
+                type: 'manual' as const,
                 topics: keywords.slice(0, initialArticles).map((kw, idx) => ({
+                    id: `hunt_kw_${idx}`,
                     topic: kw.keyword,
-                    priority: idx + 1,
-                    notes: kw.researchFindings?.join('; '),
+                    status: 'pending' as const,
                 })),
             },
         });
@@ -136,13 +163,13 @@ function buildSourcesFromHunt(
     if (keywords.length < initialArticles && trends.length > 0) {
         const remaining = initialArticles - keywords.length;
         const trendTopics = trends.slice(0, remaining).map((t, idx) => ({
+            id: `hunt_trend_${idx}`,
             topic: t.topic,
-            priority: keywords.length + idx + 1,
-            notes: `Trend from ${t.source}`,
+            status: 'pending' as const,
         }));
 
         if (sources.length > 0 && sources[0].type === 'manual') {
-            (sources[0].config as { topics: Array<{ topic: string; priority: number; notes?: string }> }).topics.push(...trendTopics);
+            (sources[0].config as { type: 'manual'; topics: Array<{ id: string; topic: string; status: 'pending' | 'generated' | 'published' }> }).topics.push(...trendTopics);
         }
     }
 
@@ -163,6 +190,7 @@ function buildAIConfig(
         inferNicheFromDomain(domain.domain);
 
     return {
+        // provider inherited from Settings
         articleType: 'pillar',
         tone: 'professional',
         targetLength: 2000,
@@ -183,7 +211,8 @@ function buildSchedule(overrides?: Partial<ScheduleConfig>): ScheduleConfig {
     return {
         type: 'interval',
         intervalHours: 24, // Once per day
-        postsPerRun: 1,
+        maxPostsPerRun: 1,
+        pauseOnError: false,  // Don't pause on first error
         ...overrides,
     };
 }

@@ -57,7 +57,7 @@ export function usePluginSync(site: WPSite): UsePluginSyncReturn {
         try {
             const result = await trackAction(
                 `Sync Plugins: ${site.name}`,
-                'site',
+                'wordpress',
                 async (tracker) => {
                     tracker.step('Connecting to WordPress...');
 
@@ -125,7 +125,7 @@ export function usePluginSync(site: WPSite): UsePluginSyncReturn {
         try {
             const success = await trackAction(
                 `Install ${displayName}`,
-                'site',
+                'hosting',
                 async (tracker) => {
                     tracker.step('Connecting to Hostinger...');
 

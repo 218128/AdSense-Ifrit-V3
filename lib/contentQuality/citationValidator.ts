@@ -50,7 +50,7 @@ const REPUTABLE_DOMAINS = [
 /**
  * Known problematic domains (misinformation, low quality)
  */
-const PROBLEMATIC_DOMAINS = [
+const PROBLEMATIC_DOMAINS: string[] = [
     // Add known problematic sources
     // This is a simplified list - real implementation should use APIs
 ];

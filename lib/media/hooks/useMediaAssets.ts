@@ -49,9 +49,10 @@ export function useMediaAssets(): UseMediaAssetsReturn {
 
         return trackAction(
             `Generating ${totalSlots} media assets`,
-            async (updateProgress) => {
+            'content',
+            async (tracker) => {
                 try {
-                    updateProgress({ phase: 'starting', message: `Preparing ${templateId} template...` });
+                    tracker.step(`Preparing ${templateId} template...`);
 
                     const result = await mediaAssetService.generateForArticle(
                         articleId,
@@ -60,29 +61,25 @@ export function useMediaAssets(): UseMediaAssetsReturn {
                         sectionTitles,
                         (p) => {
                             setProgress(p);
-                            updateProgress({
-                                phase: 'handler',
-                                message: `Generating ${p.slot} (${p.current}/${p.total})`,
-                                current: p.current,
-                                total: p.total,
-                            });
+                            tracker.step(`Generating ${p.slot} (${p.current}/${p.total})`);
+                            tracker.progress(p.current, p.total);
                         }
                     );
 
                     setAssets(result);
-                    updateProgress({ phase: 'complete', message: `Generated ${result.length} assets` });
+                    tracker.complete(`Generated ${result.length} assets`);
 
                     return result;
                 } catch (err) {
                     const errorMsg = err instanceof Error ? err.message : 'Media generation failed';
                     setError(errorMsg);
+                    tracker.fail(errorMsg);
                     throw err;
                 } finally {
                     setIsGenerating(false);
                     setProgress(null);
                 }
-            },
-            { feature: 'media', siteId: articleId }
+            }
         );
     }, [trackAction]);
 
@@ -96,9 +93,10 @@ export function useMediaAssets(): UseMediaAssetsReturn {
 
         return trackAction(
             `Generating ${type} image`,
-            async (updateProgress) => {
+            'content',
+            async (tracker) => {
                 try {
-                    updateProgress({ phase: 'starting', message: `Generating ${type}...` });
+                    tracker.step(`Generating ${type}...`);
 
                     const slot = {
                         type: type as 'cover' | 'inline' | 'og-image' | 'twitter-card',
@@ -118,18 +116,18 @@ export function useMediaAssets(): UseMediaAssetsReturn {
                     });
 
                     setAssets(prev => [...prev.filter(a => !(a.articleId === articleId && a.type === type)), asset]);
-                    updateProgress({ phase: 'complete', message: `Generated ${type}` });
+                    tracker.complete(`Generated ${type}`);
 
                     return asset;
                 } catch (err) {
                     const errorMsg = err instanceof Error ? err.message : 'Generation failed';
                     setError(errorMsg);
+                    tracker.fail(errorMsg);
                     return null;
                 } finally {
                     setIsGenerating(false);
                 }
-            },
-            { feature: 'media', siteId: articleId }
+            }
         );
     }, [trackAction]);
 

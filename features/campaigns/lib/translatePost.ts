@@ -76,7 +76,7 @@ export async function translatePost(
         onProgress?.({ phase: 'translating', message: `Translating title to ${targetLanguage}...` });
 
         const titleResult = await translateText(
-            post.title.rendered,
+            post.title?.rendered || '',
             targetLanguage,
             false // Title doesn't need formatting preservation
         );
@@ -92,7 +92,7 @@ export async function translatePost(
         onProgress?.({ phase: 'translating', message: `Translating content to ${targetLanguage}...` });
 
         const contentResult = await translateText(
-            post.content.rendered,
+            post.content?.rendered || '',
             targetLanguage,
             preserveFormatting
         );
@@ -153,7 +153,7 @@ export async function translatePosts(
         const post = posts[i];
         options.onProgress?.({
             phase: 'batch',
-            message: `Translating post ${i + 1}/${posts.length}: ${post.title.rendered}`,
+            message: `Translating post ${i + 1}/${posts.length}: ${post.title?.rendered || 'Untitled'}`,
         });
 
         const result = await translatePost(post, options);

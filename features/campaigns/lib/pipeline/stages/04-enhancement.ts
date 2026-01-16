@@ -18,7 +18,7 @@ export const enhancementStages: StageGroup = {
             name: 'E-E-A-T Enhancement',
             optional: true,
             condition: (ctx, campaign) =>
-                campaign.aiConfig.injectEEATSignals && !!ctx.matchedAuthor && !!ctx.content,
+                !!(campaign.aiConfig.injectEEATSignals && ctx.matchedAuthor && ctx.content),
             execute: async (ctx) => {
                 const { injectEEATSignals } = await import('../../eeatInjector');
                 const { useAuthorStore } = await import('@/features/authors');
@@ -40,18 +40,45 @@ export const enhancementStages: StageGroup = {
             id: 'images',
             name: 'Image Generation',
             optional: true,
-            condition: (ctx, campaign) => campaign.aiConfig.includeImages && !!ctx.content,
+            condition: (ctx, campaign) => !!campaign.aiConfig.includeImages && !!ctx.content,
             execute: async (ctx, campaign) => {
-                const { generateImages } = await import('../../imageGenerator');
-                ctx.images = await generateImages(ctx.content!.title, campaign.aiConfig);
-                console.log(`[Pipeline] Images generated: cover=${!!ctx.images?.cover}`);
+                // Use enhanced parallel generation (AI + Search in parallel)
+                // Pass content body for section-based inline image queries
+                const { generateImagesEnhanced } = await import('../../imageGenerator');
+                const result = await generateImagesEnhanced(
+                    ctx.content!.title,
+                    campaign.aiConfig,
+                    undefined, // onProgress - handled by SSE
+                    ctx.content!.body  // Pass content for H2 section title extraction
+                );
+
+                // Set selected images for immediate use
+                ctx.images = {
+                    cover: result.cover,
+                    inline: result.inline,
+                };
+
+                // Store ALL collected assets for MediaAssetLibrary (A/B testing, refresh)
+                ctx.allImageAssets = result.allAssets;
+
+                // Persist to MediaAssetLibrary for future use (A/B testing, refresh, etc.)
+                const { persistPipelineAssets } = await import('../../mediaAssetLibrary');
+                await persistPipelineAssets(
+                    campaign.id,
+                    ctx.content!.title,
+                    result.allAssets,
+                    result.cover,
+                    result.inline
+                );
+
+                console.log(`[Pipeline] Images: ${result.metadata.totalCollected} collected from ${Object.keys(result.metadata.sourceCounts).join('+')}, AI=${result.metadata.aiSuccess}, Search=${result.metadata.searchSuccess}, persisted to MediaAssetLibrary`);
             },
         },
         {
             id: 'linking',
             name: 'Internal Linking',
             optional: true,
-            condition: (ctx, campaign) => campaign.aiConfig.optimizeForSEO && !!ctx.content,
+            condition: (ctx, campaign) => !!campaign.aiConfig.optimizeForSEO && !!ctx.content,
             execute: async (ctx, _, wpSite) => {
                 const { fetchExistingPosts, findLinkOpportunities, injectInternalLinks } =
                     await import('../../internalLinking');
@@ -71,7 +98,7 @@ export const enhancementStages: StageGroup = {
             id: 'schema',
             name: 'Schema Markup',
             optional: true,
-            condition: (ctx, campaign) => campaign.aiConfig.includeSchema && !!ctx.content,
+            condition: (ctx, campaign) => !!campaign.aiConfig.includeSchema && !!ctx.content,
             execute: async (ctx) => {
                 const { generateAllSchemas } = await import('../../schemaMarkup');
 

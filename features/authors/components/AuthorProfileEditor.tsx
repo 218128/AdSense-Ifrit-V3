@@ -820,8 +820,8 @@ function WPSiteSyncSection({ author }: { author: AuthorProfile }) {
 
     React.useEffect(() => {
         // Dynamically import to avoid circular deps
-        import('@/features/wordpress').then(({ useWPSiteStore }) => {
-            const sites = Object.values(useWPSiteStore.getState().sites);
+        import('@/features/wordpress/model/wpSiteStore').then(({ useWPSitesStore }) => {
+            const sites = Object.values(useWPSitesStore.getState().sites);
             setWpSites(sites.map(s => ({ id: s.id, name: s.name, url: s.url })));
         });
     }, []);
@@ -831,8 +831,8 @@ function WPSiteSyncSection({ author }: { author: AuthorProfile }) {
 
         try {
             const { syncAuthorToSite } = await import('../lib/wpAuthorSync');
-            const { useWPSiteStore } = await import('@/features/wordpress');
-            const site = useWPSiteStore.getState().sites[siteId];
+            const { useWPSitesStore } = await import('@/features/wordpress/model/wpSiteStore');
+            const site = useWPSitesStore.getState().sites[siteId];
 
             if (!site) {
                 setResults(prev => ({ ...prev, [siteId]: { success: false, message: 'Site not found' } }));
@@ -900,8 +900,8 @@ function WPSiteSyncSection({ author }: { author: AuthorProfile }) {
                                 onClick={() => handleSync(site.id, site.name)}
                                 disabled={syncing[site.id] || synced}
                                 className={`px-3 py-1.5 text-xs rounded-lg flex items-center gap-1 ${synced
-                                        ? 'bg-green-100 text-green-700 cursor-default'
-                                        : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                                    ? 'bg-green-100 text-green-700 cursor-default'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
                                     }`}
                             >
                                 {syncing[site.id] ? (

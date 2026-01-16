@@ -176,8 +176,7 @@ export async function processSmartReview(
         // Flag for learning, but still publish
         ctx.autoApproved = false;
         ctx.needsManualReview = true; // Flagged in dashboard for learning
-        // Store will track this for learning
-        store.flagForLearning?.(reviewItem.id);
+        // TODO: flagForLearning method doesn't exist yet - tracked in dashboard via needsManualReview flag
     } else {
         // retry - very low quality
         ctx.autoApproved = false;

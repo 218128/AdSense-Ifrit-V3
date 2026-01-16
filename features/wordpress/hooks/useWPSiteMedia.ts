@@ -51,9 +51,20 @@ export function useWPSiteMedia(): UseWPSiteMediaReturn {
 
         return trackAction(
             `Searching stock images for "${query}"`,
-            async (updateProgress) => {
+            'content',
+            async (tracker) => {
                 try {
-                    updateProgress({ phase: 'starting', message: 'Searching Unsplash, Pexels...' });
+                    tracker.step('Searching Unsplash, Pexels...');
+
+                    // Get integration keys from client-side
+                    // SoC: Hook retrieves keys, passes to route, route passes to handlers
+                    let integrationKeys: Record<string, string> = {};
+                    try {
+                        const { getAllIntegrationKeys } = await import('@/lib/ai/utils/getCapabilityKey');
+                        integrationKeys = await getAllIntegrationKeys();
+                    } catch {
+                        // KeyManager not available
+                    }
 
                     const response = await fetch('/api/capabilities/search-images', {
                         method: 'POST',
@@ -62,6 +73,8 @@ export function useWPSiteMedia(): UseWPSiteMediaReturn {
                             prompt: query,
                             topic: query,
                             itemType: 'featured',
+                            // Pass integration keys at top level for route to extract
+                            ...integrationKeys,
                         }),
                     });
 
@@ -82,19 +95,18 @@ export function useWPSiteMedia(): UseWPSiteMediaReturn {
                     };
 
                     setGeneratedImage(asset);
-                    updateProgress({ phase: 'complete', message: `Found via ${data.handlerUsed}` });
+                    tracker.complete(`Found via ${data.handlerUsed}`);
 
                     return asset;
                 } catch (err) {
                     const errorMsg = err instanceof Error ? err.message : 'Search failed';
                     setError(errorMsg);
-                    updateProgress({ phase: 'complete', message: errorMsg, success: false });
+                    tracker.fail(errorMsg);
                     return null;
                 } finally {
                     setIsGenerating(false);
                 }
-            },
-            { feature: 'wp-sites', siteId: 'media' }
+            }
         );
     }, [trackAction]);
 
@@ -107,9 +119,20 @@ export function useWPSiteMedia(): UseWPSiteMediaReturn {
 
         return trackAction(
             `Generating AI image`,
-            async (updateProgress) => {
+            'content',
+            async (tracker) => {
                 try {
-                    updateProgress({ phase: 'starting', message: 'Generating with AI...' });
+                    tracker.step('Generating with AI...');
+
+                    // Get provider keys from client-side
+                    // SoC: Hook retrieves keys, passes to route
+                    let providerKeys: Record<string, string> = {};
+                    try {
+                        const { getAllProviderKeys } = await import('@/lib/ai/utils/getCapabilityKey');
+                        providerKeys = await getAllProviderKeys();
+                    } catch {
+                        // KeyManager not available
+                    }
 
                     const response = await fetch('/api/capabilities/images', {
                         method: 'POST',
@@ -118,6 +141,8 @@ export function useWPSiteMedia(): UseWPSiteMediaReturn {
                             prompt: `Professional featured image for: ${prompt}. Modern, clean design suitable for blog header.`,
                             topic: prompt,
                             itemType: 'featured',
+                            // Provider keys in context for AI handlers
+                            context: Object.keys(providerKeys).length > 0 ? { providerKeys } : undefined,
                         }),
                     });
 
@@ -138,19 +163,18 @@ export function useWPSiteMedia(): UseWPSiteMediaReturn {
                     };
 
                     setGeneratedImage(asset);
-                    updateProgress({ phase: 'complete', message: `Generated via ${data.handlerUsed}` });
+                    tracker.complete(`Generated via ${data.handlerUsed}`);
 
                     return asset;
                 } catch (err) {
                     const errorMsg = err instanceof Error ? err.message : 'Generation failed';
                     setError(errorMsg);
-                    updateProgress({ phase: 'complete', message: errorMsg, success: false });
+                    tracker.fail(errorMsg);
                     return null;
                 } finally {
                     setIsGenerating(false);
                 }
-            },
-            { feature: 'wp-sites', siteId: 'media' }
+            }
         );
     }, [trackAction]);
 
@@ -180,10 +204,11 @@ export function useWPSiteMedia(): UseWPSiteMediaReturn {
         setError(null);
 
         return trackAction(
-            `Uploading to ${site.domain} Media Library`,
-            async (updateProgress) => {
+            `Uploading to ${site.domain ?? site.url} Media Library`,
+            'wordpress',
+            async (tracker) => {
                 try {
-                    updateProgress({ phase: 'starting', message: 'Downloading image...' });
+                    tracker.step('Downloading image...');
 
                     // Fetch the image
                     const imageResponse = await fetch(image.url);
@@ -192,14 +217,13 @@ export function useWPSiteMedia(): UseWPSiteMediaReturn {
                     }
 
                     const imageBlob = await imageResponse.blob();
-                    const imageBuffer = await imageBlob.arrayBuffer();
 
-                    updateProgress({ phase: 'handler', message: 'Uploading to WordPress...' });
+                    tracker.step('Uploading to WordPress...');
 
                     // Upload to WP
                     const { uploadMedia } = await import('../api/wordpressApi');
                     const uploadResult = await uploadMedia(site, {
-                        file: new Uint8Array(imageBuffer),
+                        file: imageBlob,  // Use Blob directly
                         filename: `featured-${Date.now()}.jpg`,
                         mimeType: 'image/jpeg',
                         alt_text: image.alt,
@@ -216,19 +240,18 @@ export function useWPSiteMedia(): UseWPSiteMediaReturn {
                     };
 
                     setGeneratedImage(updatedAsset);
-                    updateProgress({ phase: 'complete', message: `Uploaded! ID: ${uploadResult.data.id}` });
+                    tracker.complete(`Uploaded! ID: ${uploadResult.data.id}`);
 
                     return updatedAsset;
                 } catch (err) {
                     const errorMsg = err instanceof Error ? err.message : 'Upload failed';
                     setError(errorMsg);
-                    updateProgress({ phase: 'complete', message: errorMsg, success: false });
+                    tracker.fail(errorMsg);
                     return null;
                 } finally {
                     setIsGenerating(false);
                 }
-            },
-            { feature: 'wp-sites', siteId: site.id }
+            }
         );
     }, [trackAction]);
 

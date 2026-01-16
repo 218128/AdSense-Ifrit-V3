@@ -9,13 +9,14 @@
  */
 
 // ============================================
-// PROVIDER TYPES
+// PROVIDER TYPES (Re-exported from unified types)
 // ============================================
 
-/**
- * Unique identifier for each AI provider
- */
-export type ProviderId = 'gemini' | 'deepseek' | 'openrouter' | 'perplexity' | 'vercel';
+// Import from single source of truth - import for local use, re-export for consumers
+import type { ProviderId, TextProviderId } from '../types/providers';
+import { ALL_PROVIDER_IDS, TEXT_PROVIDER_IDS } from '../types/providers';
+export type { ProviderId, TextProviderId };
+export { ALL_PROVIDER_IDS, TEXT_PROVIDER_IDS };
 
 /**
  * Model capability modes

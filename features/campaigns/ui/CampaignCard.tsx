@@ -62,29 +62,109 @@ export function CampaignCard({ campaign, onEdit, onRun }: CampaignCardProps) {
     };
 
     const handleRetryImages = async () => {
-        if (!targetSite || campaign.stats.totalPublished === 0) return;
+        if (!targetSite || campaign.stats.totalGenerated === 0) return;
 
         setRetryingImages(true);
-        try {
-            // Call API to retry images for this campaign's posts
-            const response = await fetch(`/api/campaigns/${campaign.id}/retry-images`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    wpSiteId: campaign.targetSiteId,
-                    aiConfig: campaign.aiConfig,
-                }),
-            });
 
-            const result = await response.json();
-            if (result.success) {
-                alert(`✅ Images regenerated for ${result.updatedCount || 0} post(s)`);
-            } else {
-                alert(`❌ ${result.error || 'Image retry failed'}`);
+        // Get status store for visibility (like orchestrator)
+        const { useGlobalActionStatusStore } = await import('@/stores/globalActionStatusStore');
+        const statusStore = useGlobalActionStatusStore.getState();
+
+        const actionId = statusStore.startAction(
+            `Retry Images: ${campaign.name}`,
+            'campaign',
+            { source: 'user', retryable: true }
+        );
+
+        try {
+            // Get campaign-specific posts from deduplication store
+            const { useDeduplicationStore } = await import('@/features/campaigns/lib/deduplication');
+            const { getPost } = await import('@/features/wordpress/api/wordpressApi');
+            const { retryImagesForPost } = await import('@/features/campaigns');
+
+            const findingStepId = statusStore.addStep(actionId, '⏳ Finding posts created by this campaign...', 'running');
+
+            // Get records for THIS campaign only (SoC: only campaign's own posts)
+            const campaignRecords = useDeduplicationStore.getState().getRecordsByCampaign(campaign.id);
+
+            if (campaignRecords.length === 0) {
+                statusStore.updateStep(actionId, findingStepId, '❌ No posts found', 'error');
+                statusStore.failAction(actionId, 'No posts found for this campaign. Run the campaign first.');
+                return;
             }
+
+            // Get WP post IDs from campaign records
+            const campaignPostIds = campaignRecords
+                .filter(r => r.wpPostId)
+                .map(r => r.wpPostId!);
+
+            // Mark finding step as success
+            statusStore.updateStep(actionId, findingStepId, `✅ Found ${campaignPostIds.length} posts from this campaign`, 'success');
+
+            // Fetch each post and check if it needs images
+            const postsNeedingImages: Array<{ id: number; title: string }> = [];
+
+            for (const postId of campaignPostIds) {
+                const postResult = await getPost(targetSite, postId);
+                if (postResult.success && postResult.data) {
+                    const post = postResult.data;
+                    if (!post.featured_media || post.featured_media === 0) {
+                        postsNeedingImages.push({
+                            id: postId,
+                            title: post.title?.rendered || 'Untitled',
+                        });
+                    }
+                }
+            }
+
+            if (postsNeedingImages.length === 0) {
+                statusStore.completeAction(actionId, '✅ All campaign posts already have featured images');
+                return;
+            }
+
+            statusStore.addStep(actionId, `${postsNeedingImages.length} posts need images`, 'success');
+            statusStore.setProgress(actionId, 0, postsNeedingImages.length);
+
+            // Retry images for each post
+            let updatedCount = 0;
+
+            for (let i = 0; i < postsNeedingImages.length; i++) {
+                const post = postsNeedingImages[i];
+                const stepId = statusStore.addStep(actionId, `⏳ Processing: ${post.title.substring(0, 30)}...`, 'running');
+
+                // Create onProgress handler to update GlobalActionStatus with generation details
+                let lastSubStep: string | undefined;
+                const onProgress = (status: { phase: string; message: string }) => {
+                    // Update the step message with generation progress
+                    if (status.message !== lastSubStep) {
+                        lastSubStep = status.message;
+                        statusStore.updateStep(actionId, stepId, `⏳ ${post.title.substring(0, 20)}... (${status.message})`, 'running');
+                    }
+                };
+
+                const result = await retryImagesForPost(
+                    targetSite,
+                    post.id,
+                    post.title,
+                    campaign.aiConfig,
+                    onProgress  // Pass progress handler to get generation visibility
+                );
+
+                if (result.success) {
+                    updatedCount++;
+                    statusStore.updateStep(actionId, stepId, `✅ ${post.title.substring(0, 30)}...`, 'success');
+                } else {
+                    statusStore.updateStep(actionId, stepId, `❌ ${post.title.substring(0, 30)}: ${result.error || 'Failed'}`, 'error');
+                }
+
+                statusStore.setProgress(actionId, i + 1, postsNeedingImages.length);
+            }
+
+            statusStore.completeAction(actionId, `✅ Images regenerated for ${updatedCount}/${postsNeedingImages.length} posts`);
+
         } catch (error) {
-            alert('Failed to retry images');
-            console.error(error);
+            statusStore.failAction(actionId, error instanceof Error ? error.message : 'Failed to retry images');
+            console.error('[RetryImages]', error);
         } finally {
             setRetryingImages(false);
         }
@@ -99,11 +179,12 @@ export function CampaignCard({ campaign, onEdit, onRun }: CampaignCardProps) {
     const status = statusConfig[campaign.status];
     const StatusIcon = status.icon;
 
-    const sourceTypeLabels = {
+    const sourceTypeLabels: Record<string, string> = {
         keywords: 'Keywords',
         rss: 'RSS Feed',
         trends: 'Google Trends',
         manual: 'Manual Topics',
+        translation: 'Translation',
     };
 
     const scheduleLabel = campaign.schedule.type === 'manual'

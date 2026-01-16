@@ -92,9 +92,12 @@ const LEGAL_PAGE_SLUGS = ['privacy-policy', 'terms-of-service', 'about', 'contac
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        // Next.js 16: params is async
+        const { id } = await params;
+
         const body = await request.json() as SyncRequest;
         const { siteUrl, username, appPassword } = body;
 

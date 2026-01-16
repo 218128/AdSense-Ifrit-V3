@@ -134,10 +134,32 @@ export async function publishToMultipleSites(
             }
 
             // Upload featured image if present
-            // TODO: Implement proper image download and upload - WPMediaInput needs Buffer/Blob
-            const featuredMediaId: number | undefined = undefined;
-            // Original image upload code needs refactoring to fetch image first
-            // const imageUrl = context.images?.cover?.url;
+            let featuredMediaId: number | undefined = undefined;
+            if (context.images?.cover?.url) {
+                try {
+                    const imageResponse = await fetch(context.images.cover.url);
+                    if (imageResponse.ok) {
+                        const imageBlob = await imageResponse.blob();
+                        const imageBuffer = Buffer.from(await imageBlob.arrayBuffer());
+
+                        const { uploadMedia } = await import('@/features/wordpress/api/wordpressApi');
+                        const uploadResult = await uploadMedia(site, {
+                            file: imageBuffer,
+                            filename: `${contextSlug || 'post'}-cover.jpg`,
+                            mimeType: 'image/jpeg',
+                            alt_text: context.images.cover.alt || contextTitle,
+                        });
+
+                        if (uploadResult.success && uploadResult.data) {
+                            featuredMediaId = uploadResult.data.id;
+                            console.log(`[MultiSite] Featured image uploaded to ${site.name}: ${uploadResult.data.id}`);
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`[MultiSite] Featured image upload failed for ${site.name}:`, error);
+                    // Continue without featured image - not a critical failure
+                }
+            }
 
             // Create post
             const postResult = await createPost(site, {

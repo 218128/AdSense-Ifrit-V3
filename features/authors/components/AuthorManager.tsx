@@ -212,14 +212,16 @@ function AuthorForm({ author, onSave, onCancel }: AuthorFormProps) {
 interface CredentialFormProps {
     onAdd: (credential: Omit<AuthorCredential, 'id'>) => void;
     onCancel: () => void;
+    initialData?: Omit<AuthorCredential, 'id'>;
 }
 
-function CredentialForm({ onAdd, onCancel }: CredentialFormProps) {
-    const [data, setData] = useState<Omit<AuthorCredential, 'id'>>({
+function CredentialForm({ onAdd, onCancel, initialData }: CredentialFormProps) {
+    const [data, setData] = useState<Omit<AuthorCredential, 'id'>>(initialData || {
         type: 'experience',
         title: '',
         issuer: '',
         year: undefined,
+        url: '',
         description: '',
     });
 
@@ -271,6 +273,18 @@ function CredentialForm({ onAdd, onCancel }: CredentialFormProps) {
                     placeholder="MIT"
                 />
             </div>
+            <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-1">
+                    Verification URL <span className="text-neutral-400">(for E-E-A-T)</span>
+                </label>
+                <input
+                    type="url"
+                    value={data.url || ''}
+                    onChange={e => setData(d => ({ ...d, url: e.target.value }))}
+                    className="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded"
+                    placeholder="https://linkedin.com/in/yourprofile/details/education"
+                />
+            </div>
             <div className="flex gap-2">
                 <button
                     onClick={onCancel}
@@ -283,7 +297,7 @@ function CredentialForm({ onAdd, onCancel }: CredentialFormProps) {
                     disabled={!data.title}
                     className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
                 >
-                    Add
+                    {initialData ? 'Update' : 'Add'}
                 </button>
             </div>
         </div>
@@ -392,6 +406,7 @@ interface AuthorCardProps {
 function AuthorCard({ author, onEdit, onDelete, expanded, onToggleExpand }: AuthorCardProps) {
     const store = useAuthorStore();
     const [showCredentialForm, setShowCredentialForm] = useState(false);
+    const [editingCredential, setEditingCredential] = useState<AuthorCredential | null>(null);
     const [showExpertiseForm, setShowExpertiseForm] = useState(false);
 
     return (
@@ -416,7 +431,7 @@ function AuthorCard({ author, onEdit, onDelete, expanded, onToggleExpand }: Auth
                     <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-neutral-900 truncate">{author.name}</h3>
                         {author.verificationStatus === 'verified' && (
-                            <Shield className="w-4 h-4 text-blue-500" title="Verified" />
+                            <span title="Verified"><Shield className="w-4 h-4 text-blue-500" /></span>
                         )}
                     </div>
                     <p className="text-sm text-neutral-600">{author.headline}</p>
@@ -471,13 +486,18 @@ function AuthorCard({ author, onEdit, onDelete, expanded, onToggleExpand }: Auth
                                 + Add
                             </button>
                         </div>
-                        {showCredentialForm && (
+                        {(showCredentialForm || editingCredential) && (
                             <CredentialForm
+                                initialData={editingCredential || undefined}
                                 onAdd={cred => {
+                                    if (editingCredential) {
+                                        store.removeCredential(author.id, editingCredential.id);
+                                    }
                                     store.addCredential(author.id, cred);
                                     setShowCredentialForm(false);
+                                    setEditingCredential(null);
                                 }}
-                                onCancel={() => setShowCredentialForm(false)}
+                                onCancel={() => { setShowCredentialForm(false); setEditingCredential(null); }}
                             />
                         )}
                         {author.credentials.length > 0 ? (
@@ -491,13 +511,24 @@ function AuthorCard({ author, onEdit, onDelete, expanded, onToggleExpand }: Auth
                                             <span className="font-medium">{cred.title}</span>
                                             {cred.issuer && <span className="text-neutral-500"> • {cred.issuer}</span>}
                                             {cred.year && <span className="text-neutral-400"> ({cred.year})</span>}
+                                            {cred.url && <a href={cred.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-xs ml-2">✓ verified</a>}
                                         </span>
-                                        <button
-                                            onClick={() => store.removeCredential(author.id, cred.id)}
-                                            className="text-red-500 hover:text-red-700 p-1"
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={() => setEditingCredential(cred)}
+                                                className="text-blue-500 hover:text-blue-700 p-1"
+                                                title="Edit"
+                                            >
+                                                <Edit className="w-3 h-3" />
+                                            </button>
+                                            <button
+                                                onClick={() => store.removeCredential(author.id, cred.id)}
+                                                className="text-red-500 hover:text-red-700 p-1"
+                                                title="Delete"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -559,33 +590,36 @@ function AuthorCard({ author, onEdit, onDelete, expanded, onToggleExpand }: Auth
                     </div>
 
                     {/* Links */}
-                    {(author.websiteUrl || author.linkedInUrl) && (
-                        <div className="flex gap-3 pt-2">
-                            {author.websiteUrl && (
-                                <a
-                                    href={author.websiteUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                                >
-                                    Website <ExternalLink className="w-3 h-3" />
-                                </a>
-                            )}
-                            {author.linkedInUrl && (
-                                <a
-                                    href={author.linkedInUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                                >
-                                    LinkedIn <ExternalLink className="w-3 h-3" />
-                                </a>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
+                    {
+                        (author.websiteUrl || author.linkedInUrl) && (
+                            <div className="flex gap-3 pt-2">
+                                {author.websiteUrl && (
+                                    <a
+                                        href={author.websiteUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                    >
+                                        Website <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                )}
+                                {author.linkedInUrl && (
+                                    <a
+                                        href={author.linkedInUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                    >
+                                        LinkedIn <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                )}
+                            </div>
+                        )
+                    }
+                </div >
+            )
+            }
+        </div >
     );
 }
 

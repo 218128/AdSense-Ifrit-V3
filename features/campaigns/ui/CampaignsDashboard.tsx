@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Zap, Plus, Play, Pause, CheckCircle, AlertCircle, Clock, FileCheck } from 'lucide-react';
+import { Zap, Plus, Play, Pause, CheckCircle, AlertCircle, Clock, FileCheck, Image } from 'lucide-react';
 import { useCampaignStore } from '../model/campaignStore';
 import { useWPSitesLegacy } from '@/features/wordpress/model/wpSiteStore';
 import { CampaignCard } from './CampaignCard';
@@ -14,14 +14,25 @@ import { CampaignEditor } from './CampaignEditor';
 import type { Campaign } from '../model/types';
 import { runPipeline, createRun } from '../lib/processor';
 import { ReviewDashboard, useReviewStore } from '@/features/editorial';
+import { MediaLibraryPanel } from '../components/MediaLibraryPanel';
+import { useMediaAssetLibrary } from '../lib/mediaAssetLibrary';
 
 export function CampaignsDashboard() {
     const { campaigns, addRun, updateRun, incrementGenerated, incrementPublished, incrementFailed, updateStats, updateSchedule } = useCampaignStore();
     const { sites } = useWPSitesLegacy();
     const [showEditor, setShowEditor] = useState(false);
     const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
-    const [activeTab, setActiveTab] = useState<'campaigns' | 'review'>('campaigns');
-    const pendingReviewCount = useReviewStore(state => state.items.filter(i => i.status === 'pending').length);
+    const [activeTab, setActiveTab] = useState<'campaigns' | 'review' | 'media'>('campaigns');
+    const pendingReviewCount = useReviewStore(state => state.items.filter(i => i.status === 'pending_review').length);
+    // Don't call getStats() in selector - it returns new object each time causing infinite loop
+    // Instead, just get totalAssets count directly from libraries
+    const mediaAssetCount = useMediaAssetLibrary(state => {
+        let count = 0;
+        for (const lib of Object.values(state.libraries)) {
+            count += lib.assets.length;
+        }
+        return count;
+    });
 
     const activeCount = campaigns.filter(c => c.status === 'active').length;
     const pausedCount = campaigns.filter(c => c.status === 'paused').length;
@@ -253,11 +264,30 @@ export function CampaignsDashboard() {
                         </span>
                     )}
                 </button>
+                <button
+                    onClick={() => setActiveTab('media')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2
+                        ${activeTab === 'media'
+                            ? 'bg-white text-neutral-900 shadow-sm'
+                            : 'text-neutral-600 hover:text-neutral-900'}`}
+                >
+                    <Image className="w-4 h-4" />
+                    Media Library
+                    {mediaAssetCount > 0 && (
+                        <span className="px-1.5 py-0.5 bg-purple-500 text-white text-xs rounded-full">
+                            {mediaAssetCount}
+                        </span>
+                    )}
+                </button>
             </div>
 
             {/* Tab Content */}
             {activeTab === 'review' ? (
                 <ReviewDashboard />
+            ) : activeTab === 'media' ? (
+                <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden" style={{ minHeight: '600px' }}>
+                    <MediaLibraryPanel />
+                </div>
             ) : (
                 <>
                     {/* Campaigns Grid */}
@@ -357,9 +387,9 @@ async function handleTranslationCampaign(
     // Build target sites map from language mappings
     const targetSites = new Map<string, import('@/features/wordpress').WPSite>();
     for (const mapping of config.targetLanguages) {
-        const targetSite = allSites.find(s => s.id === mapping.siteId);
+        const targetSite = allSites.find(s => s.id === mapping.targetSiteId);
         if (targetSite) {
-            targetSites.set(mapping.languageCode, targetSite);
+            targetSites.set(mapping.language, targetSite);
         }
     }
 

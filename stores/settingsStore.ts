@@ -45,12 +45,17 @@ export interface IntegrationConfig {
     godaddySecret: string;       // GoDaddy API secret
     unsplashKey: string;
     pexelsKey: string;
+    braveApiKey: string;         // Brave Search API
     umamiId: string;             // Umami Website ID (for embedding script)
     umamiApiUrl: string;         // Umami API URL (e.g. https://analytics.example.com)
     umamiApiKey: string;         // Umami API Token for fetching stats
     devtoKey: string;            // Dev.to publishing
     youtubeApiKey: string;       // YouTube Data API v3 key
     twitterBearerToken: string;  // Twitter/X API v2 Bearer Token
+    // Google Analytics 4
+    ga4MeasurementId: string;    // GA4 Measurement ID (G-XXXXXXXXXX)
+    ga4ApiSecret: string;        // GA4 Measurement Protocol API Secret
+    factCheckApiKey: string;     // Google Fact Check API
 }
 
 export interface MCPServerConfig {
@@ -83,7 +88,9 @@ export interface CapabilitiesConfig {
     logDiagnostics: boolean;
 }
 
-export type ProviderId = 'gemini' | 'deepseek' | 'openrouter' | 'vercel' | 'perplexity';
+// ProviderId imported from unified types (single source of truth)
+import { ProviderId, ALL_PROVIDER_IDS } from '@/lib/ai/types/providers';
+export type { ProviderId };
 
 // Provider metadata for UI
 export interface ProviderConfig {
@@ -137,11 +144,25 @@ export const PROVIDER_CONFIGS: Record<ProviderId, ProviderConfig> = {
     },
 };
 
+// User Profile - full state for backup/restore
+export interface UserProfile {
+    providerKeys: Record<ProviderId, StoredKey[]>;
+    enabledProviders: ProviderId[];
+    selectedModels: Record<ProviderId, string>;
+    handlerModels: Record<string, string>;
+    integrations: IntegrationConfig;
+    adsenseConfig: AdsenseConfig;
+
+    mcpServers: MCPServerConfig;
+    capabilitiesConfig: CapabilitiesConfig;
+}
+
 export interface ExportedSettings {
     version: string;
     exportedAt: string;
     app: string;
-    settings: Record<string, string>;
+    profile?: UserProfile;           // New format (v4+)
+    settings?: Record<string, string>; // Legacy format (v3.x and earlier)
 }
 
 // ============ STORAGE KEYS ============
@@ -155,7 +176,7 @@ export const SETTINGS_STORAGE_KEYS = {
         'GEMINI_API_KEY', 'ifrit_gemini_key',
         'ifrit_github_token', 'ifrit_github_user', 'ifrit_vercel_token', 'ifrit_vercel_user',
         'ADSENSE_PUBLISHER_ID', 'ADSENSE_LEADERBOARD_SLOT', 'ADSENSE_ARTICLE_SLOT', 'ADSENSE_MULTIPLEX_SLOT',
-        'USER_BLOG_URL',
+
         'ifrit_namecheap_user', 'ifrit_namecheap_key', 'ifrit_spamzilla_key',
         'ifrit_unsplash_key', 'ifrit_pexels_key',
     ]
@@ -168,15 +189,16 @@ interface SettingsStore {
     providerKeys: Record<ProviderId, StoredKey[]>;
     enabledProviders: ProviderId[];
     selectedModels: Record<ProviderId, string>;
+    // Handler-specific model selection (e.g., gemini-images uses different model than gemini-text)
+    handlerModels: Record<string, string>;
+    // Available models per provider (fetched from API, used for handler model dropdowns)
+    availableModels: Record<ProviderId, string[]>;
 
     // Integrations
     integrations: IntegrationConfig;
 
     // AdSense
     adsenseConfig: AdsenseConfig;
-
-    // Blog
-    blogUrl: string;
 
     // MCP Tools
     mcpServers: MCPServerConfig;
@@ -197,16 +219,18 @@ interface SettingsStore {
     updateProviderKey: (provider: ProviderId, keyValue: string, updates: Partial<StoredKey>) => void;
     toggleProvider: (provider: ProviderId) => void;
     setSelectedModel: (provider: ProviderId, modelId: string) => void;
+    // Handler-specific model selection
+    setHandlerModel: (handlerId: string, modelId: string) => void;
+    getHandlerModel: (handlerId: string, fallbackProvider?: ProviderId) => string | undefined;
     getProviderKeys: (provider: ProviderId) => StoredKey[];
+    // Store available models fetched from provider API
+    setAvailableModels: (provider: ProviderId, models: string[]) => void;
 
     // ==== Integration Actions ====
     setIntegration: <K extends keyof IntegrationConfig>(key: K, value: string) => void;
 
     // ==== AdSense Actions ====
     setAdsenseConfig: (config: Partial<AdsenseConfig>) => void;
-
-    // ==== Blog Actions ====
-    setBlogUrl: (url: string) => void;
 
     // ==== MCP Actions ====
     toggleMCPServer: (serverId: string) => void;
@@ -216,9 +240,6 @@ interface SettingsStore {
     exportSettings: () => ExportedSettings;
     importSettings: (data: ExportedSettings) => { success: boolean; restored: number };
 
-    // ==== Server Backup Actions ====
-    backupToServer: () => Promise<boolean>;
-    restoreFromServer: () => Promise<boolean>;
 
     // ==== Migration ====
     migrateFromLegacy: () => void;
@@ -258,12 +279,16 @@ const DEFAULT_INTEGRATIONS: IntegrationConfig = {
     godaddySecret: '',
     unsplashKey: '',
     pexelsKey: '',
+    braveApiKey: '',
     umamiId: '',
     umamiApiUrl: '',
     umamiApiKey: '',
     devtoKey: '',
     youtubeApiKey: '',
     twitterBearerToken: '',
+    ga4MeasurementId: '',
+    ga4ApiSecret: '',
+    factCheckApiKey: '',
 };
 
 const DEFAULT_ADSENSE: AdsenseConfig = {
@@ -272,6 +297,114 @@ const DEFAULT_ADSENSE: AdsenseConfig = {
     articleSlot: '',
     multiplexSlot: '',
 };
+
+// Legacy import helper for v3.x and earlier backup files
+function legacyImport(
+    settings: Record<string, string>,
+    get: () => SettingsStore,
+    set: (state: Partial<SettingsStore>) => void
+): { success: boolean; restored: number } {
+    let restored = 0;
+
+    // Import provider keys
+    const newProviderKeys = { ...DEFAULT_PROVIDER_KEYS };
+    const newEnabledProviders: ProviderId[] = [];
+    const newSelectedModels: Record<ProviderId, string> = {} as Record<ProviderId, string>;
+
+    for (const provider of ALL_PROVIDER_IDS) {
+        const keysJson = settings[`ifrit_${provider}_keys`];
+        if (keysJson) {
+            try {
+                newProviderKeys[provider] = JSON.parse(keysJson);
+                restored++;
+            } catch { /* ignore */ }
+        }
+        if (settings[`ifrit_${provider}_enabled`] === 'true') {
+            newEnabledProviders.push(provider);
+        }
+        if (settings[`ifrit_${provider}_model`]) {
+            newSelectedModels[provider] = settings[`ifrit_${provider}_model`];
+        }
+    }
+
+    // Import integrations
+    const newIntegrations: IntegrationConfig = {
+        githubToken: settings['ifrit_github_token'] || '',
+        githubUser: settings['ifrit_github_user'] || '',
+        vercelToken: settings['ifrit_vercel_token'] || '',
+        vercelUser: settings['ifrit_vercel_user'] || '',
+        spamzillaKey: settings['ifrit_spamzilla_key'] || '',
+        namecheapUser: settings['ifrit_namecheap_user'] || '',
+        namecheapKey: settings['ifrit_namecheap_key'] || '',
+        namecheapUsername: settings['ifrit_namecheap_username'] || '',
+        namecheapClientIp: settings['ifrit_namecheap_client_ip'] || '',
+        cloudflareToken: settings['ifrit_cloudflare_token'] || '',
+        godaddyKey: settings['ifrit_godaddy_key'] || '',
+        godaddySecret: settings['ifrit_godaddy_secret'] || '',
+        unsplashKey: settings['ifrit_unsplash_key'] || '',
+        pexelsKey: settings['ifrit_pexels_key'] || '',
+        braveApiKey: settings['ifrit_brave_api_key'] || '',
+        umamiId: settings['UMAMI_WEBSITE_ID'] || '',
+        umamiApiUrl: settings['ifrit_umami_api_url'] || '',
+        umamiApiKey: settings['ifrit_umami_api_key'] || '',
+        devtoKey: settings['ifrit_devto_api_key'] || settings['devto_api_key'] || '',
+        youtubeApiKey: settings['ifrit_youtube_api_key'] || '',
+        twitterBearerToken: settings['ifrit_twitter_bearer_token'] || '',
+        ga4MeasurementId: settings['ifrit_ga4_measurement_id'] || '',
+        ga4ApiSecret: settings['ifrit_ga4_api_secret'] || '',
+        factCheckApiKey: settings['ifrit_fact_check_api_key'] || '',
+    };
+    restored += Object.values(newIntegrations).filter(Boolean).length;
+
+    // Import AdSense
+    const newAdsenseConfig: AdsenseConfig = {
+        publisherId: settings['ADSENSE_PUBLISHER_ID'] || '',
+        leaderboardSlot: settings['ADSENSE_LEADERBOARD_SLOT'] || '',
+        articleSlot: settings['ADSENSE_ARTICLE_SLOT'] || '',
+        multiplexSlot: settings['ADSENSE_MULTIPLEX_SLOT'] || '',
+    };
+    restored += Object.values(newAdsenseConfig).filter(Boolean).length;
+
+
+
+    // Import MCP servers
+    let newMcpServers = { enabled: [] as string[], apiKeys: {} as Record<string, string> };
+    if (settings['ifrit_mcp_servers']) {
+        try {
+            newMcpServers = JSON.parse(settings['ifrit_mcp_servers']);
+            restored++;
+        } catch { /* ignore */ }
+    }
+
+    // Import capabilities
+    let newCapabilitiesConfig: CapabilitiesConfig = {
+        customCapabilities: [],
+        capabilitySettings: {},
+        preferMCP: true,
+        autoFallback: true,
+        verbosity: 'standard',
+        logDiagnostics: true,
+    };
+    if (settings['ifrit_capabilities_config']) {
+        try {
+            newCapabilitiesConfig = { ...newCapabilitiesConfig, ...JSON.parse(settings['ifrit_capabilities_config']) };
+            restored++;
+        } catch { /* ignore */ }
+    }
+
+    set({
+        providerKeys: newProviderKeys,
+        enabledProviders: newEnabledProviders.length ? newEnabledProviders : ['gemini'],
+        selectedModels: newSelectedModels,
+        integrations: newIntegrations,
+        adsenseConfig: newAdsenseConfig,
+
+        mcpServers: newMcpServers,
+        capabilitiesConfig: newCapabilitiesConfig,
+    });
+
+    return { success: true, restored };
+}
 
 // ============ STORE IMPLEMENTATION ============
 
@@ -282,9 +415,13 @@ export const useSettingsStore = create<SettingsStore>()(
             providerKeys: { ...DEFAULT_PROVIDER_KEYS },
             enabledProviders: ['gemini'],
             selectedModels: {} as Record<ProviderId, string>,
+            // Handler-specific models (e.g., 'gemini-images' -> 'gemini-2.5-pro-image')
+            handlerModels: {} as Record<string, string>,
+            // Available models per provider (fetched from API via testKey)
+            availableModels: {} as Record<ProviderId, string[]>,
             integrations: { ...DEFAULT_INTEGRATIONS },
             adsenseConfig: { ...DEFAULT_ADSENSE },
-            blogUrl: '',
+
             mcpServers: { enabled: [], apiKeys: {} },
             initialized: false,
             healthStatus: {},
@@ -349,7 +486,30 @@ export const useSettingsStore = create<SettingsStore>()(
                     : [...state.enabledProviders, provider]
             })),
 
+            // Handler-specific model selection (e.g., gemini-images vs gemini-text)
+            setHandlerModel: (handlerId, modelId) => set((state) => ({
+                handlerModels: { ...state.handlerModels, [handlerId]: modelId }
+            })),
+
+            getHandlerModel: (handlerId, fallbackProvider) => {
+                const state = get();
+                // First check handler-specific model
+                if (state.handlerModels[handlerId]) {
+                    return state.handlerModels[handlerId];
+                }
+                // Fall back to provider's default model if provided
+                if (fallbackProvider && state.selectedModels[fallbackProvider]) {
+                    return state.selectedModels[fallbackProvider];
+                }
+                return undefined;
+            },
+
             getProviderKeys: (provider) => get().providerKeys[provider] || [],
+
+            // Store available models fetched from provider API
+            setAvailableModels: (provider, models) => set((state) => ({
+                availableModels: { ...state.availableModels, [provider]: models }
+            })),
 
             // ============ INTEGRATION ACTIONS ============
 
@@ -366,9 +526,7 @@ export const useSettingsStore = create<SettingsStore>()(
                 };
             }),
 
-            // ============ BLOG ACTIONS ============
 
-            setBlogUrl: (url) => set({ blogUrl: url }),
 
             // ============ MCP ACTIONS ============
 
@@ -395,215 +553,58 @@ export const useSettingsStore = create<SettingsStore>()(
 
             exportSettings: () => {
                 const state = get();
-                const settings: Record<string, string> = {};
+                // Serialize entire user profile (all config state)
+                const profile: UserProfile = {
+                    providerKeys: state.providerKeys,
+                    enabledProviders: state.enabledProviders,
+                    selectedModels: state.selectedModels,
+                    handlerModels: state.handlerModels,
+                    integrations: state.integrations,
+                    adsenseConfig: state.adsenseConfig,
 
-                // Export provider keys
-                const providers: ProviderId[] = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
-                for (const provider of providers) {
-                    const keys = state.providerKeys[provider];
-                    if (keys?.length) {
-                        settings[`ifrit_${provider}_keys`] = JSON.stringify(keys);
-                    }
-                    if (state.enabledProviders.includes(provider)) {
-                        settings[`ifrit_${provider}_enabled`] = 'true';
-                    }
-                    if (state.selectedModels[provider]) {
-                        settings[`ifrit_${provider}_model`] = state.selectedModels[provider];
-                    }
-                }
-
-                // Export integrations (ALL fields from IntegrationConfig)
-                const { integrations } = state;
-                if (integrations.githubToken) settings['ifrit_github_token'] = integrations.githubToken;
-                if (integrations.githubUser) settings['ifrit_github_user'] = integrations.githubUser;
-                if (integrations.vercelToken) settings['ifrit_vercel_token'] = integrations.vercelToken;
-                if (integrations.vercelUser) settings['ifrit_vercel_user'] = integrations.vercelUser;
-                if (integrations.spamzillaKey) settings['ifrit_spamzilla_key'] = integrations.spamzillaKey;
-                if (integrations.namecheapUser) settings['ifrit_namecheap_user'] = integrations.namecheapUser;
-                if (integrations.namecheapKey) settings['ifrit_namecheap_key'] = integrations.namecheapKey;
-                if (integrations.namecheapUsername) settings['ifrit_namecheap_username'] = integrations.namecheapUsername;
-                if (integrations.namecheapClientIp) settings['ifrit_namecheap_client_ip'] = integrations.namecheapClientIp;
-                if (integrations.cloudflareToken) settings['ifrit_cloudflare_token'] = integrations.cloudflareToken;
-                if (integrations.godaddyKey) settings['ifrit_godaddy_key'] = integrations.godaddyKey;
-                if (integrations.godaddySecret) settings['ifrit_godaddy_secret'] = integrations.godaddySecret;
-                if (integrations.unsplashKey) settings['ifrit_unsplash_key'] = integrations.unsplashKey;
-                if (integrations.pexelsKey) settings['ifrit_pexels_key'] = integrations.pexelsKey;
-                if (integrations.umamiId) settings['UMAMI_WEBSITE_ID'] = integrations.umamiId;
-                if (integrations.umamiApiUrl) settings['ifrit_umami_api_url'] = integrations.umamiApiUrl;
-                if (integrations.umamiApiKey) settings['ifrit_umami_api_key'] = integrations.umamiApiKey;
-                if (integrations.devtoKey) settings['ifrit_devto_api_key'] = integrations.devtoKey;
-
-                // Export AdSense
-                const { adsenseConfig } = state;
-                if (adsenseConfig.publisherId) settings['ADSENSE_PUBLISHER_ID'] = adsenseConfig.publisherId;
-                if (adsenseConfig.leaderboardSlot) settings['ADSENSE_LEADERBOARD_SLOT'] = adsenseConfig.leaderboardSlot;
-                if (adsenseConfig.articleSlot) settings['ADSENSE_ARTICLE_SLOT'] = adsenseConfig.articleSlot;
-                if (adsenseConfig.multiplexSlot) settings['ADSENSE_MULTIPLEX_SLOT'] = adsenseConfig.multiplexSlot;
-
-                // Export blog
-                if (state.blogUrl) settings['USER_BLOG_URL'] = state.blogUrl;
-
-                // Export MCP servers configuration
-                if (state.mcpServers.enabled.length > 0 || Object.keys(state.mcpServers.apiKeys).length > 0) {
-                    settings['ifrit_mcp_servers'] = JSON.stringify(state.mcpServers);
-                }
-
-                // Export capabilities configuration
-                if (Object.keys(state.capabilitiesConfig.capabilitySettings).length > 0 ||
-                    state.capabilitiesConfig.customCapabilities.length > 0) {
-                    settings['ifrit_capabilities_config'] = JSON.stringify(state.capabilitiesConfig);
-                }
-
+                    mcpServers: state.mcpServers,
+                    capabilitiesConfig: state.capabilitiesConfig,
+                };
                 return {
-                    version: '3.1.0',  // Updated version for new fields
+                    version: '4.0.0',
                     exportedAt: new Date().toISOString(),
                     app: 'AdSense Ifrit V3',
-                    settings,
+                    profile,
                 };
             },
 
             importSettings: (data) => {
-                if (!data.settings || !data.version) {
-                    return { success: false, restored: 0 };
-                }
+                // Handle new format (v4+)
+                if (data.profile) {
+                    const p = data.profile;
+                    set({
+                        providerKeys: p.providerKeys ?? get().providerKeys,
+                        enabledProviders: p.enabledProviders ?? get().enabledProviders,
+                        selectedModels: p.selectedModels ?? get().selectedModels,
+                        handlerModels: p.handlerModels ?? get().handlerModels,
+                        integrations: { ...DEFAULT_INTEGRATIONS, ...p.integrations },
+                        adsenseConfig: { ...DEFAULT_ADSENSE, ...p.adsenseConfig },
 
-                const { settings } = data;
-                let restored = 0;
-
-                // Import provider keys
-                const providers: ProviderId[] = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
-                const newProviderKeys = { ...DEFAULT_PROVIDER_KEYS };
-                const newEnabledProviders: ProviderId[] = [];
-                const newSelectedModels: Record<ProviderId, string> = {} as Record<ProviderId, string>;
-
-                for (const provider of providers) {
-                    const keysJson = settings[`ifrit_${provider}_keys`];
-                    if (keysJson) {
-                        try {
-                            newProviderKeys[provider] = JSON.parse(keysJson);
-                            restored++;
-                        } catch { /* ignore */ }
-                    }
-                    if (settings[`ifrit_${provider}_enabled`] === 'true') {
-                        newEnabledProviders.push(provider);
-                    }
-                    if (settings[`ifrit_${provider}_model`]) {
-                        newSelectedModels[provider] = settings[`ifrit_${provider}_model`];
-                    }
-                }
-
-                // Import integrations
-                const newIntegrations: IntegrationConfig = {
-                    githubToken: settings['ifrit_github_token'] || '',
-                    githubUser: settings['ifrit_github_user'] || '',
-                    vercelToken: settings['ifrit_vercel_token'] || '',
-                    vercelUser: settings['ifrit_vercel_user'] || '',
-                    spamzillaKey: settings['ifrit_spamzilla_key'] || '',
-                    namecheapUser: settings['ifrit_namecheap_user'] || '',
-                    namecheapKey: settings['ifrit_namecheap_key'] || '',
-                    namecheapUsername: settings['ifrit_namecheap_username'] || '',
-                    namecheapClientIp: settings['ifrit_namecheap_client_ip'] || '',
-                    cloudflareToken: settings['ifrit_cloudflare_token'] || '',
-                    godaddyKey: settings['ifrit_godaddy_key'] || '',
-                    godaddySecret: settings['ifrit_godaddy_secret'] || '',
-                    unsplashKey: settings['ifrit_unsplash_key'] || '',
-                    pexelsKey: settings['ifrit_pexels_key'] || '',
-                    umamiId: settings['UMAMI_WEBSITE_ID'] || '',
-                    umamiApiUrl: settings['ifrit_umami_api_url'] || '',
-                    umamiApiKey: settings['ifrit_umami_api_key'] || '',
-                    devtoKey: settings['ifrit_devto_api_key'] || settings['devto_api_key'] || '',
-                    youtubeApiKey: settings['ifrit_youtube_api_key'] || '',
-                    twitterBearerToken: settings['ifrit_twitter_bearer_token'] || '',
-                };
-                restored += Object.values(newIntegrations).filter(Boolean).length;
-
-                // Import AdSense
-                const newAdsenseConfig: AdsenseConfig = {
-                    publisherId: settings['ADSENSE_PUBLISHER_ID'] || '',
-                    leaderboardSlot: settings['ADSENSE_LEADERBOARD_SLOT'] || '',
-                    articleSlot: settings['ADSENSE_ARTICLE_SLOT'] || '',
-                    multiplexSlot: settings['ADSENSE_MULTIPLEX_SLOT'] || '',
-                };
-                restored += Object.values(newAdsenseConfig).filter(Boolean).length;
-
-                // Import blog
-                const newBlogUrl = settings['USER_BLOG_URL'] || '';
-                if (newBlogUrl) restored++;
-
-                // Import MCP servers configuration
-                let newMcpServers = { enabled: [] as string[], apiKeys: {} as Record<string, string> };
-                if (settings['ifrit_mcp_servers']) {
-                    try {
-                        newMcpServers = JSON.parse(settings['ifrit_mcp_servers']);
-                        restored++;
-                    } catch { /* ignore */ }
-                }
-
-                // Import capabilities configuration
-                let newCapabilitiesConfig: CapabilitiesConfig = {
-                    customCapabilities: [],
-                    capabilitySettings: {},
-                    preferMCP: true,
-                    autoFallback: true,
-                    verbosity: 'standard',
-                    logDiagnostics: true,
-                };
-                if (settings['ifrit_capabilities_config']) {
-                    try {
-                        newCapabilitiesConfig = { ...newCapabilitiesConfig, ...JSON.parse(settings['ifrit_capabilities_config']) };
-                        restored++;
-                    } catch { /* ignore */ }
-                }
-
-                set({
-                    providerKeys: newProviderKeys,
-                    enabledProviders: newEnabledProviders.length ? newEnabledProviders : ['gemini'],
-                    selectedModels: newSelectedModels,
-                    integrations: newIntegrations,
-                    adsenseConfig: newAdsenseConfig,
-                    blogUrl: newBlogUrl,
-                    mcpServers: newMcpServers,
-                    capabilitiesConfig: newCapabilitiesConfig,
-                });
-
-                return { success: true, restored };
-            },
-
-            // ============ SERVER BACKUP ACTIONS ============
-
-            backupToServer: async () => {
-                try {
-                    const exportData = get().exportSettings();
-                    const res = await fetch('/api/settings/backup', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ settings: exportData.settings }),
+                        mcpServers: p.mcpServers ?? { enabled: [], apiKeys: {} },
+                        capabilitiesConfig: {
+                            // Defaults first, imported config overrides
+                            customCapabilities: p.capabilitiesConfig?.customCapabilities ?? [],
+                            capabilitySettings: p.capabilitiesConfig?.capabilitySettings ?? {},
+                            preferMCP: p.capabilitiesConfig?.preferMCP ?? true,
+                            autoFallback: p.capabilitiesConfig?.autoFallback ?? true,
+                            verbosity: p.capabilitiesConfig?.verbosity ?? 'standard',
+                            logDiagnostics: p.capabilitiesConfig?.logDiagnostics ?? true,
+                        },
                     });
-                    return res.ok;
-                } catch {
-                    console.error('Failed to backup settings to server');
-                    return false;
+                    return { success: true, restored: Object.keys(p).length };
                 }
-            },
 
-            restoreFromServer: async () => {
-                try {
-                    const res = await fetch('/api/settings/backup');
-                    const data = await res.json();
-                    if (data.success && data.hasBackup && data.backup?.settings) {
-                        get().importSettings({
-                            version: '2.0.0',
-                            exportedAt: new Date().toISOString(),
-                            app: 'AdSense Ifrit V3',
-                            settings: data.backup.settings,
-                        });
-                        return true;
-                    }
-                    return false;
-                } catch {
-                    console.error('Failed to restore settings from server');
-                    return false;
+                // Handle legacy format (v3.x and earlier)
+                if (data.settings) {
+                    return legacyImport(data.settings, get, set);
                 }
+
+                return { success: false, restored: 0 };
             },
 
             // ============ MIGRATION ============
@@ -611,7 +612,7 @@ export const useSettingsStore = create<SettingsStore>()(
             migrateFromLegacy: () => {
                 if (typeof window === 'undefined') return;
 
-                const providers: ProviderId[] = ['gemini', 'deepseek', 'openrouter', 'vercel', 'perplexity'];
+                const providers = ALL_PROVIDER_IDS;
                 const newProviderKeys = { ...DEFAULT_PROVIDER_KEYS };
                 const newEnabledProviders: ProviderId[] = [];
                 const newSelectedModels: Record<ProviderId, string> = {} as Record<ProviderId, string>;
@@ -665,12 +666,17 @@ export const useSettingsStore = create<SettingsStore>()(
                     godaddySecret: localStorage.getItem('ifrit_godaddy_secret') || '',
                     unsplashKey: localStorage.getItem('ifrit_unsplash_key') || '',
                     pexelsKey: localStorage.getItem('ifrit_pexels_key') || '',
+                    braveApiKey: localStorage.getItem('ifrit_brave_api_key') || '',
                     umamiId: localStorage.getItem('UMAMI_WEBSITE_ID') || '',
                     umamiApiUrl: localStorage.getItem('ifrit_umami_api_url') || '',
                     umamiApiKey: localStorage.getItem('ifrit_umami_api_key') || '',
                     devtoKey: localStorage.getItem('ifrit_devto_api_key') || localStorage.getItem('devto_api_key') || '',
                     youtubeApiKey: localStorage.getItem('ifrit_youtube_api_key') || '',
                     twitterBearerToken: localStorage.getItem('ifrit_twitter_bearer_token') || '',
+                    // GA4 and FactCheck (new properties)
+                    ga4MeasurementId: localStorage.getItem('ifrit_ga4_measurement_id') || '',
+                    ga4ApiSecret: localStorage.getItem('ifrit_ga4_api_secret') || '',
+                    factCheckApiKey: localStorage.getItem('ifrit_fact_check_api_key') || '',
                 };
 
                 // Migrate AdSense
@@ -681,16 +687,12 @@ export const useSettingsStore = create<SettingsStore>()(
                     multiplexSlot: localStorage.getItem('ADSENSE_MULTIPLEX_SLOT') || '',
                 };
 
-                // Migrate blog
-                const newBlogUrl = localStorage.getItem('USER_BLOG_URL') || '';
-
                 set({
                     providerKeys: newProviderKeys,
                     enabledProviders: newEnabledProviders.length ? newEnabledProviders : ['gemini'],
                     selectedModels: newSelectedModels,
                     integrations: newIntegrations,
                     adsenseConfig: newAdsenseConfig,
-                    blogUrl: newBlogUrl,
                     initialized: true,
                 });
             },
@@ -736,9 +738,13 @@ export const useSettingsStore = create<SettingsStore>()(
                 providerKeys: state.providerKeys,
                 enabledProviders: state.enabledProviders,
                 selectedModels: state.selectedModels,
+                // Handler-specific models (e.g., 'generate:gemini' -> 'gemini-2.5-pro')
+                handlerModels: state.handlerModels,
+                // Available models per provider (fetched from API)
+                availableModels: state.availableModels,
                 integrations: state.integrations,
                 adsenseConfig: state.adsenseConfig,
-                blogUrl: state.blogUrl,
+
                 mcpServers: state.mcpServers,
                 initialized: state.initialized,
                 capabilitiesConfig: state.capabilitiesConfig,
@@ -755,5 +761,5 @@ export const selectEnabledProviders = (state: SettingsStore) => state.enabledPro
 export const selectSelectedModels = (state: SettingsStore) => state.selectedModels;
 export const selectIntegrations = (state: SettingsStore) => state.integrations;
 export const selectAdsenseConfig = (state: SettingsStore) => state.adsenseConfig;
-export const selectBlogUrl = (state: SettingsStore) => state.blogUrl;
+
 export const selectMCPServers = (state: SettingsStore) => state.mcpServers;

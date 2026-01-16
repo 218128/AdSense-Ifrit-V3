@@ -1,0 +1,360 @@
+# Complete System Regression Report: AI Provider & Handler Architecture
+
+> **Date**: January 8, 2026  
+> **Purpose**: Document all broken functionality and provide detailed fix instructions
+
+---
+
+## Table of Contents
+
+1. [System Architecture Overview](#1-system-architecture-overview)
+2. [What Was Broken](#2-what-was-broken)
+3. [Multi-Key Management](#3-multi-key-management)
+4. [Handler-Model Mapping](#4-handler-model-mapping)
+5. [Key Validation Flow](#5-key-validation-flow)
+6. [System Impact](#6-system-impact)
+7. [Detailed Fix Instructions](#7-detailed-fix-instructions)
+8. [Verification Checklist](#8-verification-checklist)
+
+---
+
+## 1. System Architecture Overview
+
+### The Correct Flow
+
+```
+User → Settings UI → Provider API → Real Models → Handler Selection → Execution
+```
+
+**Step by step:**
+
+1. User enters API key in Settings
+2. Settings calls provider's validation endpoint
+3. Provider returns list of available models
+4. User selects which model to use for each capability (text, images, research)
+5. When a feature runs, the system uses the selected model with the user's key
+6. If rate limited, system rotates to next key for same provider
+
+### Key Concept: Handler vs Model vs Provider
+
+| Term | Definition | Example |
+|------|------------|---------|
+| **Provider** | Company providing AI services | Gemini, Perplexity, DeepSeek |
+| **Model** | Specific AI model from a provider | `gemini-2.5-flash`, `gemini-2.5-pro-image`, `sonar-pro` |
+| **Handler** | Code that executes a specific capability | `gemini-text`, `gemini-images`, `perplexity-research` |
+
+**Critical Point**: One provider can have MULTIPLE handlers, each needing a DIFFERENT model:
+
+| Provider | Handler | Capability | Required Model Type |
+|----------|---------|------------|---------------------|
+| Gemini | gemini-text | Text generation | Text model (gemini-2.5-flash) |
+| Gemini | gemini-images | Image generation | Image model (gemini-2.5-pro-image) |
+| Perplexity | perplexity-chat | Text generation | Chat model (sonar) |
+| Perplexity | perplexity-deep-research | Deep research | Research model (sonar-pro) |
+
+---
+
+## 2. What Was Broken
+
+### 2.1 Model Selection Hardcoded
+
+**Problem**: Instead of fetching real models from provider APIs, I hardcoded a static list.
+
+**Location**: [stores/settingsStore.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/stores/settingsStore.ts) lines 100-140
+
+**Damage**: 
+- Users see fake/outdated model names
+- Selected model might not exist in provider's API
+- New models never appear without code update
+
+### 2.2 Handler-Model Mapping Removed
+
+**Problem**: The old system allowed different models per handler (text vs image). I removed this capability.
+
+**Old System Had**: Per-handler model selection
+- For Gemini text: Use `gemini-2.5-flash`
+- For Gemini images: Use `gemini-2.5-pro-image`
+
+**New System**: Only one model per provider, breaking image generation and specialized handlers.
+
+### 2.3 Multi-Key Rotation Broken
+
+**Problem**: The system supported multiple API keys per provider for rate limit handling. My changes may have affected this.
+
+**How Multi-Key Should Work**:
+1. User adds 3 Gemini API keys (different Google projects)
+2. System uses Key 1
+3. Key 1 hits rate limit (429 error)
+4. System automatically rotates to Key 2
+5. When Key 2 exhausted, uses Key 3
+6. When all exhausted, fails gracefully with clear message
+
+### 2.4 Handler Priority Bypassed
+
+**Problem**: I created [handlerMapping.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/features/campaigns/lib/handlerMapping.ts) that forced specific handlers, ignoring Settings priority.
+
+**Damage**: User sets Gemini as priority 1, but campaigns used Perplexity directly.
+
+---
+
+## 3. Multi-Key Management
+
+### How It Should Work
+
+**Storage Structure**:
+Each provider stores an ARRAY of keys, not a single key:
+- `providerKeys.gemini = [{ key: 'AIza...1', label: 'Project 1' }, { key: 'AIza...2', label: 'Project 2' }]`
+
+**Rotation Logic**:
+When executing a request:
+1. Try first key in array
+2. If 429 rate limit error, mark key as rate-limited with timestamp
+3. Try next key in array
+4. Continue until success or all keys exhausted
+5. Rate-limited keys become available again after cooldown period
+
+**Current State**: The `KeyManager` class exists at `lib/ai/KeyManager.ts` but the UI and execution flow may not be properly wired.
+
+### Files Involved in Multi-Key
+
+| File | Purpose | Status |
+|------|---------|--------|
+| [stores/settingsStore.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/stores/settingsStore.ts) | Stores `providerKeys[provider][]` array | Exists |
+| `lib/ai/KeyManager.ts` | Manages key rotation and rate limits | Exists |
+| [lib/ai/services/AIServices.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/services/AIServices.ts) | Uses KeyManager for execution | Needs verification |
+| Settings UI | Add/remove multiple keys per provider | Exists but may not handle rotation status |
+
+---
+
+## 4. Handler-Model Mapping
+
+### The Requirement
+
+Each handler needs to specify which model to use. Different handlers from the same provider may need different models.
+
+**Example Configuration Needed**:
+
+| Handler ID | Provider | Capability | Model Selection |
+|------------|----------|------------|-----------------|
+| gemini | gemini | text generation | User selects: `gemini-2.5-flash` |
+| gemini-images | gemini | image generation | User selects: `gemini-2.5-pro-image` |
+| perplexity-chat | perplexity | chat | User selects: `sonar` |
+| perplexity-deep-research | perplexity | research | User selects: `sonar-pro` |
+| deepseek | deepseek | text | User selects: `deepseek-chat` |
+| deepseek-coder | deepseek | code | User selects: `deepseek-coder` |
+
+### What Settings UI Needs
+
+For each provider:
+1. Show ALL models available (fetched from API after key validation)
+2. Allow user to assign models to EACH handler/capability
+3. Store these mappings persistently
+
+**Storage Structure Needed**:
+```
+handlerModels: {
+    'gemini': 'gemini-2.5-flash',           // For text
+    'gemini-images': 'gemini-2.5-pro-image', // For images
+    'perplexity-chat': 'sonar',
+    'perplexity-deep-research': 'sonar-pro'
+}
+```
+
+### Current Gap
+
+Settings currently only stores ONE model per provider (`selectedModels[provider]`), not per handler. This needs expansion.
+
+---
+
+## 5. Key Validation Flow
+
+### Correct Flow
+
+1. **User enters key** → Triggers validation
+2. **Call provider's test endpoint** → `POST /api/ai-providers` with `{ provider, key }`
+3. **Provider adapter calls real API** → [gemini.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/gemini.ts) calls `https://generativelanguage.googleapis.com/v1/models`
+4. **Parse available models** → Filter and format model list
+5. **Return to UI** → `{ valid: true, models: ['gemini-2.5-flash', 'gemini-2.5-pro', ...] }`
+6. **Populate dropdown** → Show real models, not hardcoded
+7. **Persist models** → Save to localStorage for page reload
+
+### Provider testKey Methods
+
+Each provider adapter implements [testKey()](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/registry.ts#97-125) that validates key and returns models:
+
+| Provider | File | Method | What It Does |
+|----------|------|--------|--------------|
+| Gemini | [lib/ai/providers/gemini.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/gemini.ts) | [testKey(apiKey)](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/registry.ts#97-125) | Calls `/v1/models`, returns gemini models |
+| DeepSeek | [lib/ai/providers/deepseek.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/deepseek.ts) | [testKey(apiKey)](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/registry.ts#97-125) | Calls DeepSeek models endpoint |
+| Perplexity | [lib/ai/providers/perplexity/PerplexityProvider.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/perplexity/PerplexityProvider.ts) | [testKey(apiKey)](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/registry.ts#97-125) | Returns available Sonar models |
+| OpenRouter | [lib/ai/providers/openrouter.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/openrouter.ts) | [testKey(apiKey)](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/providers/registry.ts#97-125) | Calls OpenRouter models endpoint |
+
+### The API Route
+
+**Endpoint**: `POST /api/ai-providers`
+
+**Input**: `{ provider: 'gemini', key: 'AIza...' }`
+
+**Output**: `{ valid: true, models: [...], responseTime: 250 }`
+
+**Current Status**: Route exists at [app/api/ai-providers/route.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/app/api/ai-providers/route.ts) - needs verification that it calls provider testKey methods.
+
+---
+
+## 6. System Impact
+
+### Features Affected
+
+| Feature | How It Uses AI | Impact of Regression |
+|---------|----------------|---------------------|
+| Campaign content generation | Uses text handler with selected model | Wrong model may be used |
+| Campaign research | Uses research handler (Perplexity) | Priority chain bypassed |
+| Image generation | Uses image handler | Model doesn't support images |
+| Competitor analysis | Uses research capability | May use wrong provider |
+| Keyword analysis | Uses analyze capability | May use exhausted key |
+
+### Error Scenarios from Logs
+
+From [ifrit-logs-2026-01-08.json](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/ifrit-logs-2026-01-08.json):
+
+| Error | Root Cause | Fix Needed |
+|-------|------------|------------|
+| Gemini 429 rate limit | No key rotation to second key | Verify KeyManager rotation |
+| All handlers failed | No valid model selected | Restore model fetching |
+| Perplexity used instead of Gemini | Handler priority bypassed | Remove handlerMapping override |
+
+---
+
+## 7. Detailed Fix Instructions
+
+### Fix 1: Restore Dynamic Model Fetching
+
+**File**: [components/settings/sections/AIProvidersSection.tsx](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/components/settings/sections/AIProvidersSection.tsx)
+
+**Changes Needed**:
+
+1. Add state for fetched models per provider
+2. Add function to call `/api/ai-providers` POST
+3. Call fetch function when key is added
+4. Load cached models from localStorage on mount
+5. Replace hardcoded `config.models` with fetched `availableModels`
+
+**Behavior After Fix**:
+- User adds API key → Models fetched automatically
+- Dropdown shows REAL models from provider
+- Models cached in localStorage for persistence
+
+---
+
+### Fix 2: Add Handler-Model Mapping
+
+**File**: [stores/settingsStore.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/stores/settingsStore.ts)
+
+**Changes Needed**:
+
+1. Add new state: `handlerModels: Record<string, string>` (handler ID → model ID)
+2. Add action: `setHandlerModel(handlerId: string, modelId: string)`
+3. In Settings UI: For each handler, show dropdown of available models
+
+**Behavior After Fix**:
+- User can set [gemini](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/services/AIServices.ts#1102-1103) handler to use `gemini-2.5-flash`
+- User can set `gemini-images` handler to use `gemini-2.5-pro-image`
+- Each handler uses its configured model
+
+---
+
+### Fix 3: Verify Multi-Key Rotation
+
+**Files**: 
+- `lib/ai/KeyManager.ts`
+- [lib/ai/services/AIServices.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/services/AIServices.ts)
+
+**Verification Steps**:
+
+1. Check KeyManager has `markRateLimited(provider, key)` method
+2. Check KeyManager tracks rate-limited keys with timestamps
+3. Check execution flow calls `getNextKey()` on 429 error
+4. Check Settings UI shows key status (active/rate-limited)
+
+**Behavior After Fix**:
+- Add 3 keys for Gemini
+- First key hits rate limit
+- System automatically uses second key
+- UI shows which key is active/rate-limited
+
+---
+
+### Fix 4: Remove Handler Priority Override
+
+**File**: [features/campaigns/lib/handlerMapping.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/features/campaigns/lib/handlerMapping.ts)
+
+**Status**: Already partially fixed in this session
+
+**Verification**:
+- [getGenerateHandler()](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/features/campaigns/lib/handlerMapping.ts#78-91) returns `undefined` (not a forced handler)
+- [getResearchHandler()](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/features/campaigns/lib/handlerMapping.ts#54-77) only returns handler for explicit Perplexity preference
+- Campaign uses Settings priority chain
+
+---
+
+### Fix 5: Verify API Route
+
+**File**: [app/api/ai-providers/route.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/app/api/ai-providers/route.ts)
+
+**Verification**:
+
+1. POST handler exists
+2. Extracts `provider` and [key](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/services/AIServices.ts#1278-1288) from body
+3. Calls `providerRegistry.testKey(provider, key)`
+4. Returns `{ valid, models, responseTime }`
+
+---
+
+## 8. Verification Checklist
+
+### After All Fixes Applied
+
+**Settings UI**:
+- [ ] Enter Gemini key → Real models appear in dropdown
+- [ ] Enter Perplexity key → Real models appear in dropdown
+- [ ] Can select different model for text vs image handlers
+- [ ] Models persist after page reload
+- [ ] Can add multiple keys per provider
+- [ ] Key status shows (valid/rate-limited)
+
+**Campaign Execution**:
+- [ ] Logs show Gemini tried first (if priority 1)
+- [ ] If Gemini 429, logs show rotation to next key
+- [ ] If all Gemini keys exhausted, falls back to next provider
+- [ ] Correct model used for each handler type
+
+**Handler-Model Mapping**:
+- [ ] Text generation uses text model
+- [ ] Image generation uses image model
+- [ ] Research uses research model
+- [ ] Each handler respects its configured model
+
+---
+
+## Summary of Files to Modify
+
+| File | Changes |
+|------|---------|
+| [components/settings/sections/AIProvidersSection.tsx](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/components/settings/sections/AIProvidersSection.tsx) | Add model fetching, per-handler selection |
+| [stores/settingsStore.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/stores/settingsStore.ts) | Add `handlerModels` state and actions |
+| [lib/ai/services/AIServices.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/lib/ai/services/AIServices.ts) | Verify uses handlerModels for model selection |
+| [features/campaigns/lib/handlerMapping.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/features/campaigns/lib/handlerMapping.ts) | Already fixed - verify returns undefined |
+| [app/api/ai-providers/route.ts](file:///home/ubuntu/Documents/AdSence%20Ifrit%20V3%20Opus4.5/app/api/ai-providers/route.ts) | Verify calls testKey correctly |
+
+---
+
+## Conclusion
+
+This report documents all broken functionality in the AI provider and handler system. The key issues are:
+
+1. **Models hardcoded** instead of fetched from API
+2. **Per-handler model selection lost** - can't set different models for text vs image
+3. **Multi-key rotation** status unknown - needs verification
+4. **Handler priority bypassed** - partially fixed
+
+Following the fix instructions in Section 7 will restore full functionality.

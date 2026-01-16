@@ -1,0 +1,337 @@
+
+> frontend@0.1.0 dev
+> next dev
+
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Local:         http://localhost:3000
+   - Network:       http://10.0.0.165:3000
+
+ ✓ Starting...
+ ✓ Ready in 1744ms
+[StatusStream] Created new global StatusEventEmitter
+ ○ Compiling /api/status/stream ...
+[HuntStore] Starting hydration from localStorage...
+[HuntStore] Hydrating from localStorage: { ownedDomainsCount: 0, analyzeQueueCount: 0, purchaseQueueCount: 0 }
+[HuntStore] Hydration complete: { ownedDomains: 0 }
+[GlobalActionStatus UI] Rendering with 0 actions 
+[GlobalActionStatus UI] No actions - returning null
+ GET /api/status/stream?sessionId=session_1768051820882_ddzajnqo6 200 in 25.0s (compile: 2.1s, render: 22.9s)
+ GET /api/status/stream?sessionId=session_1768052423722_le3d4pf5l 200 in 24.5s (compile: 1522ms, render: 23.0s)
+[GlobalActionStatus UI] Rendering with 0 actions 
+[GlobalActionStatus UI] No actions - returning null
+[GlobalActionStatus UI] Rendering with 0 actions 
+[GlobalActionStatus UI] No actions - returning null
+ GET /api/status/stream?sessionId=session_1768052424435_5ctfw2bbp 200 in 24.3s (compile: 724ms, render: 23.6s)
+ GET /api/status/stream?sessionId=session_1767876984735_7n9x9ryp2 200 in 25.6s (compile: 2.0s, render: 23.5s)
+ GET /api/status/stream?sessionId=session_1767880034379_gldo1ivzr 200 in 25.6s (compile: 2.1s, render: 23.5s)
+ GET / 200 in 25.7s (compile: 23.7s, render: 1998ms)
+ GET / 200 in 750ms (compile: 50ms, render: 701ms)
+ GET / 200 in 548ms (compile: 58ms, render: 490ms)
+[GlobalActionStatus UI] Rendering with 0 actions 
+[GlobalActionStatus UI] No actions - returning null
+ GET /api/status/stream?sessionId=session_1768052452798_ymm7e6fyp 200 in 7.0min (compile: 28ms, render: 7.0min)
+ GET / 200 in 197ms (compile: 19ms, render: 178ms)
+[GlobalActionStatus UI] Rendering with 0 actions 
+[GlobalActionStatus UI] No actions - returning null
+ GET /api/status/stream?sessionId=session_1768052877894_a507p6zxe 200 in 71s (compile: 19ms, render: 71s)
+ GET / 200 in 173ms (compile: 14ms, render: 159ms)
+ GET /api/domain-hunter 200 in 634ms (compile: 616ms, render: 18ms)
+ GET /api/domain-hunter 200 in 16ms (compile: 7ms, render: 9ms)
+ ○ Compiling /api/capabilities/[capability] ...
+[AIServices] Registered handler: gemini for capabilities: generate, research, keywords, analyze, keyword-analyze, summarize, translate, reasoning, code, domain-profile, quality-review, seo-optimize, images
+[AIServices] Registered handler: deepseek for capabilities: generate, research, keywords, analyze, keyword-analyze, summarize, translate, reasoning, code, domain-profile, quality-review, seo-optimize, images
+[AIServices] Registered handler: perplexity for capabilities: generate, research, keywords, analyze, keyword-analyze, summarize, translate, reasoning, code, domain-profile, quality-review, seo-optimize, images
+[AIServices] Registered handler: perplexity-search for capabilities: search
+[AIServices] Registered handler: perplexity-chat for capabilities: generate, research
+[AIServices] Registered handler: perplexity-reason for capabilities: reasoning, analyze
+[AIServices] Registered handler: perplexity-deep-research for capabilities: deep-research
+[AIServices] Registered handler: perplexity-async-status for capabilities: async-status
+[AIServices] Registered handler: perplexity-fact-check for capabilities: fact-check, verify
+[AIServices] Registered handler: openrouter for capabilities: generate, research, keywords, analyze, keyword-analyze, summarize, translate, reasoning, code, domain-profile, quality-review, seo-optimize, images
+[AIServices] Registered handler: local-eeat-scorer for capabilities: eeat-scoring
+[AIServices] Registered handler: local-schema-generator for capabilities: schema-generate
+[AIServices] Registered handler: local-author-matcher for capabilities: author-match
+[AIServices] Registered handler: integration-wp-publish for capabilities: wp-publish
+[AIServices] Registered handler: local-campaign-runner for capabilities: campaign-run
+[AIServices] Registered handler: integration-google-factcheck for capabilities: fact-check
+[AIServices] Registered handler: local-internal-linker for capabilities: internal-link
+[AIServices] Registered handler: unsplash for capabilities: search-images
+[AIServices] Registered handler: pexels for capabilities: search-images
+[AIServices] Registered handler: brave-search for capabilities: search-images
+[AIServices] Registered handler: perplexity-images for capabilities: search-images
+[AIServices] Registered handler: hackernews-trends for capabilities: trend-scan
+[AIServices] Registered handler: googlenews-trends for capabilities: trend-scan
+[AIServices] Registered handler: producthunt-trends for capabilities: trend-scan
+[AIServices] Registered handler: brave-search-trends for capabilities: trend-scan, research
+[AIServices] Registered handler: spamzilla-domains for capabilities: domain-search
+[AIServices] Registered handler: wayback-history for capabilities: wayback-lookup, domain-analyze
+[AIServices] Registered handler: dns-blacklist for capabilities: domain-analyze
+[AIServices] Registered handler: expireddomains-io for capabilities: domain-search
+[AIServices] Registered handler: scraper for capabilities: scrape
+[AIServices] Initialized with 26 capabilities, 30 handlers
+[CapabilityExecutor] Starting research
+[CapabilityExecutor] Found 6 handlers for research
+[CapabilityExecutor] Trying Google Gemini (attempt 1)
+[Capability:research] SUCCESS via gemini in 10351ms
+ POST /api/capabilities/research 200 in 15.9s (compile: 5.4s, render: 10.4s)
+[CapabilityExecutor] Starting generate
+[CapabilityExecutor] Found 5 handlers for generate
+[CapabilityExecutor] Trying Google Gemini (attempt 1)
+[Capability:generate] SUCCESS via gemini in 35915ms
+ POST /api/capabilities/generate 200 in 36.1s (compile: 196ms, render: 36.0s)
+ GET / 200 in 5.0s (compile: 4.4s, render: 598ms)
+ ○ Compiling / ...
+[HuntStore] Starting hydration from localStorage...
+[HuntStore] Hydrating from localStorage: { ownedDomainsCount: 0, analyzeQueueCount: 0, purchaseQueueCount: 0 }
+[HuntStore] Hydration complete: { ownedDomains: 0 }
+[GlobalActionStatus UI] Rendering with 0 actions 
+[GlobalActionStatus UI] No actions - returning null
+[GlobalActionStatus UI] Rendering with 0 actions 
+[GlobalActionStatus UI] No actions - returning null
+[GlobalActionStatus UI] Rendering with 0 actions 
+[GlobalActionStatus UI] No actions - returning null
+[GlobalActionStatus UI] Rendering with 0 actions 
+[GlobalActionStatus UI] No actions - returning null
+ GET /api/status/stream?sessionId=session_1768052950223_kdx2aq6wk 200 in 18.9min (compile: 19ms, render: 18.9min)
+ ✓ Compiled in 0ms
+ GET / 200 in 12.6s (compile: 10.9s, render: 1648ms)
+ GET / 200 in 6.9s (compile: 4.9s, render: 2.1s)
+ GET / 200 in 340ms (compile: 219ms, render: 121ms)
+ GET / 200 in 285ms (compile: 25ms, render: 261ms)
+ GET / 200 in 315ms (compile: 21ms, render: 293ms)
+ GET / 200 in 150ms (compile: 17ms, render: 133ms)
+ GET / 200 in 182ms (compile: 16ms, render: 166ms)
+ GET / 200 in 196ms (compile: 12ms, render: 185ms)
+ GET / 200 in 196ms (compile: 21ms, render: 174ms)
+ GET / 200 in 167ms (compile: 19ms, render: 148ms)
+ GET / 200 in 155ms (compile: 10ms, render: 145ms)
+ GET / 200 in 63ms (compile: 14ms, render: 49ms)
+ GET / 200 in 160ms (compile: 13ms, render: 147ms)
+ GET / 200 in 233ms (compile: 11ms, render: 221ms)
+ GET / 200 in 151ms (compile: 18ms, render: 133ms)
+ GET / 200 in 132ms (compile: 16ms, render: 116ms)
+ GET / 200 in 132ms (compile: 12ms, render: 119ms)
+ GET / 200 in 95ms (compile: 10ms, render: 85ms)
+ GET / 200 in 152ms (compile: 12ms, render: 140ms)
+ GET / 200 in 144ms (compile: 13ms, render: 131ms)
+ GET / 200 in 164ms (compile: 12ms, render: 151ms)
+ GET / 200 in 186ms (compile: 14ms, render: 172ms)
+ GET / 200 in 183ms (compile: 13ms, render: 170ms)
+ GET / 200 in 191ms (compile: 13ms, render: 178ms)
+ GET / 200 in 310ms (compile: 30ms, render: 280ms)
+ GET / 200 in 219ms (compile: 14ms, render: 205ms)
+ GET / 200 in 199ms (compile: 16ms, render: 183ms)
+ GET / 200 in 130ms (compile: 10ms, render: 121ms)
+ GET / 200 in 305ms (compile: 19ms, render: 286ms)
+ GET / 200 in 200ms (compile: 23ms, render: 177ms)
+ GET / 200 in 514ms (compile: 13ms, render: 502ms)
+ GET / 200 in 404ms (compile: 36ms, render: 368ms)
+ GET / 200 in 120ms (compile: 26ms, render: 95ms)
+ GET / 200 in 93ms (compile: 21ms, render: 72ms)
+ GET / 200 in 159ms (compile: 13ms, render: 146ms)
+ GET / 200 in 107ms (compile: 8ms, render: 100ms)
+ GET / 200 in 165ms (compile: 14ms, render: 151ms)
+ GET / 200 in 120ms (compile: 8ms, render: 111ms)
+ GET / 200 in 303ms (compile: 16ms, render: 286ms)
+ GET / 200 in 300ms (compile: 20ms, render: 280ms)
+ GET / 200 in 191ms (compile: 30ms, render: 162ms)
+ GET / 200 in 356ms (compile: 36ms, render: 321ms)
+ GET / 200 in 298ms (compile: 26ms, render: 272ms)
+ GET / 200 in 239ms (compile: 17ms, render: 222ms)
+ GET / 200 in 244ms (compile: 19ms, render: 224ms)
+ GET / 200 in 267ms (compile: 23ms, render: 244ms)
+ GET / 200 in 194ms (compile: 18ms, render: 176ms)
+ GET / 200 in 201ms (compile: 10ms, render: 191ms)
+ GET / 200 in 311ms (compile: 11ms, render: 301ms)
+ GET / 200 in 410ms (compile: 22ms, render: 388ms)
+ GET / 200 in 530ms (compile: 19ms, render: 512ms)
+ GET / 200 in 501ms (compile: 37ms, render: 464ms)
+ GET / 200 in 235ms (compile: 37ms, render: 198ms)
+ GET / 200 in 299ms (compile: 27ms, render: 272ms)
+ GET / 200 in 265ms (compile: 21ms, render: 244ms)
+ GET / 200 in 73ms (compile: 19ms, render: 53ms)
+ GET / 200 in 91ms (compile: 10ms, render: 81ms)
+ GET / 200 in 148ms (compile: 12ms, render: 135ms)
+ GET / 200 in 195ms (compile: 16ms, render: 179ms)
+ GET / 200 in 121ms (compile: 12ms, render: 109ms)
+ GET / 200 in 174ms (compile: 14ms, render: 161ms)
+ GET / 200 in 222ms (compile: 42ms, render: 180ms)
+ GET / 200 in 158ms (compile: 8ms, render: 151ms)
+ GET / 200 in 154ms (compile: 14ms, render: 141ms)
+ GET / 200 in 160ms (compile: 8ms, render: 152ms)
+ GET / 200 in 97ms (compile: 9ms, render: 88ms)
+ GET / 200 in 186ms (compile: 15ms, render: 171ms)
+ GET / 200 in 218ms (compile: 20ms, render: 198ms)
+ GET / 200 in 157ms (compile: 9ms, render: 148ms)
+ GET / 200 in 81ms (compile: 11ms, render: 70ms)
+ GET / 200 in 138ms (compile: 12ms, render: 126ms)
+ GET / 200 in 69ms (compile: 9ms, render: 60ms)
+ GET / 200 in 118ms (compile: 11ms, render: 107ms)
+ GET / 200 in 108ms (compile: 8ms, render: 101ms)
+ GET / 200 in 92ms (compile: 11ms, render: 81ms)
+ GET / 200 in 53ms (compile: 10ms, render: 43ms)
+ GET / 200 in 79ms (compile: 8ms, render: 71ms)
+ GET / 200 in 43ms (compile: 7ms, render: 36ms)
+ GET / 200 in 77ms (compile: 8ms, render: 70ms)
+ GET / 200 in 44ms (compile: 7ms, render: 37ms)
+ GET / 200 in 98ms (compile: 7ms, render: 91ms)
+ GET / 200 in 48ms (compile: 7ms, render: 41ms)
+ GET / 200 in 78ms (compile: 7ms, render: 71ms)
+ GET / 200 in 45ms (compile: 7ms, render: 39ms)
+ GET / 200 in 78ms (compile: 6ms, render: 72ms)
+ GET / 200 in 45ms (compile: 8ms, render: 38ms)
+ GET / 200 in 77ms (compile: 7ms, render: 70ms)
+ GET / 200 in 45ms (compile: 8ms, render: 37ms)
+ GET / 200 in 80ms (compile: 7ms, render: 73ms)
+ GET / 200 in 45ms (compile: 7ms, render: 38ms)
+ GET / 200 in 82ms (compile: 8ms, render: 74ms)
+ GET / 200 in 48ms (compile: 7ms, render: 41ms)
+ GET / 200 in 102ms (compile: 7ms, render: 95ms)
+ GET / 200 in 48ms (compile: 7ms, render: 42ms)
+ GET / 200 in 89ms (compile: 7ms, render: 82ms)
+ GET / 200 in 54ms (compile: 8ms, render: 45ms)
+ GET / 200 in 88ms (compile: 8ms, render: 79ms)
+ GET / 200 in 54ms (compile: 8ms, render: 46ms)
+ GET / 200 in 98ms (compile: 8ms, render: 90ms)
+ GET / 200 in 55ms (compile: 8ms, render: 47ms)
+ GET / 200 in 88ms (compile: 9ms, render: 79ms)
+ GET / 200 in 52ms (compile: 8ms, render: 44ms)
+ GET / 200 in 109ms (compile: 7ms, render: 102ms)
+ GET / 200 in 65ms (compile: 11ms, render: 54ms)
+ GET / 200 in 133ms (compile: 9ms, render: 123ms)
+ GET / 200 in 64ms (compile: 10ms, render: 54ms)
+ GET / 200 in 98ms (compile: 10ms, render: 88ms)
+ GET / 200 in 60ms (compile: 10ms, render: 50ms)
+ GET / 200 in 103ms (compile: 10ms, render: 94ms)
+ GET / 200 in 56ms (compile: 10ms, render: 46ms)
+ GET / 200 in 103ms (compile: 9ms, render: 94ms)
+ GET / 200 in 61ms (compile: 10ms, render: 51ms)
+ GET / 200 in 121ms (compile: 9ms, render: 112ms)
+ GET / 200 in 78ms (compile: 10ms, render: 68ms)
+ GET / 200 in 113ms (compile: 11ms, render: 102ms)
+ GET / 200 in 71ms (compile: 12ms, render: 59ms)
+ GET / 200 in 158ms (compile: 15ms, render: 143ms)
+ GET / 200 in 150ms (compile: 9ms, render: 141ms)
+ GET / 200 in 162ms (compile: 11ms, render: 150ms)
+ GET / 200 in 90ms (compile: 11ms, render: 78ms)
+ GET / 200 in 123ms (compile: 13ms, render: 111ms)
+ GET / 200 in 75ms (compile: 8ms, render: 68ms)
+ GET / 200 in 130ms (compile: 12ms, render: 118ms)
+ GET / 200 in 219ms (compile: 13ms, render: 206ms)
+ GET / 200 in 155ms (compile: 9ms, render: 146ms)
+ GET / 200 in 86ms (compile: 13ms, render: 73ms)
+ GET / 200 in 126ms (compile: 11ms, render: 115ms)
+ GET / 200 in 74ms (compile: 8ms, render: 66ms)
+ GET / 200 in 155ms (compile: 13ms, render: 142ms)
+ GET / 200 in 72ms (compile: 12ms, render: 61ms)
+ GET / 200 in 118ms (compile: 11ms, render: 107ms)
+ GET / 200 in 76ms (compile: 14ms, render: 62ms)
+ GET / 200 in 102ms (compile: 9ms, render: 93ms)
+ GET / 200 in 55ms (compile: 7ms, render: 47ms)
+ GET / 200 in 101ms (compile: 11ms, render: 91ms)
+ GET / 200 in 60ms (compile: 8ms, render: 52ms)
+ GET / 200 in 86ms (compile: 9ms, render: 77ms)
+ GET / 200 in 49ms (compile: 9ms, render: 40ms)
+ GET / 200 in 84ms (compile: 8ms, render: 76ms)
+ GET / 200 in 54ms (compile: 7ms, render: 47ms)
+ GET / 200 in 139ms (compile: 10ms, render: 129ms)
+ GET / 200 in 82ms (compile: 10ms, render: 73ms)
+ GET / 200 in 103ms (compile: 11ms, render: 92ms)
+ GET / 200 in 127ms (compile: 10ms, render: 117ms)
+ GET / 200 in 124ms (compile: 12ms, render: 112ms)
+ GET / 200 in 64ms (compile: 9ms, render: 56ms)
+ GET / 200 in 93ms (compile: 13ms, render: 80ms)
+ GET / 200 in 58ms (compile: 7ms, render: 51ms)
+ GET / 200 in 91ms (compile: 9ms, render: 82ms)
+ GET / 200 in 50ms (compile: 7ms, render: 43ms)
+ GET / 200 in 101ms (compile: 10ms, render: 91ms)
+ GET / 200 in 54ms (compile: 8ms, render: 47ms)
+ GET / 200 in 113ms (compile: 9ms, render: 104ms)
+ GET / 200 in 56ms (compile: 8ms, render: 48ms)
+ GET / 200 in 96ms (compile: 11ms, render: 85ms)
+ GET / 200 in 53ms (compile: 8ms, render: 45ms)
+ GET / 200 in 104ms (compile: 9ms, render: 95ms)
+ GET / 200 in 57ms (compile: 8ms, render: 48ms)
+ GET / 200 in 78ms (compile: 7ms, render: 71ms)
+ GET / 200 in 44ms (compile: 6ms, render: 38ms)
+ GET / 200 in 78ms (compile: 8ms, render: 70ms)
+ GET / 200 in 43ms (compile: 7ms, render: 36ms)
+ GET / 200 in 79ms (compile: 8ms, render: 72ms)
+ GET / 200 in 43ms (compile: 7ms, render: 36ms)
+ GET / 200 in 97ms (compile: 7ms, render: 90ms)
+ GET / 200 in 44ms (compile: 7ms, render: 37ms)
+ GET / 200 in 80ms (compile: 8ms, render: 72ms)
+ GET / 200 in 46ms (compile: 8ms, render: 38ms)
+ GET / 200 in 78ms (compile: 6ms, render: 71ms)
+ GET / 200 in 44ms (compile: 7ms, render: 37ms)
+ GET / 200 in 93ms (compile: 9ms, render: 84ms)
+ GET / 200 in 54ms (compile: 7ms, render: 47ms)
+ GET / 200 in 79ms (compile: 9ms, render: 70ms)
+ GET / 200 in 45ms (compile: 7ms, render: 38ms)
+ GET / 200 in 77ms (compile: 7ms, render: 70ms)
+ GET / 200 in 44ms (compile: 8ms, render: 36ms)
+ GET / 200 in 107ms (compile: 7ms, render: 100ms)
+ GET / 200 in 54ms (compile: 9ms, render: 46ms)
+ GET / 200 in 79ms (compile: 7ms, render: 72ms)
+ GET / 200 in 51ms (compile: 6ms, render: 45ms)
+ GET / 200 in 101ms (compile: 11ms, render: 90ms)
+ GET / 200 in 57ms (compile: 11ms, render: 47ms)
+ GET / 200 in 93ms (compile: 8ms, render: 86ms)
+ GET / 200 in 50ms (compile: 8ms, render: 42ms)
+ GET / 200 in 91ms (compile: 10ms, render: 81ms)
+ GET / 200 in 46ms (compile: 8ms, render: 39ms)
+ GET / 200 in 84ms (compile: 9ms, render: 75ms)
+ GET / 200 in 50ms (compile: 8ms, render: 42ms)
+ GET / 200 in 119ms (compile: 8ms, render: 111ms)
+ GET / 200 in 57ms (compile: 9ms, render: 48ms)
+ GET / 200 in 91ms (compile: 11ms, render: 80ms)
+ GET / 200 in 50ms (compile: 7ms, render: 42ms)
+ GET / 200 in 86ms (compile: 9ms, render: 77ms)
+ GET / 200 in 50ms (compile: 10ms, render: 40ms)
+ GET / 200 in 101ms (compile: 8ms, render: 93ms)
+ GET / 200 in 102ms (compile: 8ms, render: 94ms)
+ GET / 200 in 97ms (compile: 8ms, render: 89ms)
+ GET / 200 in 54ms (compile: 10ms, render: 44ms)
+ GET / 200 in 104ms (compile: 9ms, render: 96ms)
+ GET / 200 in 69ms (compile: 11ms, render: 57ms)
+ GET / 200 in 145ms (compile: 13ms, render: 132ms)
+ GET / 200 in 62ms (compile: 8ms, render: 54ms)
+ GET / 200 in 124ms (compile: 9ms, render: 115ms)
+ GET / 200 in 70ms (compile: 12ms, render: 58ms)
+ GET / 200 in 120ms (compile: 13ms, render: 107ms)
+ GET / 200 in 76ms (compile: 7ms, render: 69ms)
+ GET / 200 in 101ms (compile: 9ms, render: 92ms)
+ GET / 200 in 54ms (compile: 6ms, render: 47ms)
+ GET / 200 in 117ms (compile: 9ms, render: 108ms)
+ GET / 200 in 68ms (compile: 9ms, render: 58ms)
+ GET / 200 in 111ms (compile: 9ms, render: 102ms)
+ GET / 200 in 61ms (compile: 9ms, render: 53ms)
+ GET / 200 in 159ms (compile: 11ms, render: 148ms)
+ GET / 200 in 76ms (compile: 10ms, render: 66ms)
+ GET / 200 in 109ms (compile: 11ms, render: 98ms)
+ GET / 200 in 118ms (compile: 9ms, render: 109ms)
+ GET / 200 in 123ms (compile: 10ms, render: 114ms)
+ GET / 200 in 80ms (compile: 11ms, render: 69ms)
+ GET / 200 in 118ms (compile: 12ms, render: 107ms)
+ GET / 200 in 70ms (compile: 11ms, render: 59ms)
+ GET / 200 in 108ms (compile: 10ms, render: 98ms)
+ GET / 200 in 66ms (compile: 8ms, render: 58ms)
+ GET / 200 in 94ms (compile: 9ms, render: 85ms)
+ GET / 200 in 47ms (compile: 10ms, render: 38ms)
+ GET / 200 in 109ms (compile: 9ms, render: 100ms)
+ GET / 200 in 53ms (compile: 7ms, render: 45ms)
+ GET / 200 in 95ms (compile: 8ms, render: 87ms)
+ GET / 200 in 57ms (compile: 9ms, render: 48ms)
+ GET / 200 in 109ms (compile: 11ms, render: 99ms)
+ GET / 200 in 64ms (compile: 9ms, render: 56ms)
+ GET / 200 in 105ms (compile: 10ms, render: 95ms)
+ GET / 200 in 61ms (compile: 12ms, render: 50ms)
+ GET / 200 in 106ms (compile: 12ms, render: 94ms)
+ GET / 200 in 60ms (compile: 10ms, render: 51ms)
+ GET / 200 in 100ms (compile: 10ms, render: 91ms)
+ GET / 200 in 154ms (compile: 9ms, render: 145ms)
+ GET / 200 in 146ms (compile: 10ms, render: 136ms)
+ GET / 200 in 62ms (compile: 8ms, render: 54ms)
+ GET / 200 in 90ms (compile: 10ms, render: 79ms)
+ GET / 200 in 52ms (compile: 10ms, render: 43ms)
+ GET / 200 in 56ms (compile: 9ms, render: 47ms)

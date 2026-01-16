@@ -50,8 +50,8 @@ export function IfritPluginSection({ site }: IfritPluginSectionProps) {
             return;
         }
 
-        // Validate site URL exists (form saves as 'url', API expects 'siteUrl')
-        const siteUrl = site.url || site.siteUrl;
+        // Validate site URL exists
+        const siteUrl = site.url;
         if (!siteUrl) {
             setError('Site URL is not configured. Please edit the site and add your WordPress URL.');
             return;
@@ -63,7 +63,6 @@ export function IfritPluginSection({ site }: IfritPluginSectionProps) {
         try {
             const result = await checkPluginHealth({
                 ...site,
-                siteUrl: siteUrl,  // Explicitly pass resolved URL
                 ifritToken: tokenInput,
             });
 
@@ -82,7 +81,7 @@ export function IfritPluginSection({ site }: IfritPluginSectionProps) {
                 // Configure webhook URL
                 try {
                     const webhookUrl = `${window.location.origin}/api/webhooks/wordpress`;
-                    await setPluginWebhookUrl({ ...site, siteUrl, ifritToken: tokenInput }, webhookUrl);
+                    await setPluginWebhookUrl({ ...site, ifritToken: tokenInput }, webhookUrl);
                     updateSite(site.id, { ifritWebhookConfigured: true });
                 } catch {
                     console.warn('[IfritPlugin] Webhook configuration failed');

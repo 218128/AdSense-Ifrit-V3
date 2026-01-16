@@ -6,13 +6,17 @@
  */
 
 // ============================================
-// PROVIDER TYPES
+// PROVIDER TYPES (Re-exported from unified types)
 // ============================================
+
+// Import from single source of truth
+import { TextProviderId } from '../types/providers';
 
 /**
  * Supported AI provider IDs for type-safe key management
+ * @deprecated Use TextProviderId from '@/lib/ai/types/providers' instead
  */
-export type ProviderType = 'gemini' | 'deepseek' | 'openrouter' | 'perplexity';
+export type ProviderType = TextProviderId;
 
 // ============================================
 // CAPABILITY SYSTEM (Dynamic)
@@ -304,6 +308,9 @@ export interface ExecuteResult {
 
     // Rate limit flag (for retry logic)
     isRateLimited?: boolean;
+
+    // Per-handler errors (for debugging when all handlers fail)
+    handlerErrors?: Record<string, string>; // Map of handlerId -> actual error message
 
     // AI-specific metadata
     model?: string;

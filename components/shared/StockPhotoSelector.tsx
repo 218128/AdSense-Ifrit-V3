@@ -42,32 +42,60 @@ export function StockPhotoSelector({ onSelect, onClose, initialQuery = '' }: Sto
         setError(null);
 
         try {
-            // Get API keys from localStorage
-            const unsplashKey = localStorage.getItem('ifrit_unsplash_key');
-            const pexelsKey = localStorage.getItem('ifrit_pexels_key');
+            // Get integration keys using infrastructure utility
+            // SoC: UI uses infrastructure layer for key retrieval
+            let integrationKeys: Record<string, string> = {};
+            try {
+                const { getAllIntegrationKeys } = await import('@/lib/ai/utils/getCapabilityKey');
+                integrationKeys = await getAllIntegrationKeys();
+            } catch {
+                // KeyManager not available
+            }
 
-            if (!unsplashKey && !pexelsKey) {
-                setError('Please add Unsplash or Pexels API key in Settings → Images');
+            // Check if any image search keys are configured
+            if (!integrationKeys.unsplashKey && !integrationKeys.pexelsKey) {
+                setError('Please add Unsplash or Pexels API key in Settings → Integrations');
                 setLoading(false);
                 return;
             }
 
-            const response = await fetch('/api/stock-photos', {
+            // Use search-images capability (consistent with rest of app)
+            const response = await fetch('/api/capabilities/search-images', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    query: query.trim(),
-                    count: 9,
-                    unsplashKey,
-                    pexelsKey
+                    prompt: query.trim(),
+                    topic: query.trim(),
+                    itemType: 'cover',
+                    // Pass integration keys at top level for route to extract
+                    ...integrationKeys,
                 })
             });
 
             const data = await response.json();
 
-            if (data.success) {
-                setPhotos(data.photos);
-                if (data.photos.length === 0) {
+            if (data.success && data.data) {
+                // Map capability response to StockPhoto format
+                const photos = data.data.map((img: {
+                    id: string;
+                    url: string;
+                    thumbnailUrl: string;
+                    alt: string;
+                    attribution: string;
+                    source: string;
+                }) => ({
+                    id: img.id,
+                    url: img.url,
+                    thumbUrl: img.thumbnailUrl || img.url,
+                    width: 1200,  // Default dimensions
+                    height: 800,
+                    alt: img.alt,
+                    photographer: img.attribution?.replace('Photo by ', '').replace(' on Unsplash', '').replace(' on Pexels', '') || 'Unknown',
+                    attribution: img.attribution,
+                    source: img.source as 'unsplash' | 'pexels',
+                }));
+                setPhotos(photos);
+                if (photos.length === 0) {
                     setError('No photos found. Try different keywords.');
                 }
             } else {
@@ -169,8 +197,8 @@ export function StockPhotoSelector({ onSelect, onClose, initialQuery = '' }: Sto
                                     key={photo.id}
                                     onClick={() => setSelectedPhoto(photo)}
                                     className={`relative aspect-video rounded-xl overflow-hidden border-2 transition-all ${selectedPhoto?.id === photo.id
-                                            ? 'border-indigo-600 ring-2 ring-indigo-200'
-                                            : 'border-transparent hover:border-gray-300'
+                                        ? 'border-indigo-600 ring-2 ring-indigo-200'
+                                        : 'border-transparent hover:border-gray-300'
                                         }`}
                                 >
                                     {/* eslint-disable-next-line @next/next/no-img-element */}

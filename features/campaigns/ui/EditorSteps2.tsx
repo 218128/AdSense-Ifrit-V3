@@ -40,8 +40,8 @@ export function ScheduleStep({ form, updateField }: ScheduleStepProps) {
                             onClick={() => updateField('scheduleType', opt.id)}
                             disabled={opt.id === 'cron'}
                             className={`px-4 py-3 rounded-lg border text-left transition-colors ${form.scheduleType === opt.id
-                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                                    : 'border-neutral-200 hover:border-neutral-300'
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                : 'border-neutral-200 hover:border-neutral-300'
                                 } ${opt.id === 'cron' ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             <div className="font-medium">{opt.label}</div>
@@ -102,7 +102,6 @@ export function ReviewStep({ form, selectedSite }: ReviewStepProps) {
                     <Row label="Post Status" value={form.postStatus} capitalize />
                     <Row label="Source" value={form.sourceType} capitalize />
                     <Row label="Keywords" value={String(keywordCount)} />
-                    <Row label="AI Provider" value={form.provider} capitalize />
                     <Row label="Article Type" value={form.articleType} capitalize />
                     <Row label="Target Length" value={`${form.targetLength} words`} />
                     <Row label="Schedule" value={scheduleLabel} />

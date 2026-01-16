@@ -17,7 +17,7 @@ export const qualityStages: StageGroup = {
             id: 'quality_score',
             name: 'Quality Scoring',
             optional: true,
-            condition: (ctx, campaign) => campaign.aiConfig.qualityGateEnabled && !!ctx.content,
+            condition: (ctx, campaign) => !!campaign.aiConfig.qualityGateEnabled && !!ctx.content,
             execute: async (ctx) => {
                 const { scoreContentQuality, applyQualityScoreToContext } =
                     await import('../../qualityScoreStage');
@@ -36,7 +36,7 @@ export const qualityStages: StageGroup = {
             id: 'smart_review',
             name: 'Smart Review Gate',
             optional: true,
-            condition: (ctx, campaign) => campaign.aiConfig.qualityGateEnabled && !!ctx.qualityScore,
+            condition: (ctx, campaign) => !!campaign.aiConfig.qualityGateEnabled && !!ctx.qualityScore,
             execute: async (ctx, campaign) => {
                 const { processSmartReview } = await import('../../qualityScoreStage');
 

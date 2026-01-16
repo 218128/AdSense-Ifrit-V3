@@ -22,14 +22,14 @@ export function useIntegrations() {
 
     const getToken = (key: string): string => {
         // Map integration field keys to settingsStore.integrations fields
-        return (integrations as Record<string, string>)[key] || '';
+        return (integrations as unknown as Record<string, string>)[key] || '';
     };
 
     const setToken = (key: string, value: string) => {
-        // Only set if it's a valid IntegrationConfig key
-        if (key in integrations) {
-            setIntegration(key as keyof IntegrationConfig, value);
-        }
+        // Set the integration value - the store handles validation
+        // Note: We cast to keyof IntegrationConfig to satisfy the type
+        // New keys added to IntegrationConfig will work after store is updated
+        setIntegration(key as keyof IntegrationConfig, value);
     };
 
     const hasToken = (key: string): boolean => {

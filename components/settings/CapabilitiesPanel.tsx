@@ -73,9 +73,13 @@ export default function CapabilitiesPanel() {
     const [newCapName, setNewCapName] = useState('');
     const [newCapDesc, setNewCapDesc] = useState('');
 
-    // Settings store for verbosity/diagnostics
+    // Settings store for verbosity/diagnostics AND handler model selection
     const capabilitiesConfig = useSettingsStore(state => state.capabilitiesConfig);
     const setCapabilitiesConfig = useSettingsStore(state => state.setCapabilitiesConfig);
+    // Handler-specific model selection (from Settings store)
+    const availableModels = useSettingsStore(state => state.availableModels);
+    const handlerModels = useSettingsStore(state => state.handlerModels);
+    const setHandlerModel = useSettingsStore(state => state.setHandlerModel);
 
     // Load capabilities and handlers
     const loadData = useCallback(() => {
@@ -352,43 +356,74 @@ export default function CapabilitiesPanel() {
                                                 <div className="space-y-2">
                                                     {capHandlers
                                                         .sort((a, b) => b.priority - a.priority)
-                                                        .map(h => (
-                                                            <div
-                                                                key={h.id}
-                                                                className={`flex items-center justify-between p-3 rounded-lg ${h.id === cap.defaultHandlerId
-                                                                    ? 'bg-purple-500/10 border border-purple-500/30'
-                                                                    : 'bg-gray-700/50'
-                                                                    }`}
-                                                            >
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className={`w-2 h-2 rounded-full ${h.isAvailable ? 'bg-green-500' : 'bg-gray-500'
-                                                                        }`} />
-                                                                    <div>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="font-medium text-gray-100">
-                                                                                {h.name}
-                                                                            </span>
-                                                                            {h.id === cap.defaultHandlerId && (
-                                                                                <Check className="w-4 h-4 text-purple-400" />
-                                                                            )}
-                                                                        </div>
-                                                                        <span className="text-xs text-gray-500">
-                                                                            {h.source} • priority {h.priority}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                                <button
-                                                                    onClick={() => setDefaultHandler(cap.id, h.id)}
-                                                                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${h.id === cap.defaultHandlerId
-                                                                        ? 'text-purple-400 cursor-default'
-                                                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600'
+                                                        .map(h => {
+                                                            // Get provider's available models for this handler
+                                                            const providerModels = h.providerId ? (availableModels[h.providerId as keyof typeof availableModels] || []) : [];
+                                                            // Composite key: capability:handler for isolation
+                                                            const handlerModelKey = `${cap.id}:${h.id}`;
+                                                            const currentHandlerModel = handlerModels[handlerModelKey] || '';
+                                                            return (
+                                                                <div
+                                                                    key={h.id}
+                                                                    className={`p-3 rounded-lg ${h.id === cap.defaultHandlerId
+                                                                        ? 'bg-purple-500/10 border border-purple-500/30'
+                                                                        : 'bg-gray-700/50'
                                                                         }`}
-                                                                    disabled={h.id === cap.defaultHandlerId}
                                                                 >
-                                                                    {h.id === cap.defaultHandlerId ? 'Default' : 'Set Default'}
-                                                                </button>
-                                                            </div>
-                                                        ))}
+                                                                    {/* Handler Info Row */}
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className={`w-2 h-2 rounded-full ${h.isAvailable ? 'bg-green-500' : 'bg-gray-500'
+                                                                                }`} />
+                                                                            <div>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="font-medium text-gray-100">
+                                                                                        {h.name}
+                                                                                    </span>
+                                                                                    {h.id === cap.defaultHandlerId && (
+                                                                                        <Check className="w-4 h-4 text-purple-400" />
+                                                                                    )}
+                                                                                </div>
+                                                                                <span className="text-xs text-gray-500">
+                                                                                    {h.source} • priority {h.priority}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <button
+                                                                            onClick={() => setDefaultHandler(cap.id, h.id)}
+                                                                            className={`px-3 py-1 text-sm rounded-lg transition-colors ${h.id === cap.defaultHandlerId
+                                                                                ? 'text-purple-400 cursor-default'
+                                                                                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600'
+                                                                                }`}
+                                                                            disabled={h.id === cap.defaultHandlerId}
+                                                                        >
+                                                                            {h.id === cap.defaultHandlerId ? 'Default' : 'Set Default'}
+                                                                        </button>
+                                                                    </div>
+                                                                    {/* Model Selection Row */}
+                                                                    {providerModels.length > 0 && (
+                                                                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-600/50">
+                                                                            <span className="text-xs text-gray-400">Model:</span>
+                                                                            <select
+                                                                                value={currentHandlerModel}
+                                                                                onChange={(e) => setHandlerModel(handlerModelKey, e.target.value)}
+                                                                                className="flex-1 px-2 py-1 text-xs bg-gray-600 border border-gray-500 rounded text-gray-100 focus:ring-2 focus:ring-purple-500"
+                                                                            >
+                                                                                <option value="">Provider default</option>
+                                                                                {providerModels.map(model => (
+                                                                                    <option key={model} value={model}>{model}</option>
+                                                                                ))}
+                                                                            </select>
+                                                                        </div>
+                                                                    )}
+                                                                    {providerModels.length === 0 && h.providerId && (
+                                                                        <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-600/50">
+                                                                            Refresh models in AI Providers section
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
                                                 </div>
                                             )}
                                         </div>

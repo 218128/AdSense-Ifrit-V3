@@ -54,6 +54,11 @@ export function CampaignEditor({ campaign, onClose }: CampaignEditorProps) {
         targetLength: campaign?.aiConfig.targetLength || 1500,
         useResearch: campaign?.aiConfig.useResearch ?? true,
         includeImages: campaign?.aiConfig.includeImages ?? true,
+        // Image generation options (new)
+        mediaSourcePreference: campaign?.aiConfig.mediaSourcePreference || 'both',
+        inlineImageCount: campaign?.aiConfig.inlineImageCount ?? 2,
+        imagePlacementCover: campaign?.aiConfig.imagePlacements?.includes('cover') ?? true,
+        imagePlacementInline: campaign?.aiConfig.imagePlacements?.includes('inline') ?? false,
         includeFAQ: campaign?.aiConfig.includeFAQ ?? true,
         includeSchema: campaign?.aiConfig.includeSchema ?? true,
         optimizeForSEO: campaign?.aiConfig.optimizeForSEO ?? true,
@@ -64,6 +69,13 @@ export function CampaignEditor({ campaign, onClose }: CampaignEditorProps) {
         // Content spinner defaults
         enableSpinner: false,
         spinnerMode: 'moderate',
+        // A/B Testing defaults
+        enableABTesting: false,
+        abTestTitles: true,
+        abTestCovers: false,
+        abTestRespins: false,
+        // Analytics defaults
+        analyticsEnabled: false,
         // Phase 2: Quality & Author defaults
         authorId: campaign?.authorId || '',
         injectEEATSignals: campaign?.aiConfig.injectEEATSignals ?? false,
@@ -127,7 +139,7 @@ export function CampaignEditor({ campaign, onClose }: CampaignEditorProps) {
                 <div className="flex-1 overflow-y-auto p-6">
                     {step === 'basics' && <BasicsStep form={form} updateField={updateField} sites={connectedSites} selectedSite={selectedSite} />}
                     {step === 'source' && <SourceStep form={form} updateField={updateField} sites={connectedSites} />}
-                    {step === 'ai' && <AIStep form={form} updateField={updateField} />}
+                    {step === 'ai' && <AIStep form={form} updateField={updateField} sites={connectedSites} />}
                     {step === 'schedule' && <ScheduleStep form={form} updateField={updateField} />}
                     {step === 'review' && <ReviewStep form={form} selectedSite={selectedSite} />}
                 </div>
@@ -221,6 +233,8 @@ function buildCampaignData(form: EditorFormState) {
         targetSiteId: form.targetSiteId,
         targetCategoryId: form.targetCategoryId,
         postStatus: form.postStatus,
+        // FIX: Include authorId from form (was missing - causing author not to save!)
+        authorId: form.authorId || undefined,
         source: { type: form.sourceType, config: sourceConfig } as Campaign['source'],
         aiConfig: {
             provider: form.provider,
@@ -229,6 +243,13 @@ function buildCampaignData(form: EditorFormState) {
             targetLength: form.targetLength,
             useResearch: form.useResearch,
             includeImages: form.includeImages,
+            // Image generation options (new)
+            mediaSourcePreference: form.mediaSourcePreference,
+            imagePlacements: [
+                ...(form.imagePlacementCover ? ['cover'] : []),
+                ...(form.imagePlacementInline ? ['inline'] : []),
+            ],
+            inlineImageCount: form.inlineImageCount,
             imageProvider: 'gemini' as const,
             optimizeForSEO: form.optimizeForSEO,
             includeSchema: form.includeSchema,
@@ -236,6 +257,17 @@ function buildCampaignData(form: EditorFormState) {
             // Content spinner
             enableSpinner: form.enableSpinner,
             spinnerMode: form.spinnerMode,
+            // Multi-Site
+            enableMultiSite: form.enableMultiSite,
+            additionalSiteIds: form.additionalSiteIds,
+            multiSiteStaggerMinutes: form.multiSiteStaggerMinutes,
+            // A/B Testing
+            enableABTesting: form.enableABTesting,
+            abTestTitles: form.abTestTitles,
+            abTestCovers: form.abTestCovers,
+            abTestRespins: form.abTestRespins,
+            // Analytics
+            analyticsEnabled: form.analyticsEnabled,
             // Phase 2: Quality & E-E-A-T
             injectEEATSignals: form.injectEEATSignals,
             qualityGateEnabled: form.qualityGateEnabled,

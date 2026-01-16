@@ -135,6 +135,7 @@ function registerInIfrit(config: SiteConfig): void {
  * Provision a complete WordPress site
  * 
  * Orchestrates the entire flow from domain to ready-to-publish site
+ * Automatically reports progress to GlobalActionStatus for visibility
  */
 export async function provisionSite(request: ProvisionRequest): Promise<ProvisionResult> {
     const { domain, niche, keywords, datacenter, skipDns, plugins = DEFAULT_PLUGINS } = request;
@@ -142,8 +143,32 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
     const steps: ProvisionResult['steps'] = [];
     let website: HostingWebsite | undefined;
 
+    // Import status store dynamically to avoid SSR issues
+    const { useGlobalActionStatusStore } = await import('@/stores/globalActionStatusStore');
+    const statusStore = useGlobalActionStatusStore.getState();
+
+    // Start provisioning action
+    const actionId = statusStore.startAction(
+        `Provision: ${domain}`,
+        'hosting',
+        {
+            source: 'user',
+            origin: 'hosting/siteProvision',
+            retryable: true,
+        }
+    );
+
+    const totalSteps = 6;
+    let completedSteps = 0;
+
+    const updateProgress = () => {
+        completedSteps++;
+        statusStore.setProgress(actionId, completedSteps, totalSteps);
+    };
+
     try {
         // Step 1: Check if site already exists
+        const step1Id = statusStore.addStep(actionId, '⏳ Checking existing websites...', 'running');
         const existing = await checkExistingWebsite(domain);
         if (existing) {
             steps.push({
@@ -151,6 +176,8 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
                 status: 'success',
                 message: `Website already exists (ID: ${existing.id})`
             });
+            statusStore.updateStep(actionId, step1Id, `✅ Website exists (${existing.id})`, 'success');
+            updateProgress();
             website = existing;
         } else {
             steps.push({
@@ -158,8 +185,11 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
                 status: 'skipped',
                 message: 'No existing website found'
             });
+            statusStore.updateStep(actionId, step1Id, '✅ No existing website', 'success');
+            updateProgress();
 
             // Step 2: Verify domain ownership
+            const step2Id = statusStore.addStep(actionId, '⏳ Verifying domain ownership...', 'running');
             const ownership = await ensureDomainOwnership(domain);
             steps.push({
                 step: 'Verify domain',
@@ -168,8 +198,11 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
                     ? `Domain verified via ${ownership.method}`
                     : 'Domain verification skipped (may need manual setup)'
             });
+            statusStore.updateStep(actionId, step2Id, ownership.owned ? `✅ Domain verified (${ownership.method})` : '⏭️ Domain verification skipped', 'success');
+            updateProgress();
 
             // Step 3: Create WordPress site
+            const step3Id = statusStore.addStep(actionId, '⏳ Creating WordPress site...', 'running');
             const createResult = await createSite(domain, datacenter);
             if (!createResult.success) {
                 steps.push({
@@ -177,6 +210,8 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
                     status: 'failed',
                     message: createResult.error || 'Failed to create site'
                 });
+                statusStore.updateStep(actionId, step3Id, `❌ Create WP failed: ${createResult.error}`, 'error');
+                statusStore.failAction(actionId, createResult.error || 'Failed to create site');
                 return { success: false, steps, error: createResult.error };
             }
 
@@ -185,6 +220,8 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
                 status: 'success',
                 message: `Created WordPress site (ID: ${createResult.websiteId})`
             });
+            statusStore.updateStep(actionId, step3Id, '✅ WordPress site created', 'success');
+            updateProgress();
 
             website = {
                 id: createResult.websiteId || '',
@@ -195,6 +232,7 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
         }
 
         // Step 4: Configure DNS (optional)
+        const step4Id = statusStore.addStep(actionId, skipDns ? '⏭️ DNS skipped' : '⏳ Configuring DNS...', skipDns ? 'success' : 'running');
         if (!skipDns) {
             const dnsResult = await configureDNS(domain);
             steps.push({
@@ -204,6 +242,7 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
                     ? 'DNS configured to Hostinger servers'
                     : dnsResult.error || 'DNS configuration failed'
             });
+            statusStore.updateStep(actionId, step4Id, dnsResult.success ? '✅ DNS configured' : `⚠️ DNS: ${dnsResult.error}`, dnsResult.success ? 'success' : 'error');
         } else {
             steps.push({
                 step: 'Configure DNS',
@@ -211,8 +250,10 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
                 message: 'Skipped per request'
             });
         }
+        updateProgress();
 
         // Step 5: Install plugins
+        const step5Id = statusStore.addStep(actionId, plugins.length > 0 ? '⏳ Installing plugins...' : '⏭️ No plugins to install', plugins.length > 0 ? 'running' : 'success');
         if (plugins.length > 0 && website?.id) {
             const pluginResults = await installPlugins(website.id, plugins);
             const successCount = pluginResults.filter(r => r.success).length;
@@ -221,6 +262,7 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
                 status: successCount === plugins.length ? 'success' : 'failed',
                 message: `Installed ${successCount}/${plugins.length} plugins`
             });
+            statusStore.updateStep(actionId, step5Id, `✅ Plugins: ${successCount}/${plugins.length}`, successCount === plugins.length ? 'success' : 'error');
         } else {
             steps.push({
                 step: 'Install plugins',
@@ -228,8 +270,10 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
                 message: 'No plugins specified'
             });
         }
+        updateProgress();
 
         // Step 6: Register in Ifrit
+        const step6Id = statusStore.addStep(actionId, '⏳ Registering in Ifrit...', 'running');
         const siteConfig: SiteConfig = {
             domain,
             wpAdminUrl: `https://${domain}/wp-admin`,
@@ -245,6 +289,11 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
             status: 'success',
             message: 'Site registered in Ifrit settings'
         });
+        statusStore.updateStep(actionId, step6Id, '✅ Registered in Ifrit', 'success');
+        updateProgress();
+
+        // Complete the provisioning action
+        statusStore.completeAction(actionId, `✅ Site provisioned: ${domain}`);
 
         return {
             success: true,
@@ -258,6 +307,9 @@ export async function provisionSite(request: ProvisionRequest): Promise<Provisio
             status: 'failed',
             message: error instanceof Error ? error.message : 'Unknown error'
         });
+
+        // Fail the provisioning action
+        statusStore.failAction(actionId, error instanceof Error ? error.message : 'Provisioning failed');
 
         return {
             success: false,

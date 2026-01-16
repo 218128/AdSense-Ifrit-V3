@@ -12,7 +12,7 @@
  * Uses settingsStore for state (consolidated)
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
     Key, Eye, EyeOff, Plus, Trash2, Check, AlertCircle,
     Zap, Brain, Code, Sparkles, Globe, BarChart3
@@ -131,21 +131,63 @@ function ProviderCard({ providerId }: ProviderCardProps) {
     const {
         providerKeys,
         enabledProviders,
-        selectedModels,
         addProviderKey,
         removeProviderKey,
         updateProviderKey,
         toggleProvider,
-        setSelectedModel,
+        availableModels: storeAvailableModels,
+        setAvailableModels: storeSetAvailableModels,
     } = useSettingsStore();
 
     const [newKey, setNewKey] = useState('');
     const [showAdd, setShowAdd] = useState(false);
+    // Fetching state for testKey
+    const [fetching, setFetching] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+
+    // Get available models from store (populated by testKey)
+    const availableModels = storeAvailableModels[providerId] || [];
 
     const keys = providerKeys[providerId] || [];
     const isEnabled = enabledProviders.includes(providerId);
-    const currentModel = selectedModels[providerId] || config.defaultModel;
     const hasValidKeys = keys.length > 0 && keys.some(k => k.key && k.key.length > 10);
+
+    // Fetch REAL models from provider API and save to store
+    const fetchModels = useCallback(async (apiKey: string) => {
+        setFetching(true);
+        setFetchError(null);
+        try {
+            const response = await fetch('/api/ai-providers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: providerId, key: apiKey })
+            });
+            const data = await response.json();
+
+            if (data.valid && data.models?.length > 0) {
+                // Save to store (shared with CapabilitiesPanel for handler model selection)
+                storeSetAvailableModels(providerId, data.models);
+                // Mark key as validated
+                updateProviderKey(providerId, apiKey, { validated: true, validatedAt: Date.now() });
+            } else {
+                setFetchError(data.error || 'Failed to fetch models');
+            }
+        } catch (error) {
+            setFetchError(error instanceof Error ? error.message : 'Network error');
+        } finally {
+            setFetching(false);
+        }
+    }, [providerId, updateProviderKey, storeSetAvailableModels]);
+
+    // Auto-fetch models on mount if we have valid keys but no models in store
+    useEffect(() => {
+        if (hasValidKeys && availableModels.length === 0) {
+            const validKey = keys.find(k => k.key && k.key.length > 10);
+            if (validKey) {
+                fetchModels(validKey.key);
+            }
+        }
+    }, [hasValidKeys, availableModels.length, keys, fetchModels]);
 
     const handleAddKey = useCallback(() => {
         if (!newKey.trim()) return;
@@ -155,9 +197,12 @@ function ProviderCard({ providerId }: ProviderCardProps) {
             label: `Key ${keys.length + 1}`,
         });
 
+        // Fetch models with the new key
+        fetchModels(newKey.trim());
+
         setNewKey('');
         setShowAdd(false);
-    }, [newKey, providerId, keys.length, addProviderKey]);
+    }, [newKey, providerId, keys.length, addProviderKey, fetchModels]);
 
     return (
         <div className={`
@@ -259,21 +304,42 @@ function ProviderCard({ providerId }: ProviderCardProps) {
                 )}
             </div>
 
-            {/* Model Selection */}
-            <div>
-                <label className="block text-sm font-medium text-neutral-600 mb-2">
-                    Default Model
-                </label>
-                <select
-                    value={currentModel}
-                    onChange={(e) => setSelectedModel(providerId, e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            {/* Available Models Info */}
+            <div className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-neutral-600">
+                        {availableModels.length > 0 ? (
+                            <span className="text-green-600">
+                                ✓ {availableModels.length} models available
+                            </span>
+                        ) : hasValidKeys ? (
+                            <span className="text-amber-600">
+                                ⚠️ No models loaded
+                            </span>
+                        ) : (
+                            <span className="text-neutral-400">
+                                Add API key to fetch models
+                            </span>
+                        )}
+                    </span>
+                </div>
+                <button
+                    onClick={() => {
+                        const validKey = keys.find(k => k.key && k.key.length > 10);
+                        if (validKey) fetchModels(validKey.key);
+                    }}
+                    disabled={fetching || !hasValidKeys}
+                    className="text-xs px-3 py-1 rounded-lg text-blue-600 hover:bg-blue-50 disabled:text-neutral-400 disabled:bg-transparent border border-blue-200 disabled:border-neutral-200"
                 >
-                    {config.models.map(model => (
-                        <option key={model} value={model}>{model}</option>
-                    ))}
-                </select>
+                    {fetching ? 'Fetching...' : 'Refresh Models'}
+                </button>
             </div>
+            {fetchError && (
+                <p className="text-xs text-red-500 mt-1">{fetchError}</p>
+            )}
+            <p className="text-xs text-neutral-400 mt-1">
+                Model selection per handler is configured in <strong>Capabilities</strong> section.
+            </p>
         </div>
     );
 }
@@ -301,8 +367,8 @@ export function AIProvidersSection() {
                 <button
                     onClick={() => setActiveSubsection('providers')}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeSubsection === 'providers'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'text-neutral-600 hover:bg-neutral-100'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-neutral-600 hover:bg-neutral-100'
                         }`}
                 >
                     <Sparkles className="w-4 h-4" />
@@ -311,8 +377,8 @@ export function AIProvidersSection() {
                 <button
                     onClick={() => setActiveSubsection('usage')}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeSubsection === 'usage'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'text-neutral-600 hover:bg-neutral-100'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-neutral-600 hover:bg-neutral-100'
                         }`}
                 >
                     <BarChart3 className="w-4 h-4" />

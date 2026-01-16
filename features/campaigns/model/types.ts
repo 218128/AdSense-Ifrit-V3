@@ -123,7 +123,7 @@ export interface LanguageMapping {
 // ============================================================================
 
 export interface AIConfig {
-    provider: 'gemini' | 'deepseek' | 'openrouter' | 'perplexity';
+    provider?: 'gemini' | 'deepseek' | 'openrouter' | 'perplexity';  // Optional - inherited from Settings
     model?: string;
     articleType: 'pillar' | 'cluster' | 'how-to' | 'review' | 'listicle';
     tone: 'professional' | 'conversational' | 'authoritative' | 'friendly';
@@ -137,6 +137,12 @@ export interface AIConfig {
     includeImages: boolean;
     imageProvider?: 'dalle' | 'gemini' | 'unsplash' | 'pexels';
     imagePlacements?: ('cover' | 'inline')[];
+
+    // NEW: Media source preference (P1 enhancement)
+    mediaSourcePreference?: 'ai' | 'search' | 'both';  // Default: 'both' - AI gen or stock search
+    preferredStockSource?: 'unsplash' | 'pexels' | 'brave' | 'auto';  // Which stock source to prefer
+    inlineImageCount?: number;  // 0-5, default: 2 - number of inline images
+    enableImageScoring?: boolean;  // Use aggregated search with scoring (default: true)
 
     // SEO options
     optimizeForSEO: boolean;
@@ -170,6 +176,12 @@ export interface AIConfig {
 
     // A/B Testing (Phase 2)
     enableABTesting?: boolean;           // Create title variations for testing
+    abTestTitles?: boolean;              // Test title variations
+    abTestCovers?: boolean;              // Test cover image variations
+    abTestRespins?: boolean;             // Test content respins
+
+    // Hunt integration
+    nicheContext?: string;               // Niche context from domain research (e.g., 'technology', 'health & wellness')
 }
 
 // ============================================================================
@@ -241,7 +253,14 @@ export interface RunError {
 export interface PipelineContext {
     campaign: Campaign;
     sourceItem: SourceItem;
-    research?: string;
+    // Research result - now captures rich data from Perplexity SDK
+    research?: {
+        text: string;                    // Research content
+        citations?: string[];            // Source URLs
+        relatedQuestions?: string[];      // Follow-up ideas
+        images?: string[];               // Suggested images
+        handlerUsed?: string;            // Which handler was used
+    } | string;                          // Backward compatible with string
     content?: {
         title: string;
         body: string;
@@ -250,8 +269,19 @@ export interface PipelineContext {
     };
     images?: {
         cover?: { url: string; alt: string };
-        inline?: { url: string; alt: string }[];
+        inline?: Array<{ url: string; alt: string; position: 'after-intro' | 'after-h2' | 'before-conclusion' | 'inline' }>;
     };
+    // All collected image assets for MediaAssetLibrary persistence and A/B testing
+    allImageAssets?: Array<{
+        id: string;
+        url: string;
+        alt: string;
+        source: 'ai' | 'unsplash' | 'pexels' | 'brave' | 'serper' | 'perplexity';
+        score: number;
+        width?: number;
+        height?: number;
+        photographer?: string;
+    }>;
     wpResult?: {
         postId: number;
         postUrl: string;
@@ -285,6 +315,24 @@ export interface PipelineContext {
 
     // Phase 2: A/B Testing
     abTestId?: string;
+
+    // Phase 2: Multi-site publishing report
+    multiSiteReport?: {
+        totalSites: number;
+        successCount: number;
+        failedCount: number;
+        results: Array<{
+            siteId: string;
+            siteName: string;
+            success: boolean;
+            postUrl?: string;
+            postId?: number;
+            error?: string;
+            spinApplied: boolean;
+            publishedAt?: number;
+        }>;
+        originalContent: string;
+    };
 }
 
 export interface SourceItem {

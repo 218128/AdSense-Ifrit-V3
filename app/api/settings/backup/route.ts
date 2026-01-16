@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import type { UserProfile } from '@/stores/settingsStore';
 
 const BACKUP_DIR = path.join(process.cwd(), 'data');
 const BACKUP_FILE = path.join(BACKUP_DIR, 'user-settings-backup.json');
@@ -19,27 +20,7 @@ const BACKUP_FILE = path.join(BACKUP_DIR, 'user-settings-backup.json');
 interface SettingsBackup {
     version: string;
     timestamp: number;
-    settings: {
-        aiProviders: Record<string, {
-            keys: Array<{ key: string; label?: string; validated?: boolean }>;
-            enabled: boolean;
-        }>;
-        integrations: {
-            githubToken?: string;
-            githubUser?: string;
-            vercelToken?: string;
-            vercelUser?: string;
-        };
-        blog: {
-            url?: string;
-        };
-        adsense: {
-            publisherId?: string;
-            leaderboardSlot?: string;
-            articleSlot?: string;
-            multiplexSlot?: string;
-        };
-    };
+    profile: UserProfile;
 }
 
 function ensureBackupDir() {
@@ -51,11 +32,11 @@ function ensureBackupDir() {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { settings } = body;
+        const { profile } = body;
 
-        if (!settings) {
+        if (!profile) {
             return NextResponse.json(
-                { success: false, error: 'Settings required' },
+                { success: false, error: 'Profile required' },
                 { status: 400 }
             );
         }
@@ -63,9 +44,9 @@ export async function POST(request: NextRequest) {
         ensureBackupDir();
 
         const backup: SettingsBackup = {
-            version: '1.0.0',
+            version: '4.0.0',
             timestamp: Date.now(),
-            settings
+            profile
         };
 
         fs.writeFileSync(BACKUP_FILE, JSON.stringify(backup, null, 2), 'utf-8');
@@ -91,7 +72,7 @@ export async function GET() {
             return NextResponse.json({
                 success: true,
                 hasBackup: false,
-                settings: null
+                profile: null
             });
         }
 

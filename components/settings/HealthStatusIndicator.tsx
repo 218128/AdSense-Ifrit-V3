@@ -52,7 +52,8 @@ export function HealthStatusIndicator({
 
     const currentHealth = localHealth || health;
     const status = currentHealth?.status || 'unconfigured';
-    const config = STATUS_CONFIG[status];
+    // Defensive: fallback to 'unknown' config if status is not in STATUS_CONFIG
+    const config = STATUS_CONFIG[status] || STATUS_CONFIG['unknown'];
     const Icon = config.icon;
     const iconSize = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
 

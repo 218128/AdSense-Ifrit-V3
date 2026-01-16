@@ -78,6 +78,7 @@ interface UsageStore {
 
     setCreditBalance: (provider: string, remaining: number, total?: number) => void;
     getCreditBalance: (provider: string) => CreditBalance | null;
+    deductCredit: (provider: string, amount: number) => void;
 
     clearUsageRecords: () => void;
     exportUsageData: () => string;
@@ -212,6 +213,23 @@ export const useUsageStore = create<UsageStore>()(
 
             getCreditBalance: (provider) => {
                 return get().creditBalances[provider] || null;
+            },
+
+            deductCredit: (provider, amount) => {
+                const current = get().creditBalances[provider];
+                if (!current) return;
+
+                const newRemaining = Math.max(0, current.remaining - amount);
+                set((state) => ({
+                    creditBalances: {
+                        ...state.creditBalances,
+                        [provider]: {
+                            ...current,
+                            remaining: newRemaining,
+                            updatedAt: Date.now(),
+                        },
+                    },
+                }));
             },
 
             clearUsageRecords: () => {

@@ -177,14 +177,14 @@ function IntegrationCard({ integration }: IntegrationCardProps) {
                 });
             } else {
                 setHealthStatus(serviceId, {
-                    status: 'error',
+                    status: 'unhealthy',
                     lastCheck: Date.now(),
                     message: data.message || 'Connection failed',
                 });
             }
         } catch (error) {
             setHealthStatus(serviceId, {
-                status: 'error',
+                status: 'unhealthy',
                 lastCheck: Date.now(),
                 message: error instanceof Error ? error.message : 'Test failed',
             });
@@ -272,7 +272,7 @@ function IntegrationCard({ integration }: IntegrationCardProps) {
                         )}
                     </button>
                     {health && (
-                        <HealthStatusIndicator health={health} />
+                        <HealthStatusIndicator serviceId={serviceId} serviceName={integration.name} health={health} />
                     )}
                 </div>
             )}
@@ -322,14 +322,14 @@ function LegacyIntegrationCard({ integration }: LegacyIntegrationCardProps) {
                 });
             } else {
                 setHealthStatus(serviceId, {
-                    status: 'error',
+                    status: 'unhealthy',
                     lastCheck: Date.now(),
                     message: data.error || 'Connection failed'
                 });
             }
         } catch (err) {
             setHealthStatus(serviceId, {
-                status: 'error',
+                status: 'unhealthy',
                 lastCheck: Date.now(),
                 message: 'Network error'
             });
@@ -360,7 +360,6 @@ function LegacyIntegrationCard({ integration }: LegacyIntegrationCardProps) {
                             serviceId={serviceId}
                             serviceName={integration.name}
                             health={health}
-                            onCheck={handleTestConnection}
                             size="sm"
                         />
                     )}

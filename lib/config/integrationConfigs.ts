@@ -112,6 +112,16 @@ export const INTEGRATIONS: IntegrationMeta[] = [
             { key: 'pexelsKey', label: 'API Key', type: 'password', required: true },
         ],
     },
+    {
+        id: 'brave',
+        name: 'Brave Search',
+        category: 'media',
+        description: 'Image search API',
+        docsUrl: 'https://api-dashboard.search.brave.com/',
+        fields: [
+            { key: 'braveApiKey', label: 'API Key', type: 'password', required: true },
+        ],
+    },
 
     // Analytics
     {
@@ -124,6 +134,17 @@ export const INTEGRATIONS: IntegrationMeta[] = [
             { key: 'umamiId', label: 'Website ID', type: 'text', required: true },
             { key: 'umamiApiUrl', label: 'API URL', type: 'url' },
             { key: 'umamiApiKey', label: 'API Token', type: 'password' },
+        ],
+    },
+    {
+        id: 'ga4',
+        name: 'Google Analytics 4',
+        category: 'analytics',
+        description: 'Track post performance via GA4 Measurement Protocol',
+        docsUrl: 'https://developers.google.com/analytics/devguides/collection/protocol/ga4',
+        fields: [
+            { key: 'ga4MeasurementId', label: 'Measurement ID', type: 'text', required: true, placeholder: 'G-XXXXXXXXXX' },
+            { key: 'ga4ApiSecret', label: 'API Secret', type: 'password', required: true },
         ],
     },
 

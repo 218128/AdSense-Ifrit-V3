@@ -36,6 +36,13 @@ interface AnalysisResult {
     images: number;
     links: number;
     keyInsights: string[];
+    // Perplexity SDK data
+    citations?: string[];           // Source URLs
+    searchResults?: Array<{         // Structured search results
+        title: string;
+        url: string;
+        snippet: string;
+    }>;
 }
 
 export default function CompetitorAnalysisPanel({
@@ -111,49 +118,65 @@ export default function CompetitorAnalysisPanel({
     };
 
     const searchCompetitors = async () => {
-        // Use Perplexity to find competitors in the niche
+        // Use AIServices capability system (handles provider selection + API keys)
         setAnalyzing(true);
         setError(null);
 
         try {
-            // Get Perplexity key from Zustand store
-            const { useSettingsStore } = await import('@/stores/settingsStore');
-            const mcpApiKeys = useSettingsStore.getState().mcpServers.apiKeys;
-            const providerKeys = useSettingsStore.getState().providerKeys;
-            const perplexityKey = mcpApiKeys?.perplexity || providerKeys?.perplexity?.[0]?.key;
+            // Import AIServices and use the research capability
+            const { aiServices } = await import('@/lib/ai/services');
 
-            if (!perplexityKey) {
-                setError('Perplexity API key not configured. Go to Settings → MCP Tools or AI Providers.');
-                return;
-            }
+            const result = await aiServices.research(
+                `Top competitor websites for "${niche}" niche blogs similar to ${domain}. List 5 specific URLs with brief descriptions.`,
+                { researchType: 'quick' }
+            );
 
-            const response = await fetch('/api/research', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    query: `Top competitor websites for "${niche}" niche blogs similar to ${domain}. List 5 specific URLs.`,
-                    type: 'quick',
-                    tool: 'perplexity',
-                    apiKey: perplexityKey
-                })
-            });
+            if (result.success) {
+                // Parse findings from the result
+                let findings: string[] = [];
 
-            const data = await response.json();
+                // Try structured data first
+                if (result.data && (result.data as { keyFindings?: string[] })?.keyFindings) {
+                    findings = (result.data as { keyFindings: string[] }).keyFindings;
+                }
+                // Fallback: Split text response
+                else if (result.text) {
+                    findings = result.text
+                        .split(/[\n•\-\*]/)
+                        .map(s => s.trim())
+                        .filter(s => s.length > 10);
 
-            if (data.success && data.keyFindings?.length > 0) {
-                // Display findings as suggestions
-                setResults({
-                    url: 'Competitor Search',
-                    title: `Competitors for ${niche}`,
-                    headings: [],
-                    wordCount: 0,
-                    paragraphs: 0,
-                    images: 0,
-                    links: 0,
-                    keyInsights: data.keyFindings
-                });
+                    if (findings.length === 0) {
+                        findings = [result.text];
+                    }
+                }
+
+                if (findings.length > 0) {
+                    // Extract Perplexity SDK data
+                    const data = result.data as {
+                        citations?: string[];
+                        searchResults?: Array<{ title: string; url: string; snippet: string }>;
+                    } | undefined;
+
+                    setResults({
+                        url: 'Competitor Search',
+                        title: `Competitors for ${niche}`,
+                        headings: [],
+                        wordCount: 0,
+                        paragraphs: 0,
+                        images: 0,
+                        links: data?.citations?.length || 0,
+                        keyInsights: findings,
+                        citations: data?.citations,
+                        searchResults: data?.searchResults
+                    });
+                } else {
+                    setError('No competitors found');
+                }
+            } else if (result.error?.includes('No handlers')) {
+                setError('No research provider configured. Go to Settings → Capabilities to set up a handler.');
             } else {
-                setError('No competitors found');
+                setError(result.error || 'Search failed');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Search failed');
@@ -310,6 +333,58 @@ export default function CompetitorAnalysisPanel({
                                         </li>
                                     ))}
                                 </ul>
+                            </div>
+                        )}
+
+                        {/* Competitor URLs from Perplexity SDK */}
+                        {results.searchResults && results.searchResults.length > 0 && (
+                            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
+                                <p className="text-xs font-medium text-indigo-700 mb-2 flex items-center gap-1">
+                                    <Globe className="w-3 h-3" />
+                                    Competitor Websites ({results.searchResults.length})
+                                </p>
+                                <div className="space-y-2">
+                                    {results.searchResults.slice(0, 5).map((sr, i) => (
+                                        <div key={i} className="p-2 bg-white rounded border border-indigo-100">
+                                            <a
+                                                href={sr.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sm font-medium text-indigo-600 hover:underline flex items-center gap-1"
+                                            >
+                                                {sr.title || new URL(sr.url).hostname}
+                                                <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                            {sr.snippet && (
+                                                <p className="text-xs text-neutral-600 mt-1 line-clamp-2">
+                                                    {sr.snippet}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Citation URLs fallback */}
+                        {!results.searchResults?.length && results.citations && results.citations.length > 0 && (
+                            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
+                                <p className="text-xs font-medium text-indigo-700 mb-2 flex items-center gap-1">
+                                    🔗 Source URLs ({results.citations.length})
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {results.citations.slice(0, 8).map((url, i) => (
+                                        <a
+                                            key={i}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-indigo-600 hover:underline bg-white px-2 py-1 rounded border border-indigo-100"
+                                        >
+                                            {new URL(url).hostname}
+                                        </a>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>

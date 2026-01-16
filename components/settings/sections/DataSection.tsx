@@ -2,8 +2,12 @@
 
 import { useState } from 'react';
 import { Download, Upload, Layout, Database } from 'lucide-react';
-import { useSettingsStore } from '@/stores/settingsStore';
 import TemplatesPanel from '../TemplatesPanel';
+import {
+    downloadSettingsBackup,
+    importSettingsFromFile,
+    syncToServer
+} from '@/lib/backup/settingsBackup';
 
 type DataSubsection = 'backup' | 'templates';
 
@@ -14,22 +18,13 @@ const subsections: { id: DataSubsection; label: string; icon: React.ReactNode }[
 
 export function DataSection() {
     const [activeSubsection, setActiveSubsection] = useState<DataSubsection>('backup');
-    const { exportSettings, importSettings, backupToServer } = useSettingsStore();
 
     const handleExportSettings = () => {
-        const exportData = exportSettings();
-        if (Object.keys(exportData.settings).length === 0) {
+        try {
+            downloadSettingsBackup();
+        } catch (error) {
             alert('No settings to export. Please configure some API keys first.');
-            return;
         }
-        const jsonString = JSON.stringify(exportData, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ifrit-backup-${new Date().toISOString().slice(0, 10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
     };
 
     const handleImportSettings = () => {
@@ -40,11 +35,9 @@ export function DataSection() {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (!file) return;
             try {
-                const text = await file.text();
-                const data = JSON.parse(text);
-                const result = importSettings(data);
+                const result = await importSettingsFromFile(file);
                 if (result.success) {
-                    await backupToServer();
+                    await syncToServer();
                     alert(`Restored ${result.restored} settings! Please refresh the page.`);
                     window.location.reload();
                 } else {
@@ -67,8 +60,8 @@ export function DataSection() {
                         key={sub.id}
                         onClick={() => setActiveSubsection(sub.id)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${activeSubsection === sub.id
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'text-neutral-600 hover:bg-neutral-100'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'text-neutral-600 hover:bg-neutral-100'
                             }`}
                     >
                         {sub.icon}

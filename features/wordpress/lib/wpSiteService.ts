@@ -186,7 +186,7 @@ export function calculateAdsenseReadiness(site: WPSite): {
     let score = 0;
 
     // Check connection status
-    if (site.connectionStatus === 'connected') {
+    if (site.status === 'connected') {
         score += 20;
     } else {
         issues.push('Site not connected');
@@ -268,7 +268,7 @@ export function getRecommendedActions(site: WPSite): Array<{
     const actions: Array<{ priority: 'high' | 'medium' | 'low'; action: string; reason: string }> = [];
 
     // Connection issues
-    if (site.connectionStatus !== 'connected') {
+    if (site.status !== 'connected') {
         actions.push({
             priority: 'high',
             action: 'Test connection',

@@ -154,11 +154,14 @@ export const useHuntDataRegistry = create<HuntDataRegistry>()(
                     links: {
                         ...state.links,
                         [domain]: {
-                            domain,
-                            campaignIds: [],
-                            createdAt: existing?.createdAt || now,
+                            // Spread existing first (may be undefined for new links)
                             ...existing,
+                            // Apply updates
                             ...update,
+                            // Set required fields with defaults if not present
+                            domain,
+                            campaignIds: update.campaignIds ?? existing?.campaignIds ?? [],
+                            createdAt: existing?.createdAt ?? now,
                             updatedAt: now,
                         },
                     },
@@ -231,7 +234,6 @@ export const useHuntDataRegistry = create<HuntDataRegistry>()(
                     context.domainProfile = {
                         domain,
                         pillars: profile.suggestedTopics || [],
-                        targetAudience: profile.targetAudience,
                         existingTopics: profile.suggestedTopics,
                     };
                     // Enhance niche from profile

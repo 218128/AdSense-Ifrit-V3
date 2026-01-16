@@ -128,7 +128,7 @@ export interface UploadMediaResponse {
  * Check if site has ifrit-connector plugin installed
  */
 export async function checkPluginHealth(site: WPSite): Promise<(PluginHealthResponse & { active: boolean }) | null> {
-    const url = `${site.siteUrl}/wp-json/ifrit/v1/health`;
+    const url = `${site.url}/wp-json/ifrit/v1/health`;
     console.log('[PluginAPI] Checking health at:', url);
 
     try {
@@ -165,12 +165,12 @@ export async function checkPluginHealth(site: WPSite): Promise<(PluginHealthResp
  */
 export async function getPluginSiteInfo(site: WPSite): Promise<PluginSiteInfo | null> {
     if (!site.ifritToken) {
-        console.warn('[PluginAPI] No ifrit token for site:', site.domain);
+        console.warn('[PluginAPI] No ifrit token for site:', site.url);
         return null;
     }
 
     try {
-        const response = await fetch(`${site.siteUrl}/wp-json/ifrit/v1/site`, {
+        const response = await fetch(`${site.url}/wp-json/ifrit/v1/site`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -198,7 +198,7 @@ export async function getPluginAnalytics(site: WPSite): Promise<PluginAnalyticsR
     }
 
     try {
-        const response = await fetch(`${site.siteUrl}/wp-json/ifrit/v1/analytics`, {
+        const response = await fetch(`${site.url}/wp-json/ifrit/v1/analytics`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -227,7 +227,7 @@ export async function createPostViaPlugin(
         throw new Error('Ifrit plugin token not configured');
     }
 
-    const response = await fetch(`${site.siteUrl}/wp-json/ifrit/v1/posts`, {
+    const response = await fetch(`${site.url}/wp-json/ifrit/v1/posts`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -256,7 +256,7 @@ export async function updatePostViaPlugin(
         throw new Error('Ifrit plugin token not configured');
     }
 
-    const response = await fetch(`${site.siteUrl}/wp-json/ifrit/v1/posts/${postId}`, {
+    const response = await fetch(`${site.url}/wp-json/ifrit/v1/posts/${postId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -284,7 +284,7 @@ export async function uploadMediaViaPlugin(
         throw new Error('Ifrit plugin token not configured');
     }
 
-    const response = await fetch(`${site.siteUrl}/wp-json/ifrit/v1/media`, {
+    const response = await fetch(`${site.url}/wp-json/ifrit/v1/media`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -313,7 +313,7 @@ export async function setPluginWebhookUrl(
     }
 
     try {
-        const response = await fetch(`${site.siteUrl}/wp-json/ifrit/v1/webhook-url`, {
+        const response = await fetch(`${site.url}/wp-json/ifrit/v1/webhook-url`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -340,7 +340,7 @@ export async function installPluginRemotely(
         throw new Error('Ifrit plugin token not configured');
     }
 
-    const response = await fetch(`${site.siteUrl}/wp-json/ifrit/v1/plugins/install`, {
+    const response = await fetch(`${site.url}/wp-json/ifrit/v1/plugins/install`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

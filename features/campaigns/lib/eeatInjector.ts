@@ -67,11 +67,7 @@ export function injectEEATSignals(
 
     // 1. Inject byline after first paragraph
     if (options.injectByline) {
-        const byline = generateAuthorByline(author, {
-            includeDate: true,
-            includeCredentials: true,
-            dateFormat: 'long',
-        });
+        const byline = generateAuthorByline(author);
 
         // Find first </p> and insert byline after it
         const firstPEnd = content.indexOf('</p>');
@@ -104,7 +100,7 @@ export function injectEEATSignals(
 
     // 3. Inject bio box
     if (options.injectBioBox) {
-        const bioBox = generateAuthorBioBox(author, { style: 'detailed' });
+        const bioBox = generateAuthorBioBox(author);
 
         if (options.bioBoxPosition === 'top') {
             // After header
@@ -134,15 +130,13 @@ export function injectEEATSignals(
 
     // 4. Generate enhanced schema with author
     if (options.injectSchema) {
-        schemaMarkup = generateArticleWithAuthorSchema(
-            ctx.content.title,
-            ctx.content.excerpt || ctx.content.body.substring(0, 160),
-            author,
-            {
-                publishDate: new Date().toISOString(),
-                modifiedDate: new Date().toISOString(),
-            }
-        );
+        const schemaObj = generateArticleWithAuthorSchema(author, {
+            articleTitle: ctx.content.title,
+            articleUrl: '', // URL not available in PipelineContext
+            publishedDate: new Date().toISOString(),
+            modifiedDate: new Date().toISOString(),
+        });
+        schemaMarkup = JSON.stringify(schemaObj, null, 2);
         injections.push('Article + Author schema');
     }
 
@@ -174,7 +168,9 @@ export function injectExperiencePhrases(
         // Add experience phrase after section heading
         const headingEnd = section.indexOf('</h2>');
         if (headingEnd !== -1) {
-            const phrase = getFirstHandPhrase(author);
+            // Extract section heading text as topic
+            const sectionText = section.substring(0, headingEnd);
+            const phrase = getFirstHandPhrase(author, sectionText);
             const afterHeading = section.indexOf('</p>', headingEnd);
 
             if (afterHeading !== -1 && phrase) {

@@ -164,3 +164,25 @@ export function updateTranslationStatus(
         ...(status === 'translating' && { translatedAt: Date.now() }),
     };
 }
+
+// ============================================================================
+// Translation History Retrieval
+// ============================================================================
+
+/**
+ * Get translation history for a campaign
+ * 
+ * TODO: This feature is incomplete - currently returns empty array.
+ * Need to implement a Zustand store (useTranslationHistoryStore) to persist
+ * translation records across sessions. The store should:
+ * 1. Save records when translations complete
+ * 2. Load from localStorage on init
+ * 3. Support filtering by campaignId, language, status
+ */
+export function getTranslationHistory(_campaignId: string): TranslationRecord[] {
+    // INCOMPLETE: No persistence store implemented yet
+    // When a translation store is created, this should call:
+    // return useTranslationHistoryStore.getState().getRecordsByCampaign(campaignId);
+    console.warn('[TranslationHistory] Feature incomplete - no persistence store. Returning empty history.');
+    return [];
+}

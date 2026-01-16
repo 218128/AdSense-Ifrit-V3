@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Settings, Lock, Zap, Brain, Server, Link2, DollarSign, Database, Users } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { syncToServer as syncToServerFn, restoreFromServer as restoreFromServerFn } from '@/lib/backup/settingsBackup';
 
 // Section components - 7-tab structure
 import { AIProvidersSection } from './sections/AIProvidersSection';
@@ -28,7 +29,7 @@ function getStorageItem(key: string): string {
 
 export interface UserSettings {
     geminiKey: string;
-    blogUrl: string;
+
     adsensePublisherId: string;
     adsenseLeaderboardSlot: string;
     adsenseArticleSlot: string;
@@ -38,7 +39,7 @@ export interface UserSettings {
 export function getUserSettings(): UserSettings {
     return {
         geminiKey: getStorageItem('GEMINI_API_KEY'),
-        blogUrl: getStorageItem('USER_BLOG_URL'),
+
         adsensePublisherId: getStorageItem('ADSENSE_PUBLISHER_ID'),
         adsenseLeaderboardSlot: getStorageItem('ADSENSE_LEADERBOARD_SLOT'),
         adsenseArticleSlot: getStorageItem('ADSENSE_ARTICLE_SLOT'),
@@ -159,20 +160,20 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
     const [activeSection, setActiveSection] = useState<SettingsSection>('ai-providers');
 
     const store = useSettingsStore();
-    const { backupToServer, restoreFromServer, initialize, integrations, adsenseConfig } = store;
+    const { initialize, integrations, adsenseConfig } = store;
 
     // Initialize store and restore from server on mount
     useEffect(() => {
         initialize();
         // Try server restore if store is empty
         if (!integrations.githubToken && !adsenseConfig.publisherId) {
-            restoreFromServer();
+            restoreFromServerFn();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleSave = async () => {
-        await backupToServer();
+        await syncToServerFn();
         if (!inline) {
             setIsOpen(false);
         }

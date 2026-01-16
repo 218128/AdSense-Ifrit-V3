@@ -77,8 +77,24 @@ export async function runTranslationPipeline(
     let failedCount = 0;
     let skippedCount = 0;
 
+    // Import status store dynamically to avoid SSR issues
+    const { useGlobalActionStatusStore } = await import('@/stores/globalActionStatusStore');
+    const statusStore = useGlobalActionStatusStore.getState();
+
+    // Start translation pipeline action
+    const actionId = statusStore.startAction(
+        `Translate: ${sourceSite.name || sourceSite.url}`,
+        'translation',
+        {
+            source: 'pipeline',
+            origin: 'campaigns/translationPipeline',
+            retryable: true,
+        }
+    );
+
     try {
         // 1. Fetch posts from source site
+        const fetchStepId = statusStore.addStep(actionId, '⏳ Fetching posts from source...', 'running');
         onProgress?.({ phase: 'fetching', message: 'Fetching posts from source site...' });
 
         const { getPosts } = await import('@/features/wordpress/api/wordpressApi');
@@ -90,6 +106,8 @@ export async function runTranslationPipeline(
         });
 
         if (!postsResult.success || !postsResult.data) {
+            statusStore.updateStep(actionId, fetchStepId, `❌ Fetch failed: ${postsResult.error}`, 'error');
+            statusStore.failAction(actionId, postsResult.error || 'Fetch failed');
             return {
                 success: false,
                 summary: { totalPosts: 0, totalTranslations: 0, successCount: 0, failedCount: 0, skippedCount: 0 },
@@ -99,6 +117,8 @@ export async function runTranslationPipeline(
         }
 
         const posts = postsResult.data;
+        statusStore.updateStep(actionId, fetchStepId, `✅ Fetched ${posts.length} posts`, 'success');
+        statusStore.setProgress(actionId, 0, posts.length);
 
         // 2. Process each post for each target language
         for (let i = 0; i < posts.length; i++) {
@@ -124,14 +144,13 @@ export async function runTranslationPipeline(
                     continue;
                 }
 
-                // Create translation record
                 const record = createTranslationRecord(
-                    { id: post.id, url: post.link, title: post.title.rendered },
+                    { id: post.id, url: post.link, title: post.title?.rendered || '' },
                     sourceSite.id,
                     langMapping.language,
                     langMapping.targetSiteId,
                     campaignId,
-                    post.content.rendered.length
+                    post.content?.rendered?.length || 0
                 );
                 record.runId = runId;
 
@@ -139,7 +158,7 @@ export async function runTranslationPipeline(
                     // 3. Translate
                     onProgress?.({
                         phase: 'translating',
-                        message: `Translating "${post.title.rendered}" to ${langMapping.languageName || langMapping.language}...`,
+                        message: `Translating "${post.title?.rendered || 'Untitled'}" to ${langMapping.languageName || langMapping.language}...`,
                         currentPost: i + 1,
                         totalPosts: posts.length,
                         currentLanguage: langMapping.language,
@@ -183,8 +202,8 @@ export async function runTranslationPipeline(
                         });
 
                         const { humanizeContent } = await import('./humanizer');
-                        const humanized = await humanizeContent(finalContent);
-                        finalContent = humanized.content;
+                        // humanizeContent returns string directly
+                        finalContent = humanizeContent(finalContent, {});
                         record.postProcessingApplied = { humanized: true };
                     }
 
@@ -198,8 +217,9 @@ export async function runTranslationPipeline(
                         });
 
                         const { optimizeReadability } = await import('./readability');
-                        const optimized = await optimizeReadability(finalContent);
-                        finalContent = optimized.content;
+                        // optimizeReadability returns {optimizedContent, score}
+                        const optimized = optimizeReadability(finalContent);
+                        finalContent = optimized.optimizedContent;
                         record.postProcessingApplied = {
                             ...record.postProcessingApplied,
                             readabilityOptimized: true
@@ -259,6 +279,13 @@ export async function runTranslationPipeline(
 
         onProgress?.({ phase: 'complete', message: 'Translation pipeline complete' });
 
+        // Complete or fail the pipeline action based on results
+        if (failedCount === 0) {
+            statusStore.completeAction(actionId, `✅ Translated ${successCount} posts`);
+        } else {
+            statusStore.failAction(actionId, `${failedCount}/${successCount + failedCount} translations failed`);
+        }
+
         return {
             success: failedCount === 0,
             summary: {
@@ -273,6 +300,7 @@ export async function runTranslationPipeline(
         };
 
     } catch (error) {
+        statusStore.failAction(actionId, error instanceof Error ? error.message : 'Pipeline failed');
         return {
             success: false,
             summary: { totalPosts: 0, totalTranslations: 0, successCount: 0, failedCount: 1, skippedCount: 0 },

@@ -23,8 +23,9 @@ export interface ABTest {
 
 export interface ABVariant {
     id: string;
-    type: 'title' | 'excerpt' | 'cta';
+    type: 'title' | 'excerpt' | 'cta' | 'cover_image' | 'content';
     content: string;
+    imageUrl?: string;          // For cover_image variants
     impressions: number;
     clicks: number;
     conversions: number;
@@ -232,4 +233,129 @@ export function generateTitleVariations(baseTitle: string): string[] {
     }
 
     return variations.slice(0, 5); // Max 5 variations
+}
+
+// ============================================================================
+// Cover Image Variations
+// ============================================================================
+
+export interface GeneratedImage {
+    url: string;
+    alt: string;
+    source: string;
+}
+
+/**
+ * Create cover image variants from available generated images.
+ * Uses different images as A/B test variations.
+ */
+export function generateCoverVariants(
+    images: GeneratedImage[],
+    maxVariants: number = 3
+): Omit<ABVariant, 'impressions' | 'clicks' | 'conversions'>[] {
+    if (!images || images.length === 0) {
+        return [];
+    }
+
+    // Take up to maxVariants unique images
+    const selectedImages = images.slice(0, maxVariants);
+
+    return selectedImages.map((img, index) => ({
+        id: `cover_${index}`,
+        type: 'cover_image' as const,
+        content: img.alt || `Cover Variation ${index + 1}`,
+        imageUrl: img.url,
+    }));
+}
+
+// ============================================================================
+// Content Respin Variations
+// ============================================================================
+
+/**
+ * Create content respin variants using the spinner.
+ * Each variant is a respun version of the original content.
+ */
+export async function generateContentRespinVariants(
+    originalContent: string,
+    spinModes: ('light' | 'moderate' | 'heavy')[] = ['light', 'moderate']
+): Promise<Omit<ABVariant, 'impressions' | 'clicks' | 'conversions'>[]> {
+    const variants: Omit<ABVariant, 'impressions' | 'clicks' | 'conversions'>[] = [
+        {
+            id: 'content_original',
+            type: 'content' as const,
+            content: 'Original content (control)',
+        },
+    ];
+
+    // Import the spinner dynamically
+    try {
+        const { spinContent } = await import('./contentSpinner');
+
+        for (const mode of spinModes) {
+            const result = await spinContent(originalContent, {
+                mode,
+                addVariation: true,
+            }, {});
+
+            if (result.success) {
+                variants.push({
+                    id: `content_${mode}`,
+                    type: 'content' as const,
+                    content: `${mode.charAt(0).toUpperCase() + mode.slice(1)} respin`,
+                });
+            }
+        }
+    } catch (error) {
+        console.warn('[A/B Testing] Content respin failed:', error);
+    }
+
+    return variants;
+}
+
+// ============================================================================
+// Combined Test Creator
+// ============================================================================
+
+export interface ABTestConfig {
+    testTitles?: boolean;
+    testCovers?: boolean;
+    testRespins?: boolean;
+}
+
+/**
+ * Create a comprehensive A/B test with multiple variation types.
+ */
+export function createComprehensiveABTest(
+    name: string,
+    postId: number,
+    siteId: string,
+    baseTitle: string,
+    config: ABTestConfig,
+    coverImages?: GeneratedImage[]
+): ABTest {
+    const variants: Omit<ABVariant, 'impressions' | 'clicks' | 'conversions'>[] = [];
+
+    // Add title variations
+    if (config.testTitles) {
+        const titleVariations = generateTitleVariations(baseTitle);
+        titleVariations.forEach((title, index) => {
+            variants.push({
+                id: `title_${index}`,
+                type: 'title',
+                content: title,
+            });
+        });
+    }
+
+    // Add cover image variations
+    if (config.testCovers && coverImages && coverImages.length > 0) {
+        const coverVariants = generateCoverVariants(coverImages);
+        variants.push(...coverVariants);
+    }
+
+    // Note: Content respins are async and should be added separately
+    // using generateContentRespinVariants()
+
+    return createABTest(name, postId, siteId, variants);
 }

@@ -21,7 +21,14 @@ export interface ContentGenerationResult {
 }
 
 export interface ContentGenerationOptions {
-    research?: string;
+    // Research can be string (legacy) or rich object (new)
+    research?: string | {
+        text: string;
+        citations?: string[];
+        relatedQuestions?: string[];
+        images?: string[];
+        handlerUsed?: string;
+    };
     onProgress?: (message: string) => void;
 }
 
@@ -80,22 +87,29 @@ export async function generateContent(
     const prompt = buildHtmlPrompt(articleType, htmlConfig);
 
     // Add research context if available
-    const fullPrompt = options?.research
-        ? `${prompt}\n\nUse this research to inform the content (cite naturally):\n${options.research}`
+    const researchText = typeof options?.research === 'string'
+        ? options.research
+        : options?.research?.text;
+    const fullPrompt = researchText
+        ? `${prompt}\n\nUse this research to inform the content (cite naturally):\n${researchText}`
         : prompt;
 
-    options?.onProgress?.('Fetching API key...');
+    options?.onProgress?.('Fetching API keys...');
 
-    // Get API key from client-side key manager
-    let apiKey: string | undefined;
+    // Get ALL provider keys from client-side key manager (server can't access Zustand)
+    let providerKeys: Record<string, string> = {};
     try {
-        const { getCapabilityKey } = await import('@/lib/ai/utils/getCapabilityKey');
-        apiKey = await getCapabilityKey();
+        const { getAllProviderKeys } = await import('@/lib/ai/utils/getCapabilityKey');
+        providerKeys = await getAllProviderKeys();
     } catch {
-        console.warn('[ContentGenerator] Could not get API key from KeyManager');
+        console.warn('[ContentGenerator] Could not get provider keys from KeyManager');
     }
 
-    options?.onProgress?.('Generating content with AI...');
+    // Get preferred handler based on aiConfig.provider
+    const { getGenerateHandler } = await import('./handlerMapping');
+    const preferredHandler = getGenerateHandler(aiConfig);
+
+    options?.onProgress?.(`Generating content with AI${preferredHandler ? ` (${preferredHandler})` : ''}...`);
 
     // Calculate generous token limit for complete article generation
     // Full HTML articles with TOC, sections, FAQ, and conclusion need substantial tokens
@@ -111,19 +125,27 @@ export async function generateContent(
             temperature: 0.7,
             topic: sourceItem.topic,
             itemType: 'html-article',
-            context: apiKey ? { apiKey } : undefined,
+            preferredHandler,  // ← Now passed to API
+            // Pass ALL provider keys so each handler can use its own key
+            context: Object.keys(providerKeys).length > 0 ? { providerKeys } : undefined,
         }),
     });
 
     if (!response.ok) {
-        throw new Error('Content generation failed');
+        const errorText = await response.text();
+        throw new Error(`Content generation HTTP ${response.status}: ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
 
     if (!data.success) {
-        console.warn('[ContentGenerator] Failed:', data.error, 'Handler:', data.handlerUsed);
-        throw new Error(data.error || 'Content generation failed');
+        // Build detailed error message for status panel visibility
+        const attemptedHandlers = data.fallbacksAttempted?.join(' → ') || 'none';
+        const errorDetail = data.errorDetails?.rawMessage || data.error || 'Unknown error';
+        const fullError = `${errorDetail} [Tried: ${attemptedHandlers}]`;
+
+        console.warn('[ContentGenerator] Failed:', fullError, 'Final handler:', data.handlerUsed);
+        throw new Error(fullError);
     }
 
     console.log(`[ContentGenerator] HTML via ${data.handlerUsed} in ${data.latencyMs}ms`);

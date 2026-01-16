@@ -14,29 +14,32 @@ export async function POST(
     try {
         const { id: campaignId } = await params;
         const body = await req.json();
-        const { wpSiteId, aiConfig } = body;
+        const { wpSiteId, wpSite: wpSiteCredentials, aiConfig } = body;
 
-        if (!wpSiteId) {
+        // Validate required credentials (passed from client since server can't access client Zustand store)
+        if (!wpSiteCredentials?.url || !wpSiteCredentials?.username || !wpSiteCredentials?.appPassword) {
             return NextResponse.json(
-                { success: false, error: 'wpSiteId is required' },
+                { success: false, error: 'WordPress site credentials are required (url, username, appPassword)' },
                 { status: 400 }
             );
         }
 
-        // Import server-safe functions directly (not from barrel to avoid client hooks)
-        const { getWPSiteById } = await import('@/features/wordpress/model/wpSiteStore');
-        const wpSite = getWPSiteById(wpSiteId);
-
-        if (!wpSite) {
-            return NextResponse.json(
-                { success: false, error: 'WordPress site not found' },
-                { status: 404 }
-            );
-        }
+        // Build WPSite object from passed credentials
+        // Type assertion since we only need credentials for WP API calls
+        const wpSite = {
+            id: wpSiteId || 'retry-images-temp',
+            name: 'Retry Images',
+            url: wpSiteCredentials.url,
+            username: wpSiteCredentials.username,
+            appPassword: wpSiteCredentials.appPassword,
+            status: 'connected' as const,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        };
 
         // Fetch posts from WordPress that are missing featured images
-        const { fetchPosts } = await import('@/features/wordpress/api/wpApi');
-        const postsResult = await fetchPosts(wpSite, { per_page: 20, status: 'publish,draft' });
+        const { getPosts } = await import('@/features/wordpress/api/wordpressApi');
+        const postsResult = await getPosts(wpSite, { perPage: 20, status: 'any' });
 
         if (!postsResult.success || !postsResult.data) {
             return NextResponse.json(
@@ -47,7 +50,7 @@ export async function POST(
 
         // Filter posts without featured images
         const postsWithoutImages = postsResult.data.filter(
-            (post: { featured_media?: number }) => !post.featured_media || post.featured_media === 0
+            (post) => !post.featured_media || post.featured_media === 0
         );
 
         if (postsWithoutImages.length === 0) {
@@ -67,7 +70,7 @@ export async function POST(
             const result = await retryImagesForPost(
                 wpSite,
                 post.id,
-                post.title?.rendered || post.title || 'Untitled',
+                post.title?.rendered || 'Untitled',
                 aiConfig || { articleType: 'blog-post', imagePlacements: ['cover'] }
             );
 

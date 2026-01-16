@@ -36,7 +36,7 @@ export interface SpinOptions {
 export async function spinContent(
     content: string,
     options: SpinOptions,
-    aiConfig: AIConfig
+    aiConfig: Partial<AIConfig> = {}
 ): Promise<SpinResult> {
     try {
         const prompt = buildSpinPrompt(content, options);

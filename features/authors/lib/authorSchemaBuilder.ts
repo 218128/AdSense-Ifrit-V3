@@ -145,6 +145,7 @@ export function generateArticleWithAuthorSchema(
 
 /**
  * Generate HTML byline for article
+ * Includes inline CSS for WordPress theme compatibility
  */
 export function generateAuthorByline(author: AuthorProfile): string {
     const credentialText = author.credentials
@@ -157,44 +158,52 @@ export function generateAuthorByline(author: AuthorProfile): string {
         0
     );
 
-    let byline = `<span class="author-byline">`;
-    byline += `By <a href="/author/${author.slug}" class="author-name">${author.name}</a>`;
+    let byline = `<div class="author-byline" style="display:inline-block;padding:8px 16px;margin:16px 0;background:#edf2f7;border-radius:6px;font-size:14px;color:#4a5568;">`;
+    byline += `By <span style="font-weight:600;color:#2d3748;">${author.name}</span>`;
 
     if (credentialText) {
-        byline += `, <span class="author-credentials">${credentialText}</span>`;
+        byline += `, <span style="color:#718096;">${credentialText}</span>`;
     }
 
     if (yearsExp > 0) {
-        byline += ` <span class="author-experience">(${yearsExp}+ years experience)</span>`;
+        byline += ` <span style="color:#718096;">(${yearsExp}+ years experience)</span>`;
     }
 
-    byline += `</span>`;
+    byline += `</div>`;
 
     return byline;
 }
 
 /**
  * Generate author bio box for end of article
+ * Includes inline CSS for WordPress theme compatibility
  */
 export function generateAuthorBioBox(author: AuthorProfile): string {
     const socialLinks = author.socialProfiles
-        .map(p => `<a href="${p.url}" class="author-social author-social-${p.platform}" 
+        .map(p => `<a href="${p.url}" style="color:#3182ce;text-decoration:none;margin-right:12px;" 
                      target="_blank" rel="noopener">${p.platform}</a>`)
         .join(' ');
 
     return `
-<div class="author-bio-box" itemscope itemtype="https://schema.org/Person">
-    <div class="author-avatar">
+<div class="author-bio-box" itemscope itemtype="https://schema.org/Person" 
+     style="display:flex;gap:20px;padding:24px;margin:32px 0;background:#f8f9fa;border-radius:12px;border:1px solid #e2e8f0;">
+    <div class="author-avatar" style="flex-shrink:0;">
         ${author.avatarUrl
-            ? `<img src="${author.avatarUrl}" alt="${author.name}" itemprop="image" />`
-            : `<div class="author-avatar-placeholder">${author.name.charAt(0)}</div>`
+            ? `<img src="${author.avatarUrl}" alt="${author.name}" itemprop="image" 
+                    style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #e2e8f0;" />`
+            : `<div style="width:80px;height:80px;border-radius:50%;background:#4299e1;color:white;
+                          display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;">
+                ${author.name.charAt(0)}</div>`
         }
     </div>
-    <div class="author-info">
-        <h4 class="author-name" itemprop="name">${author.name}</h4>
-        <p class="author-headline" itemprop="jobTitle">${author.headline}</p>
-        <p class="author-bio" itemprop="description">${author.shortBio}</p>
-        ${socialLinks ? `<div class="author-social-links">${socialLinks}</div>` : ''}
+    <div class="author-info" style="flex:1;">
+        <h4 class="author-name" itemprop="name" 
+            style="margin:0 0 4px 0;font-size:18px;font-weight:600;color:#1a202c;">About ${author.name}</h4>
+        <p class="author-headline" itemprop="jobTitle" 
+           style="margin:0 0 8px 0;font-size:14px;color:#4a5568;font-weight:500;">${author.headline}</p>
+        <p class="author-bio" itemprop="description" 
+           style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#4a5568;">${author.shortBio}</p>
+        ${socialLinks ? `<div style="font-size:14px;">${socialLinks}</div>` : ''}
     </div>
 </div>`;
 }

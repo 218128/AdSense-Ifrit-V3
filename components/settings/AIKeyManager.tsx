@@ -45,8 +45,6 @@ export function AIKeyManager() {
         getProviderKeys,
         exportSettings,
         importSettings,
-        backupToServer,
-        restoreFromServer,
         initialize
     } = store;
 
@@ -130,11 +128,6 @@ export function AIKeyManager() {
         initialize();
         loadProviders();
         loadAvailableModels();
-        // Try to restore from server if store is empty
-        const hasAnyKeys = PROVIDER_IDS.some(id => getProviderKeys(id).length > 0);
-        if (!hasAnyKeys) {
-            restoreFromServer();
-        }
     }, []);
 
     // File input ref for import
@@ -143,7 +136,7 @@ export function AIKeyManager() {
     // Handle export - downloads a JSON file
     const handleExportSettings = () => {
         const exportData = exportSettings();
-        if (Object.keys(exportData.settings).length === 0) {
+        if (!exportData.settings || Object.keys(exportData.settings).length === 0) {
             alert('No settings to export.');
             return;
         }
@@ -167,7 +160,6 @@ export function AIKeyManager() {
                 const data = JSON.parse(e.target?.result as string);
                 const result = importSettings(data);
                 if (result.success) {
-                    await backupToServer();
                     alert(`Imported ${result.restored} settings! Refresh to see all changes.`);
                 } else {
                     alert('Invalid settings file');

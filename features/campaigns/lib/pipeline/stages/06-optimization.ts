@@ -17,7 +17,7 @@ export const optimizationStages: StageGroup = {
             id: 'spinner',
             name: 'Content Spinning',
             optional: true,
-            condition: (ctx, campaign) => campaign.aiConfig.enableSpinner && !!ctx.content,
+            condition: (ctx, campaign) => !!campaign.aiConfig.enableSpinner && !!ctx.content,
             execute: async (ctx, campaign) => {
                 const { spinContent } = await import('../../contentSpinner');
                 const result = await spinContent(
@@ -35,21 +35,20 @@ export const optimizationStages: StageGroup = {
             id: 'humanizer',
             name: 'Humanization',
             optional: true,
-            condition: (ctx, campaign) => campaign.aiConfig.humanize && !!ctx.content,
-            execute: async (ctx, campaign) => {
+            condition: (ctx, campaign) => !!campaign.aiConfig.humanize && !!ctx.content,
+            execute: async (ctx) => {
                 const { humanizeContent } = await import('../../humanizer');
-                const result = await humanizeContent(ctx.content!.body, campaign.aiConfig);
-                if (result.success) {
-                    ctx.content!.body = result.content;
-                    console.log('[Pipeline] Content humanized');
-                }
+                // humanizeContent returns string directly, not a Promise
+                const humanized = humanizeContent(ctx.content!.body, {});
+                ctx.content!.body = humanized;
+                console.log('[Pipeline] Content humanized');
             },
         },
         {
             id: 'readability',
             name: 'Readability Optimization',
             optional: true,
-            condition: (ctx, campaign) => campaign.aiConfig.optimizeReadability && !!ctx.content,
+            condition: (ctx, campaign) => !!campaign.aiConfig.optimizeReadability && !!ctx.content,
             execute: async (ctx) => {
                 const { optimizeReadability } = await import('../../readability');
                 const result = optimizeReadability(ctx.content!.body);

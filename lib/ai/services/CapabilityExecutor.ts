@@ -50,7 +50,7 @@ export interface ExecutorConfig {
 const DEFAULT_EXECUTOR_CONFIG: ExecutorConfig = {
     verbosity: 'standard',
     defaultMaxRetries: 2,
-    defaultTimeout: 30000,
+    defaultTimeout: 300000,  // 5 minutes - content generation can take time
     logToConsole: true,
 };
 
@@ -201,6 +201,7 @@ export class CapabilityExecutor {
 
         // 2. Try handlers in order (with fallback)
         const attemptedHandlers: string[] = [];
+        const handlerErrors: Record<string, string> = {}; // Collect actual error from each handler
         let lastError = '';
 
         for (const handler of eligibleHandlers) {
@@ -259,8 +260,10 @@ export class CapabilityExecutor {
                             diagnostics,
                         };
                     } else {
-                        diagnostics.errors.push(result.error || 'Unknown error');
-                        lastError = result.error || 'Unknown error';
+                        const errorMsg = result.error || 'Unknown error';
+                        diagnostics.errors.push(errorMsg);
+                        lastError = errorMsg;
+                        handlerErrors[handler.id] = errorMsg; // Store actual API error
                     }
                 } catch (error) {
                     diagnostics.responseTime = Date.now();
@@ -268,8 +271,9 @@ export class CapabilityExecutor {
                     const errorMsg = error instanceof Error ? error.message : String(error);
                     diagnostics.errors.push(errorMsg);
                     lastError = errorMsg;
+                    handlerErrors[handler.id] = errorMsg; // Store actual API error
 
-                    this.log('standard', `[CapabilityExecutor] Error: ${errorMsg}`);
+                    this.log('standard', `[CapabilityExecutor] ${handler.id} error: ${errorMsg}`);
                 }
 
                 this.logDiagnostics(diagnostics);
@@ -281,12 +285,19 @@ export class CapabilityExecutor {
             }
         }
 
-        // All handlers failed
-        return this.errorResult(
-            `All handlers failed for ${capability}. Last error: ${lastError}`,
-            startTime,
-            attemptedHandlers
-        );
+        // All handlers failed - build detailed error with all handler messages
+        const errorBreakdown = Object.entries(handlerErrors)
+            .map(([id, err]) => `${id}: ${err}`)
+            .join(' | ');
+
+        return {
+            ...this.errorResult(
+                `All handlers failed for ${capability}. Errors: ${errorBreakdown}`,
+                startTime,
+                attemptedHandlers
+            ),
+            handlerErrors, // Include raw errors for status panel
+        };
     }
 
     /**
@@ -327,6 +338,123 @@ export class CapabilityExecutor {
         });
 
         return eligible;
+    }
+
+    /**
+     * Execute capability in AGGREGATED mode - query ALL eligible handlers in parallel
+     * Used for search-images to collect results from multiple sources for scoring
+     */
+    async executeAggregated(
+        options: ExecuteOptions,
+        handlers: CapabilityHandler[],
+        capabilitiesConfig: CapabilitiesConfig
+    ): Promise<ExecuteResult> {
+        const startTime = Date.now();
+        const capability = options.capability || 'search-images';
+
+        // Get all eligible handlers (no priority sorting needed)
+        const eligibleHandlers = this.getEligibleHandlers(
+            capability,
+            handlers,
+            capabilitiesConfig,
+            undefined  // No preference for aggregated mode
+        );
+
+        if (eligibleHandlers.length === 0) {
+            return this.errorResult(
+                `No handlers available for aggregated ${capability}`,
+                startTime,
+                []
+            );
+        }
+
+        this.log('standard', `[CapabilityExecutor] Aggregated execution: ${eligibleHandlers.map(h => h.id).join(', ')}`);
+
+        // Execute all handlers in parallel
+        const results = await Promise.allSettled(
+            eligibleHandlers.map(async (handler) => {
+                try {
+                    if (!handler.execute) {
+                        throw new Error(`Handler ${handler.id} has no execute function`);
+                    }
+                    const result = await handler.execute(options);
+                    return { handler: handler.id, result };
+                } catch (error) {
+                    return {
+                        handler: handler.id,
+                        result: {
+                            success: false,
+                            error: error instanceof Error ? error.message : 'Handler error',
+                            handlerUsed: handler.id,
+                            source: handler.source,
+                            latencyMs: Date.now() - startTime,
+                        } as ExecuteResult
+                    };
+                }
+            })
+        );
+
+        // Collect all successful image results
+        const allImages: unknown[] = [];
+        const successfulHandlers: string[] = [];
+        const handlerErrors: Record<string, string> = {};
+        const handlerImageCounts: Record<string, number> = {};
+
+        for (const res of results) {
+            if (res.status === 'fulfilled') {
+                const { handler, result } = res.value;
+                if (result.success && result.data) {
+                    // Merge image arrays from each handler
+                    const images = Array.isArray(result.data) ? result.data : [result.data];
+                    allImages.push(...images);
+                    successfulHandlers.push(handler);
+                    handlerImageCounts[handler] = images.length;
+                } else if (result.error) {
+                    handlerErrors[handler] = result.error;
+                }
+            } else {
+                // Promise rejected
+                const handlerId = eligibleHandlers[results.indexOf(res)]?.id || 'unknown';
+                handlerErrors[handlerId] = res.reason?.message || 'Promise rejected';
+            }
+        }
+
+        // Log per-source results for visibility
+        for (const handler of successfulHandlers) {
+            this.log('standard', `[CapabilityExecutor] ✅ ${handler}: ${handlerImageCounts[handler]} images`);
+        }
+        for (const [handler, error] of Object.entries(handlerErrors)) {
+            this.log('standard', `[CapabilityExecutor] ❌ ${handler}: ${error.substring(0, 80)}`);
+        }
+
+        this.log('standard', `[CapabilityExecutor] Aggregated collected ${allImages.length} images from ${successfulHandlers.join(', ')}`);
+
+        if (allImages.length === 0) {
+            return {
+                ...this.errorResult(
+                    `All handlers failed in aggregated mode. Errors: ${JSON.stringify(handlerErrors)}`,
+                    startTime,
+                    eligibleHandlers.map(h => h.id)
+                ),
+                handlerErrors,
+            } as ExecuteResult & { handlerErrors: Record<string, string> };
+        }
+
+        return {
+            success: true,
+            text: Array.isArray(allImages) && allImages[0] && typeof allImages[0] === 'object' && 'url' in allImages[0]
+                ? (allImages[0] as { url: string }).url
+                : undefined,
+            data: allImages,
+            handlerUsed: successfulHandlers.join('+'),
+            source: 'local',  // aggregated results from local orchestration
+            latencyMs: Date.now() - startTime,
+            metadata: {
+                handlersQueried: eligibleHandlers.length,
+                handlersSucceeded: successfulHandlers.length,
+                totalImages: allImages.length,
+            },
+        };
     }
 
     /**

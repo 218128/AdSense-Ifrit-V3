@@ -97,6 +97,10 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
     // V5: Research state - loading only, results from store
     const [researching, setResearching] = useState(false);
 
+    // V6: Perplexity SDK additional data
+    const [researchCitations, setResearchCitations] = useState<string[]>([]);
+    const [researchRelatedQuestions, setResearchRelatedQuestions] = useState<string[]>([]);
+
     // Get research results for selected topics from store
     const selectedTopics = getSelectedTopics();
     const currentResearchResults = selectedTopics
@@ -147,6 +151,8 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
         if (selectedCount === 0) return;
 
         setResearching(true);
+        setResearchCitations([]);
+        setResearchRelatedQuestions([]);
 
         try {
             // Use aiServices capability system (handles provider selection + API keys)
@@ -161,22 +167,33 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
             if (result.success) {
                 let findings: string[] = [];
 
-                // Try to extract from structured data first
-                if (result.data && (result.data as { keyFindings?: string[] })?.keyFindings) {
-                    findings = (result.data as { keyFindings: string[] }).keyFindings;
-                }
-                // Fallback: Parse text response
-                else if (result.text) {
-                    // Split by newlines or bullet points to get individual findings
+                // Try structured data first (from Perplexity SDK)
+                const data = result.data as {
+                    keyFindings?: string[];
+                    citations?: string[];
+                    relatedQuestions?: string[];
+                } | undefined;
+
+                if (data?.keyFindings) {
+                    findings = data.keyFindings;
+                } else if (result.text) {
+                    // Parse text response
                     findings = result.text
                         .split(/[\n•\-\*]/)
                         .map(s => s.trim())
-                        .filter(s => s.length > 10); // Filter out short fragments
+                        .filter(s => s.length > 10);
 
-                    // If still nothing, use whole text
                     if (findings.length === 0) {
                         findings = [result.text];
                     }
+                }
+
+                // Capture Perplexity SDK additional data
+                if (data?.citations) {
+                    setResearchCitations(data.citations);
+                }
+                if (data?.relatedQuestions) {
+                    setResearchRelatedQuestions(data.relatedQuestions);
                 }
 
                 if (findings.length > 0) {
@@ -184,7 +201,7 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
                     for (const topic of topics) {
                         addResearchResult(topic, findings);
                     }
-                    console.log('[TrendResearch] Saved findings:', findings.length);
+                    console.log('[TrendResearch] Saved findings:', findings.length, 'citations:', data?.citations?.length || 0);
                 }
             } else if (result.error?.includes('No handlers')) {
                 alert('No research provider configured. Go to Settings → Capabilities to set up a handler.');
@@ -388,6 +405,44 @@ export default function TrendScanner({ onSelectKeywords }: TrendScannerProps) {
                             </li>
                         ))}
                     </ul>
+
+                    {/* V6: Citations from Perplexity SDK */}
+                    {researchCitations.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-purple-200">
+                            <p className="text-xs font-semibold text-indigo-700 mb-2">
+                                🔗 Sources ({researchCitations.length}):
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {researchCitations.slice(0, 6).map((url, i) => (
+                                    <a
+                                        key={i}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-indigo-600 hover:underline bg-white px-2 py-1 rounded border border-indigo-100"
+                                    >
+                                        {new URL(url).hostname}
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* V6: Related Questions as trend ideas */}
+                    {researchRelatedQuestions.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-purple-200">
+                            <p className="text-xs font-semibold text-amber-700 mb-2">
+                                💡 Related Trend Ideas:
+                            </p>
+                            <div className="space-y-1">
+                                {researchRelatedQuestions.slice(0, 4).map((q, i) => (
+                                    <div key={i} className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                                        {q}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

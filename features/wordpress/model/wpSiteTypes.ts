@@ -43,6 +43,7 @@ export interface WPSite {
     id: string;                          // UUID
     name: string;                        // Display name
     url: string;                         // Full URL with https://
+    domain?: string;                     // Domain extracted from URL (e.g., "example.com")
     niche?: string;                      // Topic area (optional for migration)
     siteType?: WPSiteType;               // Site type for recommendations
 

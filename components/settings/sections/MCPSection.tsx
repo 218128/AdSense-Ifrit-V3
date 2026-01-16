@@ -60,15 +60,7 @@ const MCP_SERVERS: MCPServerDef[] = [
             'list_repositories',
         ],
     },
-    {
-        id: 'perplexity-ask',
-        name: 'Perplexity MCP',
-        description: 'AI-powered search and research',
-        docsUrl: 'https://www.perplexity.ai/',
-        tools: ['perplexity_ask'],
-        requiresApiKey: true,
-        keyPlaceholder: 'pplx-...',
-    },
+    // Note: Perplexity is handled via SDK (AI Providers tab), not MCP
 ];
 
 // ============================================================================

@@ -1,8 +1,16 @@
 /**
  * Stock Photos Module
  * 
+ * @legacy - LEGACY Websites Module
+ * This module is for the Legacy Websites system (GitHub/Vercel).
+ * For WP Sites, use the search-images capability via imageSearchHandlers.ts.
+ * 
+ * @deprecated Use /api/capabilities/search-images with getAllIntegrationKeys() instead.
+ * 
  * Fetches images from Unsplash and Pexels APIs, downloads and converts to WebP.
  * Used for auto-fetching cover images during content generation.
+ * 
+ * ✅ Key names updated to use settingsStore.integrations.unsplashKey/pexelsKey
  */
 
 import * as fs from 'fs';
@@ -41,7 +49,8 @@ export interface FetchedImage {
 // ============================================
 
 /**
- * Get API keys from localStorage (client) or environment (server)
+ * Get API keys from settingsStore (client) or environment (server)
+ * Uses correct key names from unified settings system
  */
 export function getStockApiKeys(): { unsplash?: string; pexels?: string } {
     // Server-side: check environment
@@ -52,11 +61,22 @@ export function getStockApiKeys(): { unsplash?: string; pexels?: string } {
         };
     }
 
-    // Client-side: check localStorage
-    return {
-        unsplash: localStorage.getItem('ifrit_unsplash_key') || undefined,
-        pexels: localStorage.getItem('ifrit_pexels_key') || undefined
-    };
+    // Client-side: check settingsStore via localStorage
+    // The settingsStore persists to 'ifrit_settings' which contains integrations object
+    try {
+        const settingsJson = localStorage.getItem('ifrit_settings');
+        if (settingsJson) {
+            const settings = JSON.parse(settingsJson);
+            return {
+                unsplash: settings?.integrations?.unsplashKey || undefined,
+                pexels: settings?.integrations?.pexelsKey || undefined
+            };
+        }
+    } catch {
+        // Parse error, fall through
+    }
+
+    return { unsplash: undefined, pexels: undefined };
 }
 
 /**

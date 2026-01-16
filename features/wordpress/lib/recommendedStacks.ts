@@ -153,7 +153,7 @@ const CORE_ANALYTICS_PLUGINS: PluginRecommendation[] = [
         slug: 'google-site-kit',
         displayName: 'Site Kit by Google',
         description: 'Official Google plugin: Analytics, Search Console, AdSense, PageSpeed in one.',
-        category: 'analytics',
+        category: 'other',  // No 'analytics' category; Site Kit is a utility
         required: true,
         wpRepoUrl: 'https://wordpress.org/plugins/google-site-kit/',
     },

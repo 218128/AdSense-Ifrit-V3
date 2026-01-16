@@ -39,6 +39,10 @@ export interface WPPostResult {
     link: string;
     slug: string;
     status: string;
+    title?: { rendered: string };         // WP returns title as object
+    content?: { rendered: string };       // WP post content
+    excerpt?: { rendered: string };       // WP post excerpt
+    featured_media?: number;              // Featured image media ID
 }
 
 // ============================================================================

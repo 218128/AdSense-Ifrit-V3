@@ -3,6 +3,12 @@
 /**
  * Image Gallery Component
  * 
+ * @legacy - LEGACY Websites Component
+ * This component is for the Legacy Websites system (GitHub/Vercel).
+ * For WP Sites, use the WordPress Media Library via uploadMedia().
+ * 
+ * @deprecated Use WP Sites media features instead for new development.
+ * 
  * Displays and manages images for articles.
  * Features:
  * - Grid view of all images

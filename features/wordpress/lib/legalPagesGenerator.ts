@@ -351,6 +351,7 @@ export async function generateLegalPages(
 
 /**
  * Publish legal pages to WordPress
+ * Automatically reports progress to GlobalActionStatus
  */
 export async function publishLegalPages(
     site: WPSite,
@@ -362,9 +363,29 @@ export async function publishLegalPages(
         errors: [] as string[],
     };
 
+    // Import status store dynamically to avoid SSR issues
+    const { useGlobalActionStatusStore } = await import('@/stores/globalActionStatusStore');
+    const statusStore = useGlobalActionStatusStore.getState();
+
+    // Start action for legal pages publishing
+    const actionId = statusStore.startAction(
+        `Publish Legal Pages: ${site.name || site.url}`,
+        'wordpress',
+        {
+            source: 'user',
+            origin: 'wordpress/legalPagesGenerator',
+            retryable: true,
+        }
+    );
+
+    statusStore.setProgress(actionId, 0, pages.length);
+
     const auth = Buffer.from(`${site.username}:${site.appPassword}`).toString('base64');
 
-    for (const page of pages) {
+    for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const stepId = statusStore.addStep(actionId, `⏳ Publishing ${page.title}...`, 'running');
+
         try {
             const response = await fetch(`${site.url}/wp-json/wp/v2/pages`, {
                 method: 'POST',
@@ -383,6 +404,7 @@ export async function publishLegalPages(
             if (!response.ok) {
                 const error = await response.text();
                 result.errors.push(`Failed to publish ${page.title}: ${error}`);
+                statusStore.updateStep(actionId, stepId, `❌ ${page.title}: ${error.substring(0, 50)}`, 'error');
                 continue;
             }
 
@@ -391,13 +413,23 @@ export async function publishLegalPages(
                 slug: page.slug,
                 postId: data.id,
             });
+            statusStore.updateStep(actionId, stepId, `✅ ${page.title} (ID: ${data.id})`, 'success');
+            statusStore.setProgress(actionId, i + 1, pages.length);
 
         } catch (error) {
             result.errors.push(`${page.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            statusStore.updateStep(actionId, stepId, `❌ ${page.title}: ${error instanceof Error ? error.message : 'Error'}`, 'error');
         }
     }
 
     result.success = result.publishedPages.length === pages.length;
+
+    if (result.success) {
+        statusStore.completeAction(actionId, `✅ Published ${result.publishedPages.length} legal pages`);
+    } else {
+        statusStore.failAction(actionId, `Published ${result.publishedPages.length}/${pages.length} pages`);
+    }
+
     return result;
 }
 

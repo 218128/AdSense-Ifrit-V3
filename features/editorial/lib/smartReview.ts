@@ -390,7 +390,7 @@ export function recordReviewFeedback(feedback: ReviewFeedback): void {
     perf.avgEEATScore = (perf.avgEEATScore * (perf.totalReviewed - 1) + feedback.eeatScore) / perf.totalReviewed;
 
     // Track decision type
-    switch (feedback.decision) {
+    switch (feedback.decision.status) {
         case 'approved':
             if (feedback.wasAutoApprovalCandidate) {
                 // Human confirmed auto-approval

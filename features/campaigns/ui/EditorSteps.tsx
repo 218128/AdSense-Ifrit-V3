@@ -38,6 +38,11 @@ export interface EditorFormState {
     targetLength: number;
     useResearch: boolean;
     includeImages: boolean;
+    // Image generation options (new)
+    mediaSourcePreference: 'ai' | 'search' | 'both';  // Source priority
+    inlineImageCount: number;  // 0-5 inline images
+    imagePlacementCover: boolean;  // Include cover image
+    imagePlacementInline: boolean;  // Include inline images
     includeFAQ: boolean;
     includeSchema: boolean; // Schema markup
     optimizeForSEO: boolean; // Internal linking
@@ -48,6 +53,13 @@ export interface EditorFormState {
     // Content spinner
     enableSpinner: boolean;
     spinnerMode: 'light' | 'moderate' | 'heavy';
+    // A/B Testing
+    enableABTesting: boolean;
+    abTestTitles: boolean;
+    abTestCovers: boolean;
+    abTestRespins: boolean;
+    // Analytics
+    analyticsEnabled: boolean;
     // Phase 2: Quality & Author
     authorId: string;           // Selected author profile
     injectEEATSignals: boolean; // Auto-inject E-E-A-T phrases
@@ -303,9 +315,12 @@ export function SourceStep({ form, updateField, sites }: SourceStepProps & { sit
 interface AIStepProps {
     form: EditorFormState;
     updateField: FormUpdater;
+    sites?: WPSite[];  // WP sites for multi-site selection
 }
 
-export function AIStep({ form, updateField }: AIStepProps) {
+export function AIStep({ form, updateField, sites = [] }: AIStepProps) {
+    // Filter out the primary target site for multi-site selection
+    const availableSitesForMulti = sites.filter(s => s.id !== form.targetSiteId);
     return (
         <div className="space-y-4">
             {/* Info about AI configuration */}
@@ -363,9 +378,85 @@ export function AIStep({ form, updateField }: AIStepProps) {
                 <h4 className="text-sm font-medium text-neutral-700 mb-2">Content Options</h4>
                 <div className="space-y-2">
                     <Checkbox label="Research topic before generating" checked={form.useResearch} onChange={(v) => updateField('useResearch', v)} />
-                    <Checkbox label="Generate cover image" checked={form.includeImages} onChange={(v) => updateField('includeImages', v)} />
                     <Checkbox label="Include FAQ section" checked={form.includeFAQ} onChange={(v) => updateField('includeFAQ', v)} />
                 </div>
+            </div>
+
+            {/* Image Generation */}
+            <div className="pt-2 border-t border-neutral-200">
+                <h4 className="text-sm font-medium text-neutral-700 mb-2">Image Generation</h4>
+                <Checkbox
+                    label="Generate images for posts"
+                    checked={form.includeImages}
+                    onChange={(v) => updateField('includeImages', v)}
+                />
+
+                {form.includeImages && (
+                    <div className="ml-6 mt-3 space-y-3 p-3 bg-neutral-50 rounded-lg">
+                        {/* Media Source Preference */}
+                        <div>
+                            <label className="block text-xs text-neutral-500 mb-1">Image Source</label>
+                            <select
+                                value={form.mediaSourcePreference}
+                                onChange={(e) => updateField('mediaSourcePreference', e.target.value as 'ai' | 'search' | 'both')}
+                                className="w-full px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="both">AI + Stock Search (recommended)</option>
+                                <option value="search">Stock Search Only (free)</option>
+                                <option value="ai">AI Only (costly, unique images)</option>
+                            </select>
+                            <p className="text-xs text-neutral-400 mt-1">
+                                Both: Runs AI and 4 stock sources in parallel, scores all results
+                            </p>
+                        </div>
+
+                        {/* Image Placements */}
+                        <div>
+                            <label className="block text-xs text-neutral-500 mb-1">Image Placements</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.imagePlacementCover}
+                                        onChange={(e) => updateField('imagePlacementCover', e.target.checked)}
+                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm text-neutral-700">Cover Image</span>
+                                </label>
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.imagePlacementInline}
+                                        onChange={(e) => updateField('imagePlacementInline', e.target.checked)}
+                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm text-neutral-700">Inline Images</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Inline Image Count */}
+                        {form.imagePlacementInline && (
+                            <div>
+                                <label className="block text-xs text-neutral-500 mb-1">Inline Image Count</label>
+                                <select
+                                    value={form.inlineImageCount}
+                                    onChange={(e) => updateField('inlineImageCount', Number(e.target.value))}
+                                    className="w-32 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value={1}>1 image</option>
+                                    <option value={2}>2 images</option>
+                                    <option value={3}>3 images</option>
+                                    <option value={4}>4 images</option>
+                                    <option value={5}>5 images</option>
+                                </select>
+                                <p className="text-xs text-neutral-400 mt-1">
+                                    Images injected after intro, headings, etc.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* SEO Enhancement */}
@@ -443,6 +534,119 @@ export function AIStep({ form, updateField }: AIStepProps) {
                         </p>
                     </div>
                 )}
+            </div>
+
+            {/* Multi-Site Publishing */}
+            <div className="pt-2 border-t border-neutral-200">
+                <h4 className="text-sm font-medium text-neutral-700 mb-2">Multi-Site Publishing</h4>
+                <p className="text-xs text-neutral-500 mb-3">
+                    Publish to multiple WP sites simultaneously with optional content spinning.
+                </p>
+                <div className="space-y-3">
+                    <Checkbox
+                        label="Enable multi-site publishing"
+                        checked={form.enableMultiSite}
+                        onChange={(v) => updateField('enableMultiSite', v)}
+                    />
+                    {form.enableMultiSite && (
+                        <div className="ml-6 space-y-3">
+                            <div>
+                                <label className="block text-xs text-neutral-500 mb-1">Additional Sites</label>
+                                {availableSitesForMulti.length === 0 ? (
+                                    <p className="text-xs text-neutral-400 italic">
+                                        No other sites available. Add more WP sites in the WP Sites tab.
+                                    </p>
+                                ) : (
+                                    <div className="space-y-2 p-3 bg-neutral-50 rounded-lg border border-neutral-200 max-h-40 overflow-y-auto">
+                                        {availableSitesForMulti.map(site => (
+                                            <label key={site.id} className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={form.additionalSiteIds.includes(site.id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            updateField('additionalSiteIds', [...form.additionalSiteIds, site.id]);
+                                                        } else {
+                                                            updateField('additionalSiteIds', form.additionalSiteIds.filter(id => id !== site.id));
+                                                        }
+                                                    }}
+                                                    className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm text-neutral-700">{site.name}</span>
+                                                <span className="text-xs text-neutral-400">({site.url})</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                                <p className="text-xs text-neutral-400 mt-1">
+                                    Selected: {form.additionalSiteIds.length} site(s)
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-xs text-neutral-500 mb-1">Stagger Delay (minutes)</label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={form.multiSiteStaggerMinutes}
+                                    onChange={(e) => updateField('multiSiteStaggerMinutes', parseInt(e.target.value) || 0)}
+                                    className="w-24 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                />
+                                <p className="text-xs text-neutral-400 mt-1">Time between publishing to each site</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* A/B Testing */}
+            <div className="pt-2 border-t border-neutral-200">
+                <h4 className="text-sm font-medium text-neutral-700 mb-2">A/B Testing</h4>
+                <p className="text-xs text-neutral-500 mb-3">
+                    Test content variations to optimize click-through rates.
+                </p>
+                <div className="space-y-2">
+                    <Checkbox
+                        label="Enable A/B testing"
+                        checked={form.enableABTesting}
+                        onChange={(v) => updateField('enableABTesting', v)}
+                    />
+                    {form.enableABTesting && (
+                        <div className="ml-6 space-y-2">
+                            <Checkbox
+                                label="Test title variations (auto-generated)"
+                                checked={form.abTestTitles}
+                                onChange={(v) => updateField('abTestTitles', v)}
+                            />
+                            <Checkbox
+                                label="Test cover image variations"
+                                checked={form.abTestCovers}
+                                onChange={(v) => updateField('abTestCovers', v)}
+                            />
+                            <Checkbox
+                                label="Test content respins"
+                                checked={form.abTestRespins}
+                                onChange={(v) => updateField('abTestRespins', v)}
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Analytics */}
+            <div className="pt-2 border-t border-neutral-200">
+                <h4 className="text-sm font-medium text-neutral-700 mb-2">Analytics</h4>
+                <div className="space-y-2">
+                    <Checkbox
+                        label="Enable post analytics tracking"
+                        checked={form.analyticsEnabled}
+                        onChange={(v) => updateField('analyticsEnabled', v)}
+                    />
+                    {form.analyticsEnabled && (
+                        <p className="text-xs text-neutral-400 ml-6">
+                            Configure Google Analytics in Settings → Integrations
+                        </p>
+                    )}
+                </div>
             </div>
         </div>
     );

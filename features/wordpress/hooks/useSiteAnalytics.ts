@@ -43,10 +43,11 @@ export function useSiteAnalytics(site?: WPSite): UseSiteAnalyticsReturn {
         setError(null);
 
         return trackAction(
-            `Fetching analytics for ${targetSite.domain}`,
-            async (updateProgress) => {
+            `Fetching analytics for ${targetSite.domain ?? targetSite.url}`,
+            'wordpress',
+            async (tracker) => {
                 try {
-                    updateProgress({ phase: 'starting', message: 'Connecting to Google APIs...' });
+                    tracker.step('Connecting to Google APIs...');
 
                     // Call our API route that handles Google API auth
                     const response = await fetch(`/api/wp-sites/${targetSite.id}/analytics`, {
@@ -79,19 +80,18 @@ export function useSiteAnalytics(site?: WPSite): UseSiteAnalyticsReturn {
                     };
 
                     setAnalytics(siteAnalytics);
-                    updateProgress({ phase: 'complete', message: 'Analytics loaded' });
+                    tracker.complete('Analytics loaded');
 
                     return siteAnalytics;
                 } catch (err) {
                     const errorMsg = err instanceof Error ? err.message : 'Failed to fetch analytics';
                     setError(errorMsg);
-                    updateProgress({ phase: 'complete', message: errorMsg, success: false });
+                    tracker.fail(errorMsg);
                     return null;
                 } finally {
                     setIsLoading(false);
                 }
-            },
-            { feature: 'wp-sites', siteId: targetSite.id }
+            }
         );
     }, [trackAction]);
 
@@ -104,18 +104,15 @@ export function useSiteAnalytics(site?: WPSite): UseSiteAnalyticsReturn {
 
         return trackAction(
             `Aggregating analytics for ${sites.length} sites`,
-            async (updateProgress) => {
+            'wordpress',
+            async (tracker) => {
                 try {
                     const siteAnalytics: SiteAnalytics[] = [];
 
                     for (let i = 0; i < sites.length; i++) {
                         const site = sites[i];
-                        updateProgress({
-                            phase: 'handler',
-                            message: `Fetching ${site.domain}...`,
-                            current: i + 1,
-                            total: sites.length,
-                        });
+                        tracker.step(`Fetching ${site.domain ?? site.url}...`);
+                        tracker.progress(i + 1, sites.length);
 
                         const response = await fetch(`/api/wp-sites/${site.id}/analytics`);
 
@@ -178,17 +175,17 @@ export function useSiteAnalytics(site?: WPSite): UseSiteAnalyticsReturn {
                         lastUpdated: new Date().toISOString(),
                     };
 
-                    updateProgress({ phase: 'complete', message: `Loaded ${siteAnalytics.length} sites` });
+                    tracker.complete(`Loaded ${siteAnalytics.length} sites`);
                     return multiSite;
                 } catch (err) {
                     const errorMsg = err instanceof Error ? err.message : 'Failed to aggregate analytics';
                     setError(errorMsg);
+                    tracker.fail(errorMsg);
                     return null;
                 } finally {
                     setIsLoading(false);
                 }
-            },
-            { feature: 'wp-sites', siteId: 'multi' }
+            }
         );
     }, [trackAction]);
 

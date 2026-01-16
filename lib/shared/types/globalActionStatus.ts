@@ -31,10 +31,43 @@ export type ActionCategory =
     | 'keyword'     // Keyword research, analysis
     | 'content'     // Article generation, editing
     | 'campaign'    // Campaign execution, content pipeline
+    | 'hosting'     // Site provisioning, DNS
+    | 'wordpress'   // WP site operations
+    | 'translation' // Translation workflows
     | 'ai'          // AI capability calls
     | 'network'     // API calls, fetches
     | 'file'        // File operations
     | 'system';     // System operations
+
+/**
+ * Source of the action (how it was triggered/tracked)
+ */
+export type ActionSource =
+    | 'user'        // Directly triggered by user click
+    | 'pipeline'    // Part of a pipeline execution
+    | 'orchestrator'// Campaign orchestrator stage
+    | 'capability'  // AI capability handler
+    | 'fetch'       // Auto-intercepted fetch call
+    | 'background'; // Background/scheduled task
+
+/**
+ * Detailed error information from external services
+ * Captures REAL errors, not hardcoded messages
+ */
+export interface ErrorDetails {
+    /** External service name (OpenAI, Hostinger, WordPress) */
+    source: string;
+    /** Error code from the service */
+    code?: string;
+    /** ACTUAL error message from the API - NOT hardcoded */
+    rawMessage: string;
+    /** HTTP status code if applicable */
+    httpStatus?: number;
+    /** Stack trace for debugging (dev mode only) */
+    stackTrace?: string;
+    /** Timestamp when error occurred */
+    timestamp: number;
+}
 
 /**
  * Single sub-step within an action
@@ -52,6 +85,8 @@ export interface ActionStep {
     completedAt?: number;
     /** Duration in ms (calculated) */
     durationMs?: number;
+    /** Error details if step failed */
+    errorDetails?: ErrorDetails;
 }
 
 /**
@@ -78,12 +113,27 @@ export interface GlobalActionEntry {
     progress?: ActionProgress;
     /** Sub-steps for multi-step actions */
     steps: ActionStep[];
-    /** Error message if failed */
+    /** Error message if failed (legacy support) */
     error?: string;
     /** Whether action can be retried */
     retryable?: boolean;
     /** Retry callback identifier */
     retryCallback?: string;
+
+    // === NEW: Enhanced tracking fields ===
+
+    /** Source of the action (how it was triggered) */
+    source: ActionSource;
+    /** Detailed error info from external services */
+    errorDetails?: ErrorDetails;
+    /** Parent action ID for nested/hierarchical actions */
+    parentActionId?: ActionId;
+    /** Depth in action hierarchy (0=root) */
+    depth: number;
+    /** Child action IDs for tree view */
+    childActionIds?: ActionId[];
+    /** Feature/component that triggered the action */
+    origin?: string;
 }
 
 /**
@@ -128,12 +178,26 @@ export interface GlobalActionStatusState {
 }
 
 /**
+ * Options for starting an action with enhanced tracking
+ */
+export interface StartActionOptions {
+    /** Source of the action */
+    source?: ActionSource;
+    /** Parent action ID for nested actions */
+    parentActionId?: ActionId;
+    /** Feature/component origin */
+    origin?: string;
+    /** Whether action can be retried */
+    retryable?: boolean;
+}
+
+/**
  * Store actions interface
  */
 export interface GlobalActionStatusActions {
     // === Action Lifecycle ===
     /** Start a new action, returns action ID */
-    startAction: (name: string, category: ActionCategory, retryable?: boolean) => ActionId;
+    startAction: (name: string, category: ActionCategory, options?: StartActionOptions | boolean) => ActionId;
     /** Update action message */
     updateAction: (id: ActionId, message: string) => void;
     /** Add a step to an action */
@@ -146,8 +210,16 @@ export interface GlobalActionStatusActions {
     setProgress: (id: ActionId, current: number, total: number) => void;
     /** Complete action successfully */
     completeAction: (id: ActionId, message?: string) => void;
-    /** Fail action with error */
+    /** Fail action with error (legacy) */
     failAction: (id: ActionId, error: string) => void;
+    /** Fail action with detailed error info from external service */
+    failActionWithDetails: (id: ActionId, errorDetails: ErrorDetails) => void;
+
+    // === Hierarchy Management ===
+    /** Get all child actions of a parent */
+    getChildActions: (parentId: ActionId) => GlobalActionEntry[];
+    /** Get root actions only (no parent) */
+    getRootActions: () => GlobalActionEntry[];
 
     // === Panel Controls ===
     /** Clear all actions (called on new user action) */
@@ -158,6 +230,8 @@ export interface GlobalActionStatusActions {
     toggleMinimize: () => void;
     /** Update display config */
     setConfig: (config: Partial<ActionDisplayConfig>) => void;
+    /** Archive completed actions (for log persistence) */
+    archiveCompleted: () => GlobalActionEntry[];
 }
 
 /**

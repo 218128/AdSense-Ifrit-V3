@@ -22,6 +22,12 @@ import {
     AIServicesEvent,
 } from './types';
 
+// Response cache for reducing API costs
+import { responseCache } from '../cache/responseCache';
+
+// Perplexity SDK capability handlers
+import { perplexityHandlers } from '../providers/perplexity/capabilities';
+
 // ============================================
 // AI SERVICES SINGLETON
 // ============================================
@@ -301,7 +307,8 @@ class AIServicesClass {
             'seo-optimize',
         ];
 
-        // Image capabilities - only some providers support
+        // Image generation - all providers that support it
+        // User selects which provider and model to use in Settings
         const imageCapabilities = ['images'];
 
         // Register Gemini as handler for all capabilities
@@ -317,39 +324,45 @@ class AIServicesClass {
             execute: (opts) => this.executeProviderDirect('gemini', opts),
         });
 
-        // DeepSeek - all text capabilities
+        // DeepSeek - text capabilities + images (if model supports)
         this.registerHandler({
             id: 'deepseek',
             name: 'DeepSeek',
             source: 'ai-provider',
             providerId: 'deepseek',
-            capabilities: textCapabilities,
+            capabilities: [...textCapabilities, ...imageCapabilities],
             priority: 70,
             isAvailable: hasDeepseekKeys,
             requiresApiKey: true,
             execute: (opts) => this.executeProviderDirect('deepseek', opts),
         });
 
-        // Perplexity - all text capabilities (especially good for research)
+        // Perplexity - text capabilities + images (if model supports)
         this.registerHandler({
             id: 'perplexity',
             name: 'Perplexity',
             source: 'ai-provider',
             providerId: 'perplexity',
-            capabilities: textCapabilities,
+            capabilities: [...textCapabilities, ...imageCapabilities],
             priority: 75,
             isAvailable: hasPerplexityKeys,
             requiresApiKey: true,
             execute: (opts) => this.executeProviderDirect('perplexity', opts),
         });
 
-        // OpenRouter - all text capabilities (access to many models)
+        // Perplexity SDK Specialized Handlers
+        // These expose advanced SDK features: search, reasoning, deep-research
+        for (const handler of perplexityHandlers) {
+            this.registerHandler(handler);
+        }
+
+        // OpenRouter - text capabilities + images (access to many models with image support)
         this.registerHandler({
             id: 'openrouter',
             name: 'OpenRouter',
             source: 'ai-provider',
             providerId: 'openrouter',
-            capabilities: textCapabilities,
+            capabilities: [...textCapabilities, ...imageCapabilities],
             priority: 60,
             isAvailable: hasOpenrouterKeys,
             requiresApiKey: true,
@@ -426,10 +439,10 @@ class AIServicesClass {
             execute: async (opts) => {
                 try {
                     // Import author matching logic
-                    const { matchAuthorToContent } = await import('@/features/authors');
+                    const { findAuthorForTopic } = await import('@/features/authors');
                     const topic = opts.context?.topic as string || opts.prompt;
-                    const niche = opts.context?.niche as string;
-                    const match = matchAuthorToContent(topic, niche);
+                    const siteId = opts.context?.siteId as string | undefined;
+                    const match = findAuthorForTopic(topic, siteId);
                     return { success: true, data: match, handlerUsed: 'local-author-matcher', source: 'local', latencyMs: 0 };
                 } catch (e) {
                     return { success: false, error: String(e), handlerUsed: 'local-author-matcher', source: 'local', latencyMs: 0 };
@@ -675,6 +688,14 @@ class AIServicesClass {
             };
         }
 
+        // Check cache for cached response
+        const cachedResult = responseCache.get(capability, options.prompt, options.model);
+        if (cachedResult) {
+            cachedResult.latencyMs = Date.now() - startTime;
+            this.emit({ type: 'execution-complete', result: cachedResult });
+            return cachedResult;
+        }
+
         // Try handlers in order
         const fallbacksAttempted: string[] = [];
 
@@ -684,6 +705,10 @@ class AIServicesClass {
 
                 if (result.success) {
                     result.fallbacksAttempted = fallbacksAttempted.length > 0 ? fallbacksAttempted : undefined;
+
+                    // Cache successful result
+                    responseCache.set(capability, options.prompt, result, options.model);
+
                     this.emit({ type: 'execution-complete', result });
                     return result;
                 }
@@ -1101,16 +1126,23 @@ class AIServicesClass {
         const isServer = typeof window === 'undefined';
 
         try {
-            // Get API key
-            let apiKey = options.context?.apiKey as string;
-            if (!apiKey) {
-                try {
-                    const { keyManager } = await import('@/lib/keys');
-                    const key = keyManager.getKey(providerId as 'gemini' | 'deepseek' | 'openrouter' | 'perplexity');
-                    if (key) apiKey = key.key;
-                } catch {
-                    // KeyManager not available
-                }
+            // Get API key for THIS SPECIFIC provider
+            // Priority: 1. keyManager (client-side), 2. context.providerKeys[providerId] (passed from client to server)
+            let apiKey: string | undefined;
+
+            // First try keyManager (works on client)
+            try {
+                const { keyManager } = await import('@/lib/keys');
+                const key = keyManager.getKey(providerId as 'gemini' | 'deepseek' | 'openrouter' | 'perplexity' | 'vercel');
+                if (key) apiKey = key.key;
+            } catch {
+                // KeyManager not available
+            }
+
+            // Fallback: check context.providerKeys (passed from client to server)
+            if (!apiKey && options.context?.providerKeys) {
+                const providerKeys = options.context.providerKeys as Record<string, string>;
+                apiKey = providerKeys[providerId];
             }
 
             if (!apiKey && isServer) {
@@ -1130,6 +1162,28 @@ class AIServicesClass {
                 // Use generateImage for images capability (Gemini only)
                 const isImageGeneration = options.capability === 'images' && providerId === 'gemini';
 
+                // Look up handler-specific model from settingsStore
+                // Uses composite key: capabilityId:handlerId for proper isolation
+                // Options.model takes priority, then handler model, then provider default
+                let modelToUse = options.model;
+                if (!modelToUse && typeof window === 'undefined') {
+                    try {
+                        const { useSettingsStore } = await import('@/stores/settingsStore');
+                        // Composite key matches CapabilitiesPanel format
+                        const capabilityId = options.capability || 'generate';
+                        const handlerModelKey = `${capabilityId}:${providerId}`;
+                        const handlerModel = useSettingsStore.getState().getHandlerModel(
+                            handlerModelKey,
+                            providerId as 'gemini' | 'deepseek' | 'openrouter' | 'perplexity' | 'vercel'
+                        );
+                        if (handlerModel) {
+                            modelToUse = handlerModel;
+                        }
+                    } catch {
+                        // settingsStore not available on server, use default
+                    }
+                }
+
                 let result;
                 if (isImageGeneration && 'generateImage' in provider) {
                     result = await (provider as { generateImage: typeof provider.chat }).generateImage(apiKey, {
@@ -1141,7 +1195,7 @@ class AIServicesClass {
                         systemPrompt: options.systemPrompt,
                         maxTokens: options.maxTokens,
                         temperature: options.temperature,
-                        model: options.model,
+                        model: modelToUse,
                     });
                 }
 

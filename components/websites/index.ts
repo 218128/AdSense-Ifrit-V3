@@ -14,7 +14,7 @@
 export { default as WebsitesView } from './WebsitesView';
 export { default as WebsiteDetail } from './WebsiteDetail';
 export { default as BuildingProgress } from './BuildingProgress';
-export { default as GenerateArticleModal } from './GenerateArticleModal';
+// Legacy exports - removed dead code calling /api/generate
 export { default as DNSConfigPanel } from './DNSConfigPanel';
 export { default as SitePreview } from './SitePreview';
 export { default as PublishPanel } from './PublishPanel';
@@ -27,7 +27,7 @@ export { default as ArticleActionsMenu } from './ArticleActionsMenu';
 // Article Creation Components
 export { default as PromptExporter } from './PromptExporter';
 export { default as SmartDropZone } from './SmartDropZone';
-export { default as BulkArticleQueue } from './BulkArticleQueue';
+// BulkArticleQueue removed - called dead /api/generate
 export { default as ArticleEditor } from './ArticleEditor';
 export { default as ImageGallery } from './ImageGallery';
 export { default as ArticleVersionHistory } from './ArticleVersionHistory';

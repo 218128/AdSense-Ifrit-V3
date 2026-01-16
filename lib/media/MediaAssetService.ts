@@ -299,12 +299,14 @@ class MediaAssetServiceClass {
             try {
                 const result = await this.fetchFromSource(source, request);
                 if (result) {
+                    // Map internal 'search' source to valid MediaSourceType
+                    const sourceType: MediaSourceType = source === 'search' ? 'auto' : source;
                     return {
                         id: assetId,
                         articleId: request.articleId,
                         type: request.slot.type,
                         position: request.slot.position,
-                        source,
+                        source: sourceType,
                         data: result.blob,
                         dataUrl: result.dataUrl,
                         originalUrl: result.originalUrl,
@@ -407,17 +409,31 @@ class MediaAssetServiceClass {
     }
 
     /**
-     * Use `search-images` capability for stock photos (Unsplash, Pexels, Brave, Perplexity)
+     * Use `search-images` capability for stock photos (Unsplash, Pexels, Brave)
+     * NEW: Aggregated mode - queries all available handlers in parallel and scores results
      */
     private async fetchViaSearchImagesCapability(request: MediaRequest): Promise<{ blob: Blob; dataUrl: string; originalUrl?: string } | null> {
         try {
+            // Get integration keys from client-side
+            // SoC: Service retrieves keys, passes to route, route passes to handlers
+            let integrationKeys: Record<string, string> = {};
+            try {
+                const { getAllIntegrationKeys } = await import('@/lib/ai/utils/getCapabilityKey');
+                integrationKeys = await getAllIntegrationKeys();
+            } catch {
+                // KeyManager not available
+            }
+
+            // Request aggregated results from all handlers
             const response = await fetch('/api/capabilities/search-images', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    prompt: request.topic,  // Search by topic
+                    prompt: request.topic,
                     topic: request.topic,
                     itemType: request.slot.type,
+                    aggregated: true,  // Request aggregated results from all handlers
+                    ...integrationKeys,
                 }),
             });
 
@@ -429,19 +445,59 @@ class MediaAssetServiceClass {
                 return null;
             }
 
-            // data.text is the first image URL, data.data has all results
-            const imageUrl = data.text;
-            if (!imageUrl) return null;
+            // Import scoring functions dynamically
+            const { scoreAndRankImages, getDefaultCriteria } = await import('./scoring');
 
+            // data.data contains all image results from handlers
+            const allImages = data.data || [];
+
+            if (allImages.length === 0) {
+                // Fallback to single result
+                const imageUrl = data.text;
+                if (!imageUrl) return null;
+                return this.downloadImage(imageUrl);
+            }
+
+            // Score and rank images based on slot requirements
+            const criteria = getDefaultCriteria(request.slot.type);
+            criteria.targetWidth = request.slot.dimensions.width;
+            criteria.targetHeight = request.slot.dimensions.height;
+
+            const rankedImages = scoreAndRankImages(allImages, criteria);
+
+            // Log scoring results with breakdown
+            if (rankedImages.length > 0) {
+                const winner = rankedImages[0];
+                const { resolution, aspectRatio, sourcePreference, metadata } = winner.scoreBreakdown;
+                console.log(`[ImageScoring] Winner: ${winner.source} (${winner.width}x${winner.height})`);
+                console.log(`[ImageScoring]   Score: ${winner.score}/100 = Res:${resolution} + AR:${aspectRatio} + Src:${sourcePreference} + Meta:${metadata}`);
+                console.log(`[ImageScoring]   From ${rankedImages.length} candidates`);
+            }
+
+            // Pick the best image
+            const bestImage = rankedImages[0];
+            if (!bestImage?.url) return null;
+
+            return this.downloadImage(bestImage.url);
+
+        } catch (error) {
+            console.warn('[MediaAssetService] search-images aggregated error:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Download image from URL and return blob + dataUrl
+     */
+    private async downloadImage(imageUrl: string): Promise<{ blob: Blob; dataUrl: string; originalUrl: string } | null> {
+        try {
             const imageResponse = await fetch(imageUrl);
             if (!imageResponse.ok) return null;
 
             const blob = await imageResponse.blob();
             const dataUrl = await this.blobToDataUrl(blob);
             return { blob, dataUrl, originalUrl: imageUrl };
-
-        } catch (error) {
-            console.warn('[MediaAssetService] search-images capability error:', error);
+        } catch {
             return null;
         }
     }

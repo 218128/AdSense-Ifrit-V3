@@ -21,6 +21,9 @@ import {
     type ActionCategory,
     type ActionId,
     type ActionStep,
+    type StartActionOptions,
+    type ErrorDetails,
+    type ActionSource,
     DEFAULT_ACTION_DISPLAY_CONFIG,
     createActionId,
     createStepId,
@@ -48,12 +51,24 @@ export const useGlobalActionStatusStore = create<GlobalActionStatusStore>()(
                  * Start a new action
                  * @param name - Human-readable action name
                  * @param category - Action category for filtering
-                 * @param retryable - Whether action can be retried on failure
+                 * @param options - StartActionOptions or boolean (legacy retryable)
                  * @returns Action ID for tracking
                  */
-                startAction: (name: string, category: ActionCategory, retryable = false): ActionId => {
+                startAction: (name: string, category: ActionCategory, options?: StartActionOptions | boolean): ActionId => {
                     const id = createActionId();
                     const now = Date.now();
+
+                    // Handle legacy boolean retryable parameter
+                    const opts: StartActionOptions = typeof options === 'boolean'
+                        ? { retryable: options }
+                        : options || {};
+
+                    // Calculate depth from parent
+                    let depth = 0;
+                    if (opts.parentActionId) {
+                        const parent = get().actions.find(a => a.id === opts.parentActionId);
+                        depth = parent ? parent.depth + 1 : 0;
+                    }
 
                     const newAction: GlobalActionEntry = {
                         id,
@@ -63,14 +78,29 @@ export const useGlobalActionStatusStore = create<GlobalActionStatusStore>()(
                         phase: 'running',
                         startedAt: now,
                         steps: [],
-                        retryable,
+                        retryable: opts.retryable ?? false,
+                        source: opts.source ?? 'user',
+                        parentActionId: opts.parentActionId,
+                        depth,
+                        origin: opts.origin,
                     };
 
-                    set((state) => ({
-                        actions: [...state.actions, newAction],
-                    }));
+                    set((state) => {
+                        let actions = [...state.actions, newAction];
 
-                    console.log(`[GlobalActionStatus] Started: ${name} (${id})`);
+                        // Update parent's childActionIds if nested
+                        if (opts.parentActionId) {
+                            actions = actions.map(a =>
+                                a.id === opts.parentActionId
+                                    ? { ...a, childActionIds: [...(a.childActionIds || []), id] }
+                                    : a
+                            );
+                        }
+
+                        return { actions };
+                    });
+
+                    console.log(`[GlobalActionStatus] Started: ${name} (${id})${opts.parentActionId ? ` [child of ${opts.parentActionId}]` : ''}`);
                     return id;
                 },
 
@@ -265,6 +295,50 @@ export const useGlobalActionStatusStore = create<GlobalActionStatusStore>()(
                     console.error(`[GlobalActionStatus] Failed: ${action?.name} - ${error}`);
                 },
 
+                /**
+                 * Fail action with detailed error from external service
+                 * @param id - Action ID
+                 * @param errorDetails - Full error details from external service
+                 */
+                failActionWithDetails: (id: ActionId, errorDetails: ErrorDetails): void => {
+                    const now = Date.now();
+
+                    set((state) => ({
+                        actions: state.actions.map((action) =>
+                            action.id === id
+                                ? {
+                                    ...action,
+                                    phase: 'error',
+                                    message: `Failed: ${errorDetails.rawMessage}`,
+                                    error: errorDetails.rawMessage,
+                                    errorDetails,
+                                    completedAt: now,
+                                    durationMs: now - action.startedAt,
+                                }
+                                : action
+                        ),
+                    }));
+
+                    const action = get().actions.find((a) => a.id === id);
+                    console.error(`[GlobalActionStatus] Failed: ${action?.name} - [${errorDetails.source}] ${errorDetails.code || ''}: ${errorDetails.rawMessage}`);
+                },
+
+                // === Hierarchy Management ===
+
+                /**
+                 * Get all child actions of a parent
+                 */
+                getChildActions: (parentId: ActionId): GlobalActionEntry[] => {
+                    return get().actions.filter(a => a.parentActionId === parentId);
+                },
+
+                /**
+                 * Get root actions only (no parent)
+                 */
+                getRootActions: (): GlobalActionEntry[] => {
+                    return get().actions.filter(a => !a.parentActionId);
+                },
+
                 // === Panel Controls ===
 
                 /**
@@ -303,6 +377,18 @@ export const useGlobalActionStatusStore = create<GlobalActionStatusStore>()(
                     set((state) => ({
                         config: { ...state.config, ...config },
                     }));
+                },
+
+                /**
+                 * Archive completed actions (returns archived and removes from state)
+                 */
+                archiveCompleted: (): GlobalActionEntry[] => {
+                    const { actions } = get();
+                    const completed = actions.filter(a => a.phase === 'success' || a.phase === 'error');
+                    const running = actions.filter(a => a.phase === 'running');
+                    set({ actions: running });
+                    console.log(`[GlobalActionStatus] Archived ${completed.length} completed actions`);
+                    return completed;
                 },
             }),
             {

@@ -161,7 +161,13 @@ export function CreateSiteButton({
                 const keywordsToCapture = enrichedKeywords ||
                     (keywords?.map(k => ({ keyword: k, niche })) || []);
 
-                captureHuntDataForDomain(domain, keywordsToCapture, trends, niche);
+                // Transform trends to SelectedTrend[] format (add required selectedAt)
+                const trendsToCapture = trends?.map(t => ({
+                    ...t,
+                    selectedAt: Date.now()
+                }));
+
+                captureHuntDataForDomain(domain, keywordsToCapture, trendsToCapture, niche);
 
                 // Link WP Site to domain in registry
                 const registry = useHuntDataRegistry.getState();

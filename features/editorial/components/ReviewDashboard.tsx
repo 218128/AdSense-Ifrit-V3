@@ -146,10 +146,14 @@ function ReviewItemRow({ item, onSelect, isSelected }: ReviewItemRowProps) {
                             {item.title}
                         </h3>
                         {item.autoApprovalEligible && (
-                            <Zap className="w-4 h-4 text-yellow-500" title="Auto-approval eligible" />
+                            <span title="Auto-approval eligible">
+                                <Zap className="w-4 h-4 text-yellow-500" />
+                            </span>
                         )}
                         {item.riskLevel === 'ymyl' && (
-                            <AlertTriangle className="w-4 h-4 text-red-500" title="YMYL Content" />
+                            <span title="YMYL Content">
+                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                            </span>
                         )}
                     </div>
                     <p className="text-sm text-neutral-500 truncate">
@@ -294,8 +298,8 @@ export function ReviewDashboard() {
                     <button
                         onClick={() => setShowFilters(!showFilters)}
                         className={`px-3 py-2 border rounded-lg flex items-center gap-2 ${Object.keys(filter).length > 0
-                                ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                : 'border-neutral-300 hover:bg-neutral-50'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-neutral-300 hover:bg-neutral-50'
                             }`}
                     >
                         <Filter className="w-4 h-4" />

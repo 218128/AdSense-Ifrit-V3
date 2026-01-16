@@ -56,8 +56,9 @@ function getWPHeaders(site: WPSite): Headers {
         'Content-Type': 'application/json',
     });
 
-    if (site.credentials?.username && site.credentials?.appPassword) {
-        const auth = btoa(`${site.credentials.username}:${site.credentials.appPassword}`);
+    // WPSite stores credentials directly as username/appPassword
+    if (site.username && site.appPassword) {
+        const auth = btoa(`${site.username}:${site.appPassword}`);
         headers.set('Authorization', `Basic ${auth}`);
     }
 
@@ -70,6 +71,27 @@ function getWPHeaders(site: WPSite): Headers {
 function getWPApiUrl(site: WPSite): string {
     const base = site.url.replace(/\/$/, '');
     return `${base}/wp-json/wp/v2`;
+}
+/**
+ * Get the currently authenticated WP user (using /users/me)
+ * This endpoint works even when other /users endpoints are blocked (e.g., Hostinger)
+ */
+async function getCurrentWPUser(site: WPSite): Promise<WPUserResponse | null> {
+    const apiUrl = getWPApiUrl(site);
+    const headers = getWPHeaders(site);
+
+    try {
+        const response = await fetch(`${apiUrl}/users/me`, { headers });
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        return null;
+    } catch (error) {
+        console.error('[WPAuthorSync] Error getting current user:', error);
+        return null;
+    }
 }
 
 /**
@@ -265,6 +287,32 @@ export async function syncAuthorToSite(
             wpUsername: newUser.slug,
             action: 'created',
             message: `Created WP user: ${newUser.name}`,
+        };
+    }
+
+    // Fallback: Try to use the authenticated API user (for Hostinger/managed hosts that block user creation)
+    // This happens when the host blocks REST API user creation for security
+    // Use /users/me endpoint which is always accessible for authenticated users
+    console.log(`[WPAuthorSync] User creation blocked (Hostinger/managed host?), trying /users/me as fallback...`);
+    const apiUser = await getCurrentWPUser(site);
+
+    if (apiUser) {
+        // Save mapping - use API user as fallback
+        const mapping: WPAuthorMapping = {
+            siteId: site.id,
+            wpUserId: apiUser.id,
+            wpUsername: apiUser.slug,
+            syncedAt: Date.now(),
+        };
+
+        useAuthorStore.getState().mapToWPUser(author.id, mapping);
+
+        return {
+            success: true,
+            wpUserId: apiUser.id,
+            wpUsername: apiUser.slug,
+            action: 'found',
+            message: `Using API user "${apiUser.name}" as fallback (host blocks user creation)`,
         };
     }
 

@@ -315,3 +315,44 @@ export function simplifyLanguage(content: string): string {
 
     return result;
 }
+
+// ============================================================================
+// Main Readability Optimization (used by pipeline)
+// ============================================================================
+
+export interface OptimizeReadabilityResult {
+    optimizedContent: string;
+    score: number;
+    improvements: string[];
+}
+
+/**
+ * Optimize content for readability
+ * Used by 06-optimization.ts in the pipeline
+ */
+export function optimizeReadability(content: string): OptimizeReadabilityResult {
+    const improvements: string[] = [];
+    let optimized = content;
+
+    // 1. Simplify language
+    const simplified = simplifyLanguage(optimized);
+    if (simplified !== optimized) {
+        improvements.push('Simplified complex words');
+        optimized = simplified;
+    }
+
+    // 2. Get readability scores
+    const beforeScore = analyzeReadability(content);
+    const afterScore = analyzeReadability(optimized);
+
+    // 3. Log improvement
+    if (afterScore.fleschReadingEase > beforeScore.fleschReadingEase) {
+        improvements.push(`Readability improved from ${beforeScore.fleschReadingEase} to ${afterScore.fleschReadingEase}`);
+    }
+
+    return {
+        optimizedContent: optimized,
+        score: afterScore.fleschReadingEase,
+        improvements,
+    };
+}

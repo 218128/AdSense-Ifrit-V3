@@ -7,9 +7,9 @@
  */
 
 import type { WPSite } from '@/features/wordpress';
-import type { Campaign, CampaignRunItem, PipelineContext } from '../model/types';
+import type { Campaign, PipelineContext } from '../model/types';
 import { translateArticle, COMMON_LANGUAGES } from '@/features/translation';
-import { publishToWordPress } from './generators';
+import { publishToWordPress } from './wpPublisher';
 
 // ============================================================================
 // Types
@@ -94,7 +94,7 @@ export async function publishMultiLang(
         }
 
         result.originalPostId = originalResult.postId;
-        result.originalUrl = originalResult.url;
+        result.originalUrl = originalResult.postUrl;
 
     } catch (error) {
         result.errors.push(`Original publish failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -176,7 +176,7 @@ export async function publishMultiLang(
                 language: langCode,
                 languageName: langName,
                 postId: wpResult.postId,
-                url: wpResult.url || '',
+                url: wpResult.postUrl || '',
                 success: true,
             });
 

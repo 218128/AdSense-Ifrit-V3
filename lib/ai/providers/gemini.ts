@@ -101,17 +101,14 @@ export class GeminiProvider implements ProviderAdapter {
         try {
             const genai = new GoogleGenAI({ apiKey });
 
-            // Build the prompt with optional system prompt
-            const fullPrompt = options.systemPrompt
-                ? `${options.systemPrompt}\n\n${options.prompt}`
-                : options.prompt;
-
             const response = await genai.models.generateContent({
                 model: modelId,
-                contents: fullPrompt,
+                contents: options.prompt,
                 config: {
                     maxOutputTokens: options.maxTokens || 4000,
                     temperature: options.temperature ?? 0.7,
+                    // Use proper systemInstruction config
+                    systemInstruction: options.systemPrompt,
                 }
             });
 
@@ -140,11 +137,12 @@ export class GeminiProvider implements ProviderAdapter {
 
     /**
      * Generate image using Gemini image model
-     * Uses gemini-2.5-flash-image per GEMINI_GUIDELINES.md
-     * Returns base64 data URL
+     * Uses responseModalities: ['IMAGE'] for proper image generation
+     * Model can be specified via options (user-selected) or defaults to gemini-2.5-flash-image
      */
     async generateImage(apiKey: string, options: GenerateOptions): Promise<GenerateResult> {
-        const modelId = 'gemini-2.5-flash-image';
+        // Accept model from options (user-selected) or use default
+        const modelId = options.model || 'gemini-2.5-flash-image';
 
         try {
             const genai = new GoogleGenAI({ apiKey });
@@ -152,6 +150,10 @@ export class GeminiProvider implements ProviderAdapter {
             const response = await genai.models.generateContent({
                 model: modelId,
                 contents: options.prompt,
+                config: {
+                    // REQUIRED: responseModalities tells API to generate image
+                    responseModalities: ['IMAGE'],
+                }
             });
 
             // Check for image parts in the response
@@ -162,10 +164,6 @@ export class GeminiProvider implements ProviderAdapter {
 
             // Find the image part
             for (const part of candidate.content.parts) {
-                if (part.text) {
-                    // Sometimes model returns text description instead
-                    continue;
-                }
                 // Check for inlineData (base64 image)
                 const inlineData = part.inlineData as { data?: string; mimeType?: string } | undefined;
                 if (inlineData?.data) {
@@ -204,16 +202,14 @@ export class GeminiProvider implements ProviderAdapter {
         try {
             const genai = new GoogleGenAI({ apiKey });
 
-            const fullPrompt = options.systemPrompt
-                ? `${options.systemPrompt}\n\n${options.prompt}`
-                : options.prompt;
-
             const response = await genai.models.generateContentStream({
                 model: modelId,
-                contents: fullPrompt,
+                contents: options.prompt,
                 config: {
                     maxOutputTokens: options.maxTokens || 4000,
                     temperature: options.temperature ?? 0.7,
+                    // Use proper systemInstruction config
+                    systemInstruction: options.systemPrompt,
                 }
             });
 

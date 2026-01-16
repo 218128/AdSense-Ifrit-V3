@@ -8,6 +8,7 @@
  * - Hunt: Keywords + Domains (power-user mode)
  * - Websites: Site management + wizard (guided mode)
  * - Settings: API keys and integrations
+ * - Logs: Activity logs and error history
  */
 
 import { useState } from 'react';
@@ -17,7 +18,8 @@ import {
     Globe,
     Settings,
     Target,
-    Rocket
+    Rocket,
+    FileText
 } from 'lucide-react';
 
 // Import dashboard components from new organized structure
@@ -32,7 +34,10 @@ import { WPSitesDashboard } from '@/features/wordpress/ui/WPSitesDashboard';
 // Campaigns feature module
 import { CampaignsDashboard } from '@/features/campaigns';
 
-type TabId = 'dashboard' | 'hunt' | 'websites' | 'wpsites' | 'campaigns' | 'settings';
+// Logs feature module
+import { LogsDashboard } from '@/features/logs';
+
+type TabId = 'dashboard' | 'hunt' | 'websites' | 'wpsites' | 'campaigns' | 'logs' | 'settings';
 
 interface MainDashboardProps {
     articles?: Array<{ slug: string; title: string }>;
@@ -72,6 +77,12 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; badge?: string; g
         icon: <Target className="w-5 h-5" />,
         badge: 'NEW',
         gradient: 'from-purple-500 to-pink-600'
+    },
+    {
+        id: 'logs',
+        label: 'Logs',
+        icon: <FileText className="w-5 h-5" />,
+        gradient: 'from-slate-500 to-gray-600'
     },
     {
         id: 'settings',
@@ -146,6 +157,11 @@ export default function MainDashboard({ articles = [] }: MainDashboardProps) {
                         <span className="text-purple-600 font-medium">Automation Mode:</span> Schedule AI content campaigns to your WordPress sites
                     </p>
                 )}
+                {activeTab === 'logs' && (
+                    <p className="text-neutral-500">
+                        <span className="text-slate-600 font-medium">Activity Logs:</span> View detailed history of all actions, API calls, and errors
+                    </p>
+                )}
                 {activeTab === 'settings' && (
                     <p className="text-neutral-500">
                         Configure API keys, integrations, and preferences
@@ -160,6 +176,7 @@ export default function MainDashboard({ articles = [] }: MainDashboardProps) {
                 {activeTab === 'websites' && <WebsitesView articles={articles} />}
                 {activeTab === 'wpsites' && <WPSitesDashboard />}
                 {activeTab === 'campaigns' && <CampaignsDashboard />}
+                {activeTab === 'logs' && <LogsDashboard />}
                 {activeTab === 'settings' && <SettingsPanel />}
             </div>
         </div>

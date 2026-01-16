@@ -95,11 +95,11 @@ function extractQuestionsFromHeadings(html: string): QuestionExtractionResult['q
 function extractQuestionsFromFAQ(html: string): QuestionExtractionResult['questions'] {
     const questions: QuestionExtractionResult['questions'] = [];
 
-    // Check for FAQ schema
-    const schemaMatch = html.match(/"@type"\s*:\s*"FAQPage"(.*?)(?="@type"|$)/s);
+    // Check for FAQ schema (using [\s\S] instead of 's' flag for ES compatibility)
+    const schemaMatch = html.match(/"@type"\s*:\s*"FAQPage"([\s\S]*?)(?="@type"|$)/);
     if (schemaMatch) {
         const faqContent = schemaMatch[0];
-        const questionPattern = /"name"\s*:\s*"([^"]+)".*?"text"\s*:\s*"([^"]+)"/gs;
+        const questionPattern = /"name"\s*:\s*"([^"]+)"[\s\S]*?"text"\s*:\s*"([^"]+)"/g;
         let qMatch;
         let position = 0;
 
@@ -114,15 +114,15 @@ function extractQuestionsFromFAQ(html: string): QuestionExtractionResult['questi
         }
     }
 
-    // Also look for FAQ sections in HTML
-    const faqSectionPattern = /<(?:div|section)[^>]*class="[^"]*(?:faq|accordion)[^"]*"[^>]*>(.*?)<\/(?:div|section)>/gis;
+    // Also look for FAQ sections in HTML (using [\s\S] for ES compatibility)
+    const faqSectionPattern = /<(?:div|section)[^>]*class="[^"]*(?:faq|accordion)[^"]*"[^>]*>([\s\S]*?)<\/(?:div|section)>/gi;
     let faqMatch;
 
     while ((faqMatch = faqSectionPattern.exec(html)) !== null) {
         const faqHtml = faqMatch[1];
 
         // Look for question/answer pairs
-        const qaPattern = /<(?:dt|h\d|button)[^>]*>(.*?)<\/(?:dt|h\d|button)>.*?<(?:dd|p|div)[^>]*>(.*?)<\/(?:dd|p|div)>/gis;
+        const qaPattern = /<(?:dt|h\d|button)[^>]*>([\s\S]*?)<\/(?:dt|h\d|button)>[\s\S]*?<(?:dd|p|div)[^>]*>([\s\S]*?)<\/(?:dd|p|div)>/gi;
         let qaMatch;
 
         while ((qaMatch = qaPattern.exec(faqHtml)) !== null) {
