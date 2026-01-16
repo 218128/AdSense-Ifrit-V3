@@ -4,6 +4,8 @@
  * Provides a standardized way to retrieve API keys on the CLIENT side
  * for passing to server routes that need AI capabilities.
  * 
+ * MIGRATION: Uses dynamic import of aiServices. Engine accessible via @/lib/core.
+ * 
  * ARCHITECTURE PATTERN:
  * - Keys are stored in client localStorage via settingsStore
  * - Server routes CANNOT access client localStorage

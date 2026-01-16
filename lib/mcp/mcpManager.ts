@@ -3,6 +3,8 @@
  * 
  * Manages MCP client connections for AI tool integration.
  * Auto-registers discovered tools with AIServices as capability handlers.
+ * 
+ * MIGRATION: Uses dynamic import of aiServices. Engine accessible via @/lib/core.
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";

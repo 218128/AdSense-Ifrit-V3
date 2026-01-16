@@ -5,6 +5,8 @@
  * 
  * V5: Uses Playwright MCP to analyze competitor pages.
  * Extracts headings, word count, structure, and content insights.
+ * 
+ * MIGRATION: Uses dynamic import of aiServices. Engine accessible via @/lib/core.
  */
 
 import { useState } from 'react';

@@ -8,10 +8,11 @@
  * - Commercial intent
  * - Best niches
  * 
- * Uses aiServices.execute() for AI-powered analysis.
+ * MIGRATION: Uses CapabilityExecutor + aiServices. Engine import added for future migration.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { IfritEngine } from '@/lib/core';
 import { aiServices } from '@/lib/ai/services';
 
 export const dynamic = 'force-dynamic';

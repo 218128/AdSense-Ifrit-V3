@@ -3,6 +3,8 @@
  *
  * Server-side utilities for using AIServices in API routes and modules.
  * This provides optional AIServices integration with fallback to direct API calls.
+ * 
+ * MIGRATION: Uses aiServices. Engine accessible via @/lib/core.
  */
 
 import { aiServices as aiServicesInstance } from './services';

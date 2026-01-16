@@ -2,10 +2,13 @@
  * Capabilities List API Route
  * 
  * GET /api/capabilities - List all available capabilities and their handlers
+ * 
+ * MIGRATION: Also includes Engine diagnostics for monitoring migration progress.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { aiServices } from '@/lib/ai/services';
+import { IfritEngine } from '@/lib/core';
 
 // Ensure initialization (server-side doesn't auto-initialize)
 let initialized = false;
@@ -45,11 +48,20 @@ export async function GET(_request: NextRequest) {
         };
     });
 
+    // Get Engine diagnostics for migration monitoring
+    const engine = IfritEngine.getInstance();
+    const engineDiagnostics = engine.getDiagnostics();
+
     return NextResponse.json({
         capabilities: capabilityDetails,
         totalCapabilities: capabilities.length,
         enabledCapabilities: capabilities.filter(c => c.isEnabled).length,
         totalHandlers: handlers.length,
         availableHandlers: handlers.filter(h => h.isAvailable).length,
+        // MIGRATION: Engine diagnostics
+        engine: {
+            handlersInRegistry: engineDiagnostics.totalHandlers,
+            configSource: engineDiagnostics.configSource,
+        },
     });
 }

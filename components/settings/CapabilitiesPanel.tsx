@@ -7,6 +7,8 @@
  * - Assign handlers (tools) to capabilities
  * - Configure fallback chains
  * - Set default handlers per capability
+ * 
+ * MIGRATION: Uses aiServices. Engine accessible via @/lib/core for future migration.
  */
 'use client';
 
@@ -131,6 +133,7 @@ export default function CapabilitiesPanel() {
             name: newCapName,
             description: newCapDesc || `Custom capability: ${newCapName}`,
             isEnabled: true,
+            isDefault: false,
         });
 
         setNewCapId('');

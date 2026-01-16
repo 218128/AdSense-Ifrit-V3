@@ -4,6 +4,8 @@
  * 
  * Unified translation API with multi-provider support.
  * Uses aiServices for handler selection and fallback.
+ * 
+ * MIGRATION: Uses lib/ai/client which wraps aiServices. Engine accessible via @/lib/core.
  */
 
 // Re-export handlers

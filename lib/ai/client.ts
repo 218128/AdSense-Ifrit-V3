@@ -10,6 +10,8 @@
  *   const result = await ai.generate('Write an article about...');
  *   const research = await ai.research('Latest trends in...');
  *   const image = await ai.image('A professional banner...');
+ * 
+ * MIGRATION: Uses aiServices. Engine accessible via @/lib/core.
  */
 
 import { getCapabilityExecutor, ProviderDiagnostics } from './services/CapabilityExecutor';

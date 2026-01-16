@@ -6,8 +6,11 @@
  * to fill gaps in campaign context data.
  * 
  * Priority: Hunt > Profile > Campaign Enrichment > Built-in
+ * 
+ * MIGRATION: Uses aiServices. Engine import added for future migration.
  */
 
+import { IfritEngine } from '@/lib/core';
 import { aiServices } from '@/lib/ai/services/AIServices';
 import type { Campaign } from '../model/types';
 import type {

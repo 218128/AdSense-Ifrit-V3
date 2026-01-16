@@ -5,9 +5,12 @@
  * relevant keywords and generate a complete DomainProfile.
  * 
  * POST /api/domain-profiles/generate
+ * 
+ * MIGRATION: Uses CapabilityExecutor + aiServices. Engine import added for future migration.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { IfritEngine } from '@/lib/core';
 import { saveDomainProfile, DomainProfile } from '@/lib/websiteStore';
 import { statusEmitter } from '@/app/api/status/stream/route';
 

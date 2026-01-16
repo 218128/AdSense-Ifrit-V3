@@ -7,9 +7,12 @@
  * 
  * Supports: generate, research, keywords, analyze, images, summarize,
  *           translate, scrape, reasoning, code
+ * 
+ * MIGRATION: Uses lib/core/Engine. Legacy aiServices kept for fallback.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { IfritEngine, ServerConfigProvider } from '@/lib/core';
 import { getCapabilityExecutor } from '@/lib/ai/services/CapabilityExecutor';
 import { aiServices } from '@/lib/ai/services';
 import { logUsageServer } from '@/stores/usageStore';

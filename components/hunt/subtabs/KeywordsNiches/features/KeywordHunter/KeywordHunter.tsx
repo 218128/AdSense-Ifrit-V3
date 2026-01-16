@@ -6,6 +6,7 @@
  * - Components: KeywordCard, AnalysisResultCard, CSVImporter
  * 
  * REFACTORED: Uses Zustand store (keywordStore) for state management.
+ * MIGRATION: Uses dynamic import of aiServices. Engine accessible via @/lib/core.
  */
 
 'use client';

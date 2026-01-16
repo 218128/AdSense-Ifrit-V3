@@ -187,9 +187,9 @@ export async function generateLegalPage(
     try {
         // Use provider adapter directly with provided API key
         const { PROVIDER_ADAPTERS } = await import('@/lib/ai/providers');
-        const { PROVIDERS } = await import('@/lib/ai/multiProvider');
+        const { PROVIDER_METADATA } = await import('@/lib/ai/providers/metadata');
         const adapter = PROVIDER_ADAPTERS[provider];
-        const defaultModel = PROVIDERS[provider].defaultModel;
+        const defaultModel = PROVIDER_METADATA[provider].defaultModel;
 
         const result = await adapter.chat(apiKey, {
             prompt,

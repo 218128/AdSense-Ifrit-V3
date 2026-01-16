@@ -5,6 +5,8 @@
  * Contains all API/network calls for trends.
  * 
  * @module infrastructure/api
+ * 
+ * MIGRATION: Uses dynamic import of aiServices. Engine accessible via @/lib/core.
  */
 
 import type { TrendItem, SourceStatus } from '@/components/hunt/subtabs/KeywordsNiches/features/TrendScanner/types';

@@ -9,6 +9,8 @@
  * - Trend selection for analysis
  * 
  * Uses persist middleware for localStorage persistence.
+ * 
+ * MIGRATION: Uses dynamic import of aiServices. Engine accessible via @/lib/core.
  */
 
 import { create } from 'zustand';

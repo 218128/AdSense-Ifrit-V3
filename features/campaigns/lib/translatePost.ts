@@ -4,6 +4,8 @@
  * 
  * Translates WP post content using the capability system (provider agnostic).
  * Uses aiServices.execute({ capability: 'translate', ... }) per guidelines.
+ * 
+ * MIGRATION: Uses dynamic import of aiServices. Engine accessible via @/lib/core.
  */
 
 import type { WPPostResult } from '@/features/wordpress/model/types';

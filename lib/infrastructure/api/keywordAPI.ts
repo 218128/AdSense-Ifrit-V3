@@ -5,6 +5,8 @@
  * Contains all API/network calls for keywords.
  * 
  * @module infrastructure/api
+ * 
+ * MIGRATION: Uses dynamic import of aiServices. Engine accessible via @/lib/core.
  */
 
 import type { KeywordItem, AnalyzedKeyword } from '@/lib/keywords/types';

@@ -7,7 +7,7 @@ import {
     getDefaultSiteContext
 } from '@/lib/prompts/contentPrompts';
 import { aiServices } from '@/lib/ai/services';
-import { PROVIDERS } from '@/lib/ai/multiProvider';
+import { PROVIDER_METADATA as PROVIDERS } from '@/lib/ai/providers/metadata';
 
 interface ProviderKeys {
     gemini?: string[];

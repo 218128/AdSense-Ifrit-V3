@@ -10,6 +10,7 @@
  * - Full-width, more LIVE UI
  * 
  * REFACTORED: Uses Zustand store (trendStore) for state management.
+ * MIGRATION: Uses dynamic import of aiServices. Engine accessible via @/lib/core.
  */
 
 import { useState, useEffect } from 'react';
