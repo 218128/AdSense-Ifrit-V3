@@ -88,6 +88,34 @@ export interface CapabilitiesConfig {
     logDiagnostics: boolean;
 }
 
+// Newsletter provider configuration (Phase 3)
+export type NewsletterProvider = 'convertkit' | 'mailchimp' | 'buttondown';
+
+export interface NewsletterConfig {
+    provider: NewsletterProvider | null;
+    apiKey: string;
+    listId?: string;           // Mailchimp audience ID or ConvertKit form ID
+}
+
+// Syndication platform configuration (Phase 3)
+export type SyndicationPlatform = 'medium' | 'devto' | 'hashnode';
+
+export interface SyndicationConfig {
+    platform: SyndicationPlatform;
+    apiKey: string;
+    publicationId?: string;    // Medium publication or Hashnode blog ID
+    username?: string;         // Hashnode username
+    enabled: boolean;
+}
+
+// AdSense OAuth configuration for live data (Phase 3)
+export interface AdsenseOAuthConfig {
+    clientId: string;
+    clientSecret: string;
+    refreshToken: string;
+    lastSync?: number;
+}
+
 // ProviderId imported from unified types (single source of truth)
 import { ProviderId, ALL_PROVIDER_IDS } from '@/lib/ai/types/providers';
 export type { ProviderId };
@@ -96,7 +124,15 @@ export type { ProviderId };
 export interface ProviderConfig {
     id: ProviderId;
     name: string;
+    /** 
+     * FALLBACK models for display before API validation.
+     * Real models come from testKey() response and are stored in validatedModels.
+     */
     models: string[];
+    /** 
+     * Default model used ONLY if user hasn't selected one.
+     * User selection is stored in selectedModels and takes priority.
+     */
     defaultModel: string;
     keyPrefix?: string;
     docsUrl?: string;
@@ -213,6 +249,11 @@ interface SettingsStore {
     // Capabilities (for AIServices)
     capabilitiesConfig: CapabilitiesConfig;
 
+    // Distribution (Phase 3)
+    newsletterConfig: NewsletterConfig;
+    syndicationConfigs: SyndicationConfig[];
+    adsenseOAuth: AdsenseOAuthConfig;
+
     // ==== AI Provider Actions ====
     addProviderKey: (provider: ProviderId, key: StoredKey) => void;
     removeProviderKey: (provider: ProviderId, keyValue: string) => void;
@@ -252,6 +293,13 @@ interface SettingsStore {
     // ==== Capabilities Actions ====
     setCapabilitiesConfig: (config: Partial<CapabilitiesConfig>) => void;
     setCapabilitySetting: (capabilityId: string, settings: Partial<CapabilitySettings>) => void;
+
+    // ==== Distribution Actions (Phase 3) ====
+    setNewsletterConfig: (config: Partial<NewsletterConfig>) => void;
+    addSyndicationPlatform: (config: SyndicationConfig) => void;
+    updateSyndicationPlatform: (platform: SyndicationPlatform, updates: Partial<SyndicationConfig>) => void;
+    removeSyndicationPlatform: (platform: SyndicationPlatform) => void;
+    setAdsenseOAuth: (config: Partial<AdsenseOAuthConfig>) => void;
 }
 
 // ============ DEFAULT VALUES ============
@@ -433,6 +481,18 @@ export const useSettingsStore = create<SettingsStore>()(
                 autoFallback: true,
                 verbosity: 'standard',
                 logDiagnostics: true,
+            },
+
+            // Distribution (Phase 3)
+            newsletterConfig: {
+                provider: null,
+                apiKey: '',
+            },
+            syndicationConfigs: [],
+            adsenseOAuth: {
+                clientId: '',
+                clientSecret: '',
+                refreshToken: '',
             },
 
             // ============ AI PROVIDER ACTIONS ============
@@ -731,6 +791,41 @@ export const useSettingsStore = create<SettingsStore>()(
                     },
                 },
             })),
+
+            // ============ DISTRIBUTION ACTIONS (Phase 3) ============
+
+            setNewsletterConfig: (config) => set((state) => ({
+                newsletterConfig: { ...state.newsletterConfig, ...config },
+            })),
+
+            addSyndicationPlatform: (config) => set((state) => {
+                const existing = state.syndicationConfigs.find(c => c.platform === config.platform);
+                if (existing) {
+                    // Update existing
+                    return {
+                        syndicationConfigs: state.syndicationConfigs.map(c =>
+                            c.platform === config.platform ? { ...c, ...config } : c
+                        ),
+                    };
+                }
+                return {
+                    syndicationConfigs: [...state.syndicationConfigs, config],
+                };
+            }),
+
+            updateSyndicationPlatform: (platform, updates) => set((state) => ({
+                syndicationConfigs: state.syndicationConfigs.map(c =>
+                    c.platform === platform ? { ...c, ...updates } : c
+                ),
+            })),
+
+            removeSyndicationPlatform: (platform) => set((state) => ({
+                syndicationConfigs: state.syndicationConfigs.filter(c => c.platform !== platform),
+            })),
+
+            setAdsenseOAuth: (config) => set((state) => ({
+                adsenseOAuth: { ...state.adsenseOAuth, ...config },
+            })),
         }),
         {
             name: SETTINGS_STORAGE_KEYS.SETTINGS_STORE,
@@ -748,6 +843,10 @@ export const useSettingsStore = create<SettingsStore>()(
                 mcpServers: state.mcpServers,
                 initialized: state.initialized,
                 capabilitiesConfig: state.capabilitiesConfig,
+                // Distribution (Phase 3)
+                newsletterConfig: state.newsletterConfig,
+                syndicationConfigs: state.syndicationConfigs,
+                adsenseOAuth: state.adsenseOAuth,
             }),
         }
     )

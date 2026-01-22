@@ -7,6 +7,7 @@
 
 import type { EditorFormState } from './EditorSteps';
 import type { WPSite } from '@/features/wordpress';
+import { ROIPredictionCard } from '../components/ROIPredictionCard';
 
 type FormUpdater = <K extends keyof EditorFormState>(
     field: K,
@@ -92,8 +93,21 @@ export function ReviewStep({ form, selectedSite }: ReviewStepProps) {
     const keywordCount = form.keywords.split('\n').filter(k => k.trim()).length;
     const scheduleLabel = form.scheduleType === 'manual' ? 'Manual' : `Every ${form.intervalHours}h`;
 
+    // Build ROI prediction attributes from form
+    const roiAttributes = {
+        topic: form.keywords?.split('\n')[0] || 'general',
+        niche: selectedSite?.niche || 'lifestyle',
+        wordCount: form.targetLength,
+        hasImages: form.includeImages,
+        hasFAQ: form.includeFAQ,
+        hasSchema: form.includeSchema,
+        includesAffiliateLinks: false, // Could add to form later
+        template: form.articleType,
+    };
+
     return (
         <div className="space-y-4">
+            {/* Campaign Summary */}
             <div className="bg-neutral-50 rounded-lg p-4 space-y-3">
                 <h3 className="font-semibold text-neutral-900">Campaign Summary</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -108,6 +122,9 @@ export function ReviewStep({ form, selectedSite }: ReviewStepProps) {
                     <Row label="Max Posts/Run" value={String(form.maxPostsPerRun)} />
                 </div>
             </div>
+
+            {/* ROI Prediction */}
+            <ROIPredictionCard attributes={roiAttributes} />
         </div>
     );
 }
@@ -120,3 +137,4 @@ function Row({ label, value, capitalize }: { label: string; value: string; capit
         </>
     );
 }
+

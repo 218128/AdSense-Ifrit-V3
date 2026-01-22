@@ -1,6 +1,14 @@
 /**
  * Multi-Provider AI System
  * 
+ * @deprecated This file is no longer used. All capability execution goes through:
+ * - lib/core/Engine.ts for capability execution
+ * - lib/ai/providers/registry.ts for provider management
+ * - lib/ai/providers/{provider}/capabilities.ts for handlers
+ * 
+ * Scheduled for deletion in next major version.
+ * Verified: grep found ZERO imports of this file on 2026-01-18.
+ * 
  * Slim orchestrator that uses modular provider classes.
  * Provides backward-compatible API while delegating to new provider system.
  * 

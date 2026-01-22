@@ -182,6 +182,27 @@ export interface AIConfig {
 
     // Hunt integration
     nicheContext?: string;               // Niche context from domain research (e.g., 'technology', 'health & wellness')
+
+    // Multi-Format Distribution (Phase 3)
+    enableMultiFormat?: boolean;            // Generate LinkedIn/Twitter/TikTok/etc. from article
+    multiFormatOptions?: {
+        formats: ('linkedIn' | 'twitter' | 'tikTok' | 'podcast' | 'newsletter' | 'youtube')[];
+        tikTokDuration?: 30 | 60 | 90;
+    };
+
+    // Video Scripts (Phase 3)
+    enableVideoScript?: boolean;            // Generate video script from article
+    videoScriptPlatform?: 'youtube_shorts' | 'tiktok' | 'instagram_reels' | 'youtube';
+    videoScriptDuration?: 30 | 60 | 90;     // For short-form platforms
+
+    // Newsletter Distribution (Phase 3)
+    enableNewsletterPublish?: boolean;      // Auto-publish to newsletter after article
+    newsletterSchedule?: 'immediate' | 'next_batch' | 'manual';
+
+    // Third-Party Syndication (Phase 3)
+    enableSyndication?: boolean;            // Publish to Medium/Dev.to/Hashnode
+    syndicationPlatforms?: ('medium' | 'devto' | 'hashnode')[];
+    syndicationDelay?: number;              // Days after WP publish before syndicating (default: 0)
 }
 
 // ============================================================================
@@ -332,6 +353,49 @@ export interface PipelineContext {
             publishedAt?: number;
         }>;
         originalContent: string;
+    };
+
+    // Phase 3: Published URL (for syndication canonical)
+    publishedUrl?: string;
+
+    // Phase 3: Multi-format distribution outputs
+    multiFormatOutput?: {
+        linkedIn?: { post: string; hashtags: string[] };
+        twitter?: { thread: string[]; standalone: string };
+        tikTok?: { hook: string; script: string; callToAction: string };
+        podcast?: { title: string; intro: string; outro: string };
+        newsletter?: { subject: string; preview: string; body: string };
+        youtube?: { description: string; tags: string[] };
+    };
+
+    // Phase 3: Video script output
+    videoScript?: {
+        type: 'short' | 'long';
+        platform: string;
+        title: string;
+        hook: string;
+        targetDuration: number;
+    };
+
+    // Phase 3: Newsletter result
+    newsletterResult?: {
+        success: boolean;
+        messageId?: string;
+        error?: string;
+    };
+
+    // Phase 3: Syndication results
+    syndicationResults?: Record<string, {
+        success: boolean;
+        url?: string;
+        postId?: string;
+        error?: string;
+    }>;
+
+    // Phase 3: Pending syndication (for delayed publishing)
+    pendingSyndication?: {
+        platforms: string[];
+        scheduledFor: Date;
     };
 }
 

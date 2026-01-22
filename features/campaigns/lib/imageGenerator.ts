@@ -228,15 +228,17 @@ export async function generateSingleImage(
             // Pass integration keys at top level (route merges into context)
             // SoC: Infrastructure code retrieves keys, passes to route, route passes to handlers
 
+            // Get proper handler ID (e.g., 'gemini-image') instead of provider ID ('gemini')
+            const { getImageHandler } = await import('./handlerMapping');
+            const preferredHandler = source === 'ai' ? getImageHandler(aiConfig) : undefined;
+
             const response = await fetch(`/api/capabilities/${capability}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt,
                     model: handlerModel,  // Pass handler-specific model from settings
-                    preferredHandler: aiConfig.imageProvider
-                        ? `${aiConfig.imageProvider}`
-                        : undefined,
+                    preferredHandler,     // Now uses proper handler ID
                     topic,
                     itemType: type,
                     // Enable aggregated search with scoring when configured (default: true)

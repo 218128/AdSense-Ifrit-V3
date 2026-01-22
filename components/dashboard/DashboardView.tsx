@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
     TrendingUp,
     Globe,
@@ -21,9 +22,13 @@ import {
     AlertCircle,
     CheckCircle,
     Clock,
-    BarChart3
+    BarChart3,
+    ClipboardCheck
 } from 'lucide-react';
 import { AnalyticsPanel } from './AnalyticsPanel';
+import { AudiencePanel } from './AudiencePanel';
+import { ABTestingPanel } from './ABTestingPanel';
+import { ContentQualityPanel } from './ContentQualityPanel';
 import CostDashboard from './CostDashboard';
 
 interface Website {
@@ -117,7 +122,7 @@ export default function OverviewDashboard() {
                 <div className="p-4 border-b border-neutral-200">
                     <h3 className="font-semibold text-neutral-900">⚡ Quick Actions</h3>
                 </div>
-                <div className="grid grid-cols-3 divide-x divide-neutral-200">
+                <div className="grid grid-cols-4 divide-x divide-neutral-200">
                     <QuickAction
                         icon={<Target className="w-6 h-6 text-amber-500" />}
                         title="Hunt Keywords"
@@ -136,6 +141,14 @@ export default function OverviewDashboard() {
                         description="Launch a new site"
                         color="purple"
                     />
+                    <Link href="/editorial" className="block">
+                        <QuickAction
+                            icon={<ClipboardCheck className="w-6 h-6 text-blue-500" />}
+                            title="Editorial Review"
+                            description="Approve content before publish"
+                            color="blue"
+                        />
+                    </Link>
                 </div>
             </div>
 
@@ -207,6 +220,21 @@ export default function OverviewDashboard() {
             {/* Content Strategy Analytics */}
             <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden p-6">
                 <AnalyticsPanel />
+            </div>
+
+            {/* Audience Development */}
+            <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden p-6">
+                <AudiencePanel />
+            </div>
+
+            {/* A/B Testing */}
+            <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden p-6">
+                <ABTestingPanel />
+            </div>
+
+            {/* Content Quality */}
+            <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden p-6">
+                <ContentQualityPanel />
             </div>
         </div>
     );

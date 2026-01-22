@@ -15,3 +15,17 @@ export {
     generateAnalytics,
     getQuickInsights
 } from './recommendations';
+
+// Predictive ROI
+export type {
+    ContentAttributes,
+    ROIPrediction,
+    PredictionFactor,
+} from './predictiveROI';
+
+export {
+    predictContentROI,
+    quickROICheck,
+    recordContentPerformance,
+} from './predictiveROI';
+

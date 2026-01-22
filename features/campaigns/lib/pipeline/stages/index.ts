@@ -13,6 +13,9 @@ import { enhancementStages } from './04-enhancement';
 import { qualityStages } from './05-quality';
 import { optimizationStages } from './06-optimization';
 import { publishStages } from './07-publish';
+import { distributionStages } from './08-distribution';
+import { syndicationStages } from './09-syndicate';
+import { complianceStages } from './10-compliance';
 
 /**
  * All pipeline stages in execution order.
@@ -25,7 +28,10 @@ export const allStages: StageGroup[] = [
     enhancementStages,    // 04: E-E-A-T + Images + Linking + Schema (parallel)
     qualityStages,        // 05: Quality scoring + Smart review
     optimizationStages,   // 06: Spinner + Humanizer + Readability
+    complianceStages,     // 10: AdSense compliance + Disclosures (before publish)
     publishStages,        // 07: Publish + Record + Multi-site
+    distributionStages,   // 08: Multi-format + Video script (parallel)
+    syndicationStages,    // 09: Newsletter + Platform syndication (parallel)
 ];
 
 /**
@@ -54,5 +60,9 @@ export {
     enhancementStages,
     qualityStages,
     optimizationStages,
+    complianceStages,
     publishStages,
+    distributionStages,
+    syndicationStages,
 };
+

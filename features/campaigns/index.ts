@@ -308,3 +308,5 @@ export {
 // Phase 2 UI Components
 export { AuthorSelector } from './components/AuthorSelector';
 export { QualityScorePanel } from './components/QualityScorePanel';
+export { ROIPredictionCard } from './components/ROIPredictionCard';
+

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Lock, Zap, Brain, Server, Link2, DollarSign, Database, Users } from 'lucide-react';
+import { Settings, Lock, Zap, Brain, Server, Link2, DollarSign, Database, Users, Share2 } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { syncToServer as syncToServerFn, restoreFromServer as restoreFromServerFn } from '@/lib/backup/settingsBackup';
 
@@ -11,6 +11,7 @@ import CapabilitiesPanel from './CapabilitiesPanel';
 import { MCPSection } from './sections/MCPSection';
 import { IntegrationsSection } from './sections/IntegrationsSection';
 import { MonetizationSection } from './sections/MonetizationSection';
+import { DistributionSection } from './sections/DistributionSection';
 import { DataSection } from './sections/DataSection';
 import { AuthorManager } from '@/features/authors';
 
@@ -139,7 +140,7 @@ export function getSelectedModel(provider: string = 'gemini'): string | undefine
 
 // ============ SETTINGS COMPONENT ============
 
-type SettingsSection = 'ai-providers' | 'capabilities' | 'mcp' | 'integrations' | 'monetization' | 'data' | 'authors';
+type SettingsSection = 'ai-providers' | 'capabilities' | 'mcp' | 'integrations' | 'monetization' | 'distribution' | 'data' | 'authors';
 
 interface SettingsModalProps {
     inline?: boolean;
@@ -151,6 +152,7 @@ const sections: { id: SettingsSection; label: string; icon: React.ReactNode }[] 
     { id: 'mcp', label: 'MCP & Tools', icon: <Server className="w-4 h-4" /> },
     { id: 'integrations', label: 'Integrations', icon: <Link2 className="w-4 h-4" /> },
     { id: 'monetization', label: 'Monetization', icon: <DollarSign className="w-4 h-4" /> },
+    { id: 'distribution', label: 'Distribution', icon: <Share2 className="w-4 h-4" /> },
     { id: 'authors', label: 'Authors', icon: <Users className="w-4 h-4" /> },
     { id: 'data', label: 'Data & System', icon: <Database className="w-4 h-4" /> },
 ];
@@ -193,6 +195,8 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
                 return <IntegrationsSection />;
             case 'monetization':
                 return <MonetizationSection />;
+            case 'distribution':
+                return <DistributionSection />;
             case 'authors':
                 return <AuthorManager />;
             case 'data':

@@ -18,6 +18,7 @@ import {
     ChevronDown, ChevronRight, Settings2, Check, X, Info
 } from 'lucide-react';
 import { useCapabilities, DEFAULT_CAPABILITIES } from '@/lib/config/capabilitiesHelpers';
+import { useHandlersForCapability } from '@/lib/config/handlersHelpers';
 
 // ============================================================================
 // Capability Icons
@@ -54,6 +55,9 @@ function CapabilityCard({ id, name, description, isCustom }: CapabilityCardProps
         setDefaultHandler,
         getFallbackHandlers,
     } = useCapabilities();
+
+    // Get registered handlers for this capability (from Engine)
+    const availableHandlers = useHandlersForCapability(id);
 
     const enabled = isCapabilityEnabled(id);
     const defaultHandler = getDefaultHandler(id);
@@ -125,10 +129,15 @@ function CapabilityCard({ id, name, description, isCustom }: CapabilityCardProps
                             className="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
                             <option value="">Auto (best available)</option>
-                            <option value="gemini">Gemini</option>
-                            <option value="deepseek">DeepSeek</option>
-                            <option value="openrouter">OpenRouter</option>
-                            <option value="perplexity">Perplexity</option>
+                            {availableHandlers.length > 0 ? (
+                                availableHandlers.map(h => (
+                                    <option key={h.id} value={h.id}>
+                                        {h.name} (p:{h.priority})
+                                    </option>
+                                ))
+                            ) : (
+                                <option value="" disabled>No handlers registered</option>
+                            )}
                         </select>
                     </div>
 
