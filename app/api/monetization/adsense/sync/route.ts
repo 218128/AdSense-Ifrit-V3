@@ -10,10 +10,9 @@ import {
     testAdSenseConnection,
     getLast30DaysEarnings,
     getEarningsByPage,
-    importRevenueData,
-    setSyncStatus,
-} from '@/lib/monetization';
-import type { AdSenseCredentials } from '@/lib/monetization';
+} from '@/lib/monetization/adsenseClient';
+import { importRevenueData, setSyncStatus } from '@/lib/monetization';
+import type { AdSenseCredentials } from '@/lib/monetization/adsenseClient';
 
 export async function POST(request: Request) {
     try {

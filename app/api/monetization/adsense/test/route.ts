@@ -6,8 +6,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import { testAdSenseConnection } from '@/lib/monetization';
-import type { AdSenseCredentials } from '@/lib/monetization';
+import { testAdSenseConnection } from '@/lib/monetization/adsenseClient';
+import type { AdSenseCredentials } from '@/lib/monetization/adsenseClient';
 
 export async function POST(request: Request) {
     try {

@@ -71,15 +71,7 @@ export interface CapabilitySettings {
 }
 
 export interface CapabilitiesConfig {
-    customCapabilities: Array<{
-        id: string;
-        name: string;
-        description: string;
-        icon?: string;
-        isDefault: boolean;
-        isEnabled: boolean;
-        defaultHandlerId?: string;
-    }>;
+    // PURGED: customCapabilities (feature was never used)
     capabilitySettings: Record<string, CapabilitySettings>;
     preferMCP: boolean;
     autoFallback: boolean;
@@ -426,7 +418,6 @@ function legacyImport(
 
     // Import capabilities
     let newCapabilitiesConfig: CapabilitiesConfig = {
-        customCapabilities: [],
         capabilitySettings: {},
         preferMCP: true,
         autoFallback: true,
@@ -475,7 +466,6 @@ export const useSettingsStore = create<SettingsStore>()(
             healthStatus: {},
             lastHealthCheck: 0,
             capabilitiesConfig: {
-                customCapabilities: [],
                 capabilitySettings: {},
                 preferMCP: true,
                 autoFallback: true,
@@ -648,7 +638,6 @@ export const useSettingsStore = create<SettingsStore>()(
                         mcpServers: p.mcpServers ?? { enabled: [], apiKeys: {} },
                         capabilitiesConfig: {
                             // Defaults first, imported config overrides
-                            customCapabilities: p.capabilitiesConfig?.customCapabilities ?? [],
                             capabilitySettings: p.capabilitiesConfig?.capabilitySettings ?? {},
                             preferMCP: p.capabilitiesConfig?.preferMCP ?? true,
                             autoFallback: p.capabilitiesConfig?.autoFallback ?? true,

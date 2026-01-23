@@ -167,7 +167,7 @@ export const perplexityChatHandler: CapabilityHandler = {
     name: 'Perplexity Chat',
     source: 'ai-provider',
     providerId: 'perplexity',
-    capabilities: ['generate', 'research'],
+    capabilities: ['generate', 'research', 'translate', 'keywords', 'summarize'],
     priority: 75,
     isAvailable: true,
     requiresApiKey: true,

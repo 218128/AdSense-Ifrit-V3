@@ -11,6 +11,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { MCPServerConfig, getServerById, MCP_SERVERS } from './servers';
 import { getCapabilitiesForTool, createMCPExecutor, type MCPToolInfo } from './toolMapper';
+import type { CapabilityHandler, ExecuteResult } from '../ai/services/types';
 
 // Storage keys
 const STORAGE_KEY = 'ifrit_mcp_enabled';
@@ -241,17 +242,44 @@ class MCPManagerClass {
             for (const tool of tools) {
                 const capabilities = getCapabilitiesForTool(tool.name, tool.description);
 
-                // Create executor that calls the MCP tool
-                const executor = createMCPExecutor(
-                    async (name, args) => {
-                        const result = await client.callTool({ name, arguments: args });
-                        return result.content;
+                // Create a proper CapabilityHandler object
+                const handler: CapabilityHandler = {
+                    id: `mcp-${serverId}-${tool.name}`,
+                    name: tool.name,
+                    source: 'mcp' as const,
+                    mcpServerId: serverId,
+                    mcpToolName: tool.name,
+                    capabilities,
+                    priority: 50,
+                    isAvailable: true,
+                    execute: async (opts): Promise<ExecuteResult> => {
+                        const startTime = Date.now();
+                        try {
+                            const result = await client.callTool({
+                                name: tool.name,
+                                arguments: opts.context || {}
+                            });
+                            return {
+                                success: true,
+                                data: result.content,
+                                handlerUsed: `mcp-${serverId}-${tool.name}`,
+                                source: 'mcp' as const,
+                                latencyMs: Date.now() - startTime,
+                            };
+                        } catch (error) {
+                            return {
+                                success: false,
+                                error: error instanceof Error ? error.message : 'MCP tool call failed',
+                                handlerUsed: `mcp-${serverId}-${tool.name}`,
+                                source: 'mcp' as const,
+                                latencyMs: Date.now() - startTime,
+                            };
+                        }
                     },
-                    tool
-                );
+                };
 
                 // Register with AIServices
-                aiServices.registerMCPHandler(serverId, tool, capabilities, executor);
+                aiServices.registerHandler(handler);
             }
 
             console.log(`[MCPManager] Registered ${tools.length} tools from ${serverId} with AIServices`);
@@ -266,13 +294,9 @@ class MCPManagerClass {
     async disconnectServer(serverId: string): Promise<void> {
         const state = this.clients.get(serverId);
         if (state?.connected) {
-            try {
-                // Unregister from AIServices
-                const { aiServices } = await import('../ai/services');
-                aiServices.unregisterMCPServer(serverId);
-            } catch {
-                // AIServices might not be loaded
-            }
+            // NOTE: Handler unregistration not implemented in AIServices
+            // Handlers remain registered until app restart
+            // TODO: Add unregisterHandler method to AIServices if needed
 
             try {
                 await state.client.close();

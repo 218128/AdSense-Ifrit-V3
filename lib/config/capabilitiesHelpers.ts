@@ -54,7 +54,8 @@ export function useCapabilities() {
         setCapabilitySetting,
     } = useSettingsStore();
 
-    const { capabilitySettings, customCapabilities, preferMCP, autoFallback, verbosity, logDiagnostics } = capabilitiesConfig;
+    const { capabilitySettings, preferMCP, autoFallback, verbosity, logDiagnostics } = capabilitiesConfig;
+    // NOTE: customCapabilities was purged - feature was never used
 
     // ============ Capability Management ============
 
@@ -104,32 +105,22 @@ export function useCapabilities() {
 
     const getEnabledCapabilities = (): string[] => {
         const defaultIds = DEFAULT_CAPABILITIES.map(c => c.id);
-        const customIds = customCapabilities.filter(c => c.isEnabled).map(c => c.id);
-        return [...defaultIds, ...customIds].filter(id => isCapabilityEnabled(id));
+        return defaultIds.filter(id => isCapabilityEnabled(id));
     };
 
     const getAllCapabilities = (): Array<{ id: string; name: string; description: string; isCustom: boolean; isEnabled: boolean }> => {
-        const defaults = DEFAULT_CAPABILITIES.map(c => ({
+        return DEFAULT_CAPABILITIES.map(c => ({
             id: c.id,
             name: c.name,
             description: c.description,
             isCustom: false,
             isEnabled: isCapabilityEnabled(c.id),
         }));
-        const customs = customCapabilities.map(c => ({
-            id: c.id,
-            name: c.name,
-            description: c.description,
-            isCustom: true,
-            isEnabled: c.isEnabled && isCapabilityEnabled(c.id),
-        }));
-        return [...defaults, ...customs];
     };
 
     return {
         // State
         capabilitySettings,
-        customCapabilities,
         preferMCP,
         autoFallback,
         verbosity,

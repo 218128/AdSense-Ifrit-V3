@@ -96,7 +96,7 @@ export function ReviewStep({ form, selectedSite }: ReviewStepProps) {
     // Build ROI prediction attributes from form
     const roiAttributes = {
         topic: form.keywords?.split('\n')[0] || 'general',
-        niche: selectedSite?.niche || 'lifestyle',
+        niche: selectedSite?.profileData?.niche || 'lifestyle',
         wordCount: form.targetLength,
         hasImages: form.includeImages,
         hasFAQ: form.includeFAQ,

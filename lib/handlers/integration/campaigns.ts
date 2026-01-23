@@ -1,16 +1,28 @@
 /**
  * Campaign Runner Handler (Stub)
  * FSD: lib/handlers/integration/campaigns.ts
+ * 
+ * NOTE: This is a placeholder. Campaign execution is handled through the
+ * campaigns feature module directly, not via the capability system.
+ * See: features/campaigns/lib/pipeline/orchestrator.ts
  */
 
-import type { CapabilityHandler } from '@/lib/core/Engine';
+import type { CapabilityHandler, ExecuteResult } from '@/lib/ai/services/types';
 
 export const campaignRunnerHandler: CapabilityHandler = {
-    capability: 'campaign:run',
+    id: 'campaign-runner',
     name: 'Campaign Runner',
-    provider: 'campaigns',
-    execute: async (params) => {
-        const { runPipeline } = await import('@/features/campaigns');
-        return runPipeline(params.campaignId, params.options);
+    source: 'local',
+    capabilities: ['campaign-run'],
+    priority: 50,
+    isAvailable: false, // Not available - use campaign feature directly
+    execute: async (): Promise<ExecuteResult> => {
+        return {
+            success: false,
+            error: 'Campaign execution should use features/campaigns directly, not the capability system',
+            handlerUsed: 'campaign-runner',
+            source: 'local',
+            latencyMs: 0,
+        };
     },
 };

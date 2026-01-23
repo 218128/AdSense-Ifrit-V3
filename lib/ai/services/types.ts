@@ -327,11 +327,10 @@ export interface ExecuteResult {
 /**
  * User's capability configuration.
  * Stored in localStorage: 'ifrit_capabilities_config'
+ * 
+ * PURGED: customCapabilities field removed (feature was never used)
  */
 export interface CapabilitiesConfig {
-    // User-added capabilities
-    customCapabilities: Capability[];
-
     // Per-capability settings
     capabilitySettings: Record<string, {
         isEnabled: boolean;
@@ -346,7 +345,6 @@ export interface CapabilitiesConfig {
 }
 
 export const DEFAULT_CONFIG: CapabilitiesConfig = {
-    customCapabilities: [],
     capabilitySettings: {},
     preferMCP: true,
     autoFallback: true,

@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const { getLast30DaysEarnings, importRevenueData } = await import('@/lib/monetization');
+        const { getLast30DaysEarnings } = await import('@/lib/monetization/adsenseClient');
+        const { importRevenueData } = await import('@/lib/monetization');
 
         // Note: In production, OAuth credentials would be stored securely
         const oauthEnv = {

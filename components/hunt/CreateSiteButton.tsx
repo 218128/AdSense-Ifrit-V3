@@ -180,8 +180,7 @@ export function CreateSiteButton({
                         url: `https://${domain}`,
                         username: '', // User needs to add from WP admin
                         appPassword: '', // User needs to create from WP admin
-                        // NEW: Persist Hunt data for BI tracking
-                        niche: niche || '',
+                        // NOTE: niche is now stored in profileData only (loaded via loadHuntProfile)
                         siteType: 'general', // Default, user can update
                         hostingProvider: 'hostinger',
                         provisionedVia: 'hostinger-mcp',

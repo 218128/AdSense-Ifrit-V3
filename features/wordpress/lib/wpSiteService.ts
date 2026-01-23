@@ -209,8 +209,8 @@ export function calculateAdsenseReadiness(site: WPSite): {
         issues.push('Insufficient content (currently less than 15 articles)');
     }
 
-    // Check niche definition
-    if (site.niche) {
+    // Check niche definition (now stored in profileData)
+    if (site.profileData?.niche) {
         score += 10;
     } else {
         issues.push('No niche defined');

@@ -45,7 +45,7 @@ export function SiteProfileSection({ site }: SiteProfileSectionProps) {
     const [loadingProfile, setLoadingProfile] = useState(false);
     const [hasHuntProfile, setHasHuntProfile] = useState(false);
     const [editData, setEditData] = useState({
-        niche: site.niche || '',
+        niche: site.profileData?.niche || '',
         siteType: site.siteType || 'general',
     });
 
@@ -67,8 +67,20 @@ export function SiteProfileSection({ site }: SiteProfileSectionProps) {
     }, [domain]);
 
     const handleSave = () => {
+        // Update profileData with new niche if it exists, or create minimal profileData
+        const updatedProfileData = site.profileData
+            ? { ...site.profileData, niche: editData.niche }
+            : {
+                niche: editData.niche,
+                primaryKeywords: [],
+                secondaryKeywords: [],
+                questionKeywords: [],
+                suggestedTopics: [],
+                sourceDomain: domain,
+                loadedFromHuntAt: Date.now(),
+            };
         updateSite(site.id, {
-            niche: editData.niche,
+            profileData: updatedProfileData,
             siteType: editData.siteType as WPSiteType,
             updatedAt: Date.now(),
         });
@@ -77,7 +89,7 @@ export function SiteProfileSection({ site }: SiteProfileSectionProps) {
 
     const handleCancel = () => {
         setEditData({
-            niche: site.niche || '',
+            niche: site.profileData?.niche || '',
             siteType: site.siteType || 'general',
         });
         setIsEditing(false);
@@ -91,7 +103,7 @@ export function SiteProfileSection({ site }: SiteProfileSectionProps) {
             // Refresh edit data with new profile niche
             setEditData(prev => ({
                 ...prev,
-                niche: site.niche || prev.niche,
+                niche: site.profileData?.niche || prev.niche,
             }));
         }
     };
@@ -235,7 +247,7 @@ export function SiteProfileSection({ site }: SiteProfileSectionProps) {
                         />
                     ) : (
                         <div className="text-sm text-neutral-900">
-                            {site.niche || <span className="text-neutral-400 italic">Not set</span>}
+                            {site.profileData?.niche || <span className="text-neutral-400 italic">Not set</span>}
                         </div>
                     )}
                 </div>

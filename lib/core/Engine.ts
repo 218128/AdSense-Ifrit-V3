@@ -488,7 +488,6 @@ export class IfritEngine {
                         handlerId: handler.id,
                         handlerName: handler.name,
                         success: result.success,
-                        data: result.success ? result.data : undefined,
                         error: !result.success ? result.error : undefined,
                         current: index + 1,
                         total: handlers.length,
@@ -570,7 +569,7 @@ export class IfritEngine {
             data: flatData,
             error: successfulResults.length === 0 ? `All handlers failed: ${errors.join(', ')}` : undefined,
             handlerUsed: 'aggregate',
-            source: 'aggregate',
+            source: 'local', // Aggregation is a local operation
             latencyMs: Date.now() - startTime,
             metadata: {
                 sources: sourceMetadata,

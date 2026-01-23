@@ -200,6 +200,15 @@ function ProviderCard({ providerId }: ProviderCardProps) {
         // Fetch models with the new key
         fetchModels(newKey.trim());
 
+        // Sync key to server for API routes to access
+        fetch('/api/settings/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                providerKeys: { [providerId]: newKey.trim() }
+            }),
+        }).catch(e => console.warn('[ProviderCard] Failed to sync key to server:', e));
+
         setNewKey('');
         setShowAdd(false);
     }, [newKey, providerId, keys.length, addProviderKey, fetchModels]);
@@ -338,7 +347,7 @@ function ProviderCard({ providerId }: ProviderCardProps) {
                 <p className="text-xs text-red-500 mt-1">{fetchError}</p>
             )}
             <p className="text-xs text-neutral-400 mt-1">
-                Model selection per handler is configured in <strong>Capabilities</strong> section.
+                Model selection per handler is configured in the Capabilities section.
             </p>
         </div>
     );
@@ -348,7 +357,11 @@ function ProviderCard({ providerId }: ProviderCardProps) {
 // Main Section
 // ============================================================================
 
-export function AIProvidersSection() {
+interface AIProvidersSectionProps {
+    onNavigateToCapabilities?: () => void;
+}
+
+export function AIProvidersSection({ onNavigateToCapabilities }: AIProvidersSectionProps) {
     const [activeSubsection, setActiveSubsection] = useState<AISubsection>('providers');
     const providers = Object.keys(PROVIDER_CONFIGS) as ProviderId[];
     const { enabledProviders, providerKeys } = useSettingsStore();
@@ -359,6 +372,34 @@ export function AIProvidersSection() {
     };
     const configuredCount = providers.filter(p => hasValidKeysForProvider(p)).length;
     const enabledCount = enabledProviders.length;
+
+    // Sync existing provider keys and selected models to server on mount (for API routes to access)
+    useEffect(() => {
+        const providerKeysMap: Record<string, string> = {};
+        for (const p of providers) {
+            const keys = providerKeys[p];
+            if (keys?.length && keys[0]?.key && keys[0].key.length > 10) {
+                providerKeysMap[p] = keys[0].key;
+            }
+        }
+
+        // Get selected models from store
+        const selectedModelsMap = useSettingsStore.getState().selectedModels || {};
+
+        const hasKeys = Object.keys(providerKeysMap).length > 0;
+        const hasModels = Object.keys(selectedModelsMap).length > 0;
+
+        if (hasKeys || hasModels) {
+            fetch('/api/settings/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    providerKeys: providerKeysMap,
+                    selectedModels: selectedModelsMap,
+                }),
+            }).catch(e => console.warn('[AIProvidersSection] Failed to sync to server:', e));
+        }
+    }, []); // Only on mount
 
     return (
         <div className="space-y-4">

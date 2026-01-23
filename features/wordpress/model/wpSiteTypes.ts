@@ -44,7 +44,7 @@ export interface WPSite {
     name: string;                        // Display name
     url: string;                         // Full URL with https://
     domain?: string;                     // Domain extracted from URL (e.g., "example.com")
-    niche?: string;                      // Topic area (optional for migration)
+    // NOTE: niche is stored in profileData.niche (not as standalone field)
     siteType?: WPSiteType;               // Site type for recommendations
 
     // ─────────────────────────────────────────────────────────────────────────

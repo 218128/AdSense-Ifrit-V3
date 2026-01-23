@@ -52,12 +52,18 @@ async function getApiKey(options: ExecuteOptions): Promise<string | undefined> {
 
 /**
  * Get user-selected model from settings
- * Reads from selectedModels store field, falls back to PROVIDER_CONFIGS.defaultModel
+ * Reads from context.selectedModels (server-side) or selectedModels store field (client-side)
  */
 async function getUserSelectedModel(options: ExecuteOptions): Promise<string | undefined> {
-    // First check if passed in options
+    // First check if passed directly in options
     if (options.model) {
         return options.model;
+    }
+
+    // Try from context.selectedModels (passed from server-side DB via capabilities route)
+    const selectedModels = options.context?.selectedModels as Record<string, string> | undefined;
+    if (selectedModels?.gemini) {
+        return selectedModels.gemini;
     }
 
     // Try from settings store (client-side only)
@@ -263,19 +269,20 @@ export const geminiReasonHandler: CapabilityHandler = {
         }
 
         try {
-            const { GoogleGenAI } = await import('@google/genai');
+            const { GoogleGenAI, ThinkingLevel } = await import('@google/genai');
             const genai = new GoogleGenAI({ apiKey });
 
             // Get thinking level from context or default to HIGH
-            const thinkingLevel = (opts.context?.thinkingLevel as 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH') || 'HIGH';
+            // ThinkingLevel enum: 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH'
+            const thinkingLevelStr = (opts.context?.thinkingLevel as string) || 'HIGH';
 
             const response = await genai.models.generateContent({
                 model,
                 contents: opts.prompt,
                 config: {
                     thinkingConfig: {
-                        thinkingLevel,
-                        includeThoughts: false, // Don't include internal reasoning in output
+                        thinkingLevel: thinkingLevelStr as unknown as typeof ThinkingLevel[keyof typeof ThinkingLevel],
+                        includeThoughts: false,
                     },
                     systemInstruction: opts.systemPrompt,
                 }

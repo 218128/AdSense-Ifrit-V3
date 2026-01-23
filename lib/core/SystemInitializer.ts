@@ -78,6 +78,48 @@ export async function initializeSystemHandlers(): Promise<void> {
         engine.registerHandler(scrapeHandler);
     } catch (e) { console.warn('[SystemInitializer] Scrape handler not available'); }
 
+    // Register integration handlers
+    try {
+        const { wpPublishHandler } = await import('@/lib/handlers/integration/wordpress');
+        engine.registerHandler(wpPublishHandler);
+    } catch (e) { console.warn('[SystemInitializer] WordPress handler not available'); }
+
+    try {
+        const { factCheckHandler } = await import('@/lib/handlers/integration/factCheck');
+        engine.registerHandler(factCheckHandler);
+    } catch (e) { console.warn('[SystemInitializer] FactCheck handler not available'); }
+
+    try {
+        const { campaignRunnerHandler } = await import('@/lib/handlers/integration/campaigns');
+        engine.registerHandler(campaignRunnerHandler);
+    } catch (e) { console.warn('[SystemInitializer] Campaign handler not available'); }
+
+    // Register local handlers
+    try {
+        const { eeatScorerHandler } = await import('@/lib/handlers/local/eeat');
+        engine.registerHandler(eeatScorerHandler);
+    } catch (e) { console.warn('[SystemInitializer] EEAT handler not available'); }
+
+    try {
+        const { schemaGeneratorHandler } = await import('@/lib/handlers/local/schema');
+        engine.registerHandler(schemaGeneratorHandler);
+    } catch (e) { console.warn('[SystemInitializer] Schema handler not available'); }
+
+    try {
+        const { authorMatcherHandler } = await import('@/lib/handlers/local/authors');
+        engine.registerHandler(authorMatcherHandler);
+    } catch (e) { console.warn('[SystemInitializer] Author handler not available'); }
+
+    try {
+        const { internalLinkerHandler } = await import('@/lib/handlers/local/internalLinks');
+        engine.registerHandler(internalLinkerHandler);
+    } catch (e) { console.warn('[SystemInitializer] InternalLinks handler not available'); }
+
+    try {
+        const { localKeywordAnalysisHandler } = await import('@/lib/ai/handlers/localHandlers');
+        engine.registerHandler(localKeywordAnalysisHandler);
+    } catch (e) { console.warn('[SystemInitializer] LocalKeywordAnalysis handler not available'); }
+
     initialized = true;
     console.log('[SystemInitializer] System handlers registered');
 }

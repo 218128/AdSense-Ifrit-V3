@@ -35,6 +35,19 @@ import {
     Check,
     AlertCircle,
     Info,
+    ArrowUp,
+    ArrowDown,
+    GripVertical,
+    // Additional icons for capabilities
+    ShieldCheck,
+    CheckCircle,
+    Star,
+    TrendingUp,
+    Database,
+    Link,
+    Upload,
+    UserCheck,
+    Play,
 } from 'lucide-react';
 import {
     aiServices,
@@ -42,13 +55,15 @@ import {
     CapabilityHandler,
     DEFAULT_CAPABILITIES,
 } from '@/lib/ai/services';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useSettingsStore, type ProviderId } from '@/stores/settingsStore';
 
-// Icon mapping for capabilities
+// Icon mapping for capabilities (all 17)
 const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
+    // Core Content
     generate: <Sparkles className="w-4 h-4" />,
     research: <Search className="w-4 h-4" />,
     keywords: <Target className="w-4 h-4" />,
+    'keyword-analyze': <Target className="w-4 h-4" />,
     analyze: <BarChart3 className="w-4 h-4" />,
     scrape: <Globe className="w-4 h-4" />,
     summarize: <FileText className="w-4 h-4" />,
@@ -56,6 +71,18 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
     images: <Image className="w-4 h-4" />,
     reasoning: <Brain className="w-4 h-4" />,
     code: <Code className="w-4 h-4" />,
+    // E-E-A-T & Quality
+    'eeat-scoring': <ShieldCheck className="w-4 h-4" />,
+    'fact-check': <CheckCircle className="w-4 h-4" />,
+    'quality-review': <Star className="w-4 h-4" />,
+    // SEO
+    'seo-optimize': <TrendingUp className="w-4 h-4" />,
+    'schema-generate': <Database className="w-4 h-4" />,
+    'internal-link': <Link className="w-4 h-4" />,
+    // Publishing
+    'wp-publish': <Upload className="w-4 h-4" />,
+    'author-match': <UserCheck className="w-4 h-4" />,
+    'campaign-run': <Play className="w-4 h-4" />,
 };
 
 const getIconForCapability = (id: string): React.ReactNode => {
@@ -68,12 +95,6 @@ export default function CapabilitiesPanel() {
     const [handlers, setHandlers] = useState<CapabilityHandler[]>([]);
     const [expandedCap, setExpandedCap] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [showAddModal, setShowAddModal] = useState(false);
-
-    // New capability form
-    const [newCapId, setNewCapId] = useState('');
-    const [newCapName, setNewCapName] = useState('');
-    const [newCapDesc, setNewCapDesc] = useState('');
 
     // Settings store for verbosity/diagnostics AND handler model selection
     const capabilitiesConfig = useSettingsStore(state => state.capabilitiesConfig);
@@ -82,6 +103,15 @@ export default function CapabilitiesPanel() {
     const availableModels = useSettingsStore(state => state.availableModels);
     const handlerModels = useSettingsStore(state => state.handlerModels);
     const setHandlerModel = useSettingsStore(state => state.setHandlerModel);
+    // Provider keys for key status indicator
+    const providerKeys = useSettingsStore(state => state.providerKeys);
+
+    // Check if a provider has valid API keys configured
+    const hasKeyForProvider = (providerId: string | undefined): boolean => {
+        if (!providerId) return true; // Non-provider handlers don't need keys
+        const keys = providerKeys[providerId as ProviderId] || [];
+        return keys.some(k => k.key && k.key.length > 10);
+    };
 
     // Load capabilities and handlers
     const loadData = useCallback(() => {
@@ -89,6 +119,36 @@ export default function CapabilitiesPanel() {
         setHandlers(aiServices.getHandlers());
         setLoading(false);
     }, []);
+
+    // Sync settings to server (for API routes to access)
+    const syncToServer = useCallback(async () => {
+        try {
+            const config = aiServices.getConfig() as { capabilities?: Record<string, { fallbackHandlerIds?: string[]; defaultHandlerId?: string; isEnabled?: boolean }> };
+            const capSettings = config.capabilities || {};
+
+            // Get provider keys and convert to simple format
+            const providerKeysMap: Record<string, string> = {};
+            const providers = ['gemini', 'perplexity', 'deepseek', 'openrouter'] as const;
+            for (const p of providers) {
+                const keys = providerKeys[p];
+                if (keys?.length && keys[0]?.key) {
+                    providerKeysMap[p] = keys[0].key;
+                }
+            }
+
+            await fetch('/api/settings/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    capabilitySettings: capSettings,
+                    handlerModels: handlerModels,
+                    providerKeys: providerKeysMap,
+                }),
+            });
+        } catch (e) {
+            console.warn('[CapabilitiesPanel] Failed to sync to server:', e);
+        }
+    }, [handlerModels, providerKeys]);
 
     useEffect(() => {
         // Initialize if needed
@@ -116,42 +176,71 @@ export default function CapabilitiesPanel() {
     const toggleCapability = (id: string, enabled: boolean) => {
         aiServices.updateCapabilitySettings(id, { isEnabled: enabled });
         loadData();
+        syncToServer();
     };
 
     // Set default handler
     const setDefaultHandler = (capId: string, handlerId: string | undefined) => {
         aiServices.updateCapabilitySettings(capId, { defaultHandlerId: handlerId });
         loadData();
+        syncToServer();
     };
 
-    // Add custom capability
-    const addCapability = () => {
-        if (!newCapId || !newCapName) return;
-
-        aiServices.addCapability({
-            id: newCapId.toLowerCase().replace(/\s+/g, '-'),
-            name: newCapName,
-            description: newCapDesc || `Custom capability: ${newCapName}`,
-            isEnabled: true,
-            isDefault: false,
-        });
-
-        setNewCapId('');
-        setNewCapName('');
-        setNewCapDesc('');
-        setShowAddModal(false);
-    };
-
-    // Remove custom capability
-    const removeCapability = (id: string) => {
-        if (confirm(`Remove capability "${id}"? This cannot be undone.`)) {
-            aiServices.removeCapability(id);
-        }
-    };
+    // NOTE: addCapability/removeCapability functions removed (custom capabilities purged)
 
     // Get handlers for a capability
     const getHandlersForCapability = (capId: string): CapabilityHandler[] => {
         return handlers.filter(h => h.capabilities.includes(capId));
+    };
+
+    // Get ordered handlers (respects user-defined order via fallbackHandlerIds)
+    const getOrderedHandlers = (capId: string): CapabilityHandler[] => {
+        const capHandlers = getHandlersForCapability(capId);
+        // Read fallback order from aiServices config (where updateCapabilitySettings saves it)
+        const config = aiServices.getConfig();
+        const capSettings = (config as any).capabilities?.[capId];
+        const customOrder = capSettings?.fallbackHandlerIds || [];
+
+        if (customOrder.length === 0) {
+            // No custom order - sort by priority
+            return [...capHandlers].sort((a, b) => b.priority - a.priority);
+        }
+
+        // Sort by custom order, then by priority for unlisted handlers
+        return [...capHandlers].sort((a, b) => {
+            const aIdx = customOrder.indexOf(a.id);
+            const bIdx = customOrder.indexOf(b.id);
+
+            // Both in custom order - use that order
+            if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+            // Only a is in custom order - a comes first
+            if (aIdx !== -1) return -1;
+            // Only b is in custom order - b comes first
+            if (bIdx !== -1) return 1;
+            // Neither in custom order - use priority
+            return b.priority - a.priority;
+        });
+    };
+
+    // Move handler up/down in priority order
+    const moveHandler = (capId: string, handlerId: string, direction: 'up' | 'down') => {
+        const orderedHandlers = getOrderedHandlers(capId);
+        const currentIdx = orderedHandlers.findIndex(h => h.id === handlerId);
+
+        if (currentIdx === -1) return;
+        if (direction === 'up' && currentIdx === 0) return;
+        if (direction === 'down' && currentIdx === orderedHandlers.length - 1) return;
+
+        const newOrder = orderedHandlers.map(h => h.id);
+        const targetIdx = direction === 'up' ? currentIdx - 1 : currentIdx + 1;
+
+        // Swap positions
+        [newOrder[currentIdx], newOrder[targetIdx]] = [newOrder[targetIdx], newOrder[currentIdx]];
+
+        // Update via AIServices
+        aiServices.updateCapabilitySettings(capId, { fallbackHandlerIds: newOrder });
+        loadData();
+        syncToServer();
     };
 
     if (loading) {
@@ -177,13 +266,7 @@ export default function CapabilitiesPanel() {
                         </p>
                     </div>
                 </div>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white text-sm transition-colors"
-                >
-                    <Plus className="w-4 h-4" />
-                    Add Capability
-                </button>
+                {/* Add Capability button removed - custom capabilities feature purged */}
             </div>
 
             {/* Info Banner - Essential Guidance */}
@@ -309,15 +392,7 @@ export default function CapabilitiesPanel() {
                                     )}
                                 </button>
 
-                                {/* Delete (custom only) */}
-                                {!cap.isDefault && (
-                                    <button
-                                        onClick={() => removeCapability(cap.id)}
-                                        className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
+                                {/* Delete button removed - custom capabilities feature purged */}
                             </div>
 
                             {/* Expanded Content */}
@@ -346,10 +421,11 @@ export default function CapabilitiesPanel() {
                                             </p>
                                         </div>
 
-                                        {/* Available Handlers */}
+                                        {/* Available Handlers - Ordered with Priority Controls */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Available Handlers
+                                            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center justify-between">
+                                                <span>Handler Priority Order</span>
+                                                <span className="text-xs text-gray-500 font-normal">Use arrows to reorder • Top = tried first</span>
                                             </label>
                                             {capHandlers.length === 0 ? (
                                                 <div className="text-sm text-gray-500 italic">
@@ -357,76 +433,101 @@ export default function CapabilitiesPanel() {
                                                 </div>
                                             ) : (
                                                 <div className="space-y-2">
-                                                    {capHandlers
-                                                        .sort((a, b) => b.priority - a.priority)
-                                                        .map(h => {
-                                                            // Get provider's available models for this handler
-                                                            const providerModels = h.providerId ? (availableModels[h.providerId as keyof typeof availableModels] || []) : [];
-                                                            // Composite key: capability:handler for isolation
-                                                            const handlerModelKey = `${cap.id}:${h.id}`;
-                                                            const currentHandlerModel = handlerModels[handlerModelKey] || '';
-                                                            return (
-                                                                <div
-                                                                    key={h.id}
-                                                                    className={`p-3 rounded-lg ${h.id === cap.defaultHandlerId
-                                                                        ? 'bg-purple-500/10 border border-purple-500/30'
-                                                                        : 'bg-gray-700/50'
-                                                                        }`}
-                                                                >
-                                                                    {/* Handler Info Row */}
-                                                                    <div className="flex items-center justify-between mb-2">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className={`w-2 h-2 rounded-full ${h.isAvailable ? 'bg-green-500' : 'bg-gray-500'
-                                                                                }`} />
-                                                                            <div>
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <span className="font-medium text-gray-100">
-                                                                                        {h.name}
-                                                                                    </span>
-                                                                                    {h.id === cap.defaultHandlerId && (
-                                                                                        <Check className="w-4 h-4 text-purple-400" />
-                                                                                    )}
-                                                                                </div>
-                                                                                <span className="text-xs text-gray-500">
-                                                                                    {h.source} • priority {h.priority}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <button
-                                                                            onClick={() => setDefaultHandler(cap.id, h.id)}
-                                                                            className={`px-3 py-1 text-sm rounded-lg transition-colors ${h.id === cap.defaultHandlerId
-                                                                                ? 'text-purple-400 cursor-default'
-                                                                                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600'
-                                                                                }`}
-                                                                            disabled={h.id === cap.defaultHandlerId}
-                                                                        >
-                                                                            {h.id === cap.defaultHandlerId ? 'Default' : 'Set Default'}
-                                                                        </button>
-                                                                    </div>
-                                                                    {/* Model Selection Row */}
-                                                                    {providerModels.length > 0 && (
-                                                                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-600/50">
-                                                                            <span className="text-xs text-gray-400">Model:</span>
-                                                                            <select
-                                                                                value={currentHandlerModel}
-                                                                                onChange={(e) => setHandlerModel(handlerModelKey, e.target.value)}
-                                                                                className="flex-1 px-2 py-1 text-xs bg-gray-600 border border-gray-500 rounded text-gray-100 focus:ring-2 focus:ring-purple-500"
+                                                    {getOrderedHandlers(cap.id).map((h, idx, arr) => {
+                                                        // Get provider's available models for this handler
+                                                        const providerModels = h.providerId ? (availableModels[h.providerId as keyof typeof availableModels] || []) : [];
+                                                        // Composite key: capability:handler for isolation
+                                                        const handlerModelKey = `${cap.id}:${h.id}`;
+                                                        const currentHandlerModel = handlerModels[handlerModelKey] || '';
+                                                        const isFirst = idx === 0;
+                                                        const isLast = idx === arr.length - 1;
+                                                        return (
+                                                            <div
+                                                                key={h.id}
+                                                                className={`p-3 rounded-lg ${h.id === cap.defaultHandlerId
+                                                                    ? 'bg-purple-500/10 border border-purple-500/30'
+                                                                    : 'bg-gray-700/50'
+                                                                    }`}
+                                                            >
+                                                                {/* Handler Info Row */}
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <div className="flex items-center gap-3">
+                                                                        {/* Position & Reorder Controls */}
+                                                                        <div className="flex flex-col items-center gap-0.5">
+                                                                            <button
+                                                                                onClick={() => moveHandler(cap.id, h.id, 'up')}
+                                                                                disabled={isFirst}
+                                                                                className={`p-0.5 rounded transition-colors ${isFirst ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600'}`}
+                                                                                title="Move up (higher priority)"
                                                                             >
-                                                                                <option value="">Provider default</option>
-                                                                                {providerModels.map(model => (
-                                                                                    <option key={model} value={model}>{model}</option>
-                                                                                ))}
-                                                                            </select>
+                                                                                <ArrowUp className="w-3 h-3" />
+                                                                            </button>
+                                                                            <span className="text-xs font-bold text-gray-400 w-4 text-center">{idx + 1}</span>
+                                                                            <button
+                                                                                onClick={() => moveHandler(cap.id, h.id, 'down')}
+                                                                                disabled={isLast}
+                                                                                className={`p-0.5 rounded transition-colors ${isLast ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600'}`}
+                                                                                title="Move down (lower priority)"
+                                                                            >
+                                                                                <ArrowDown className="w-3 h-3" />
+                                                                            </button>
                                                                         </div>
-                                                                    )}
-                                                                    {providerModels.length === 0 && h.providerId && (
-                                                                        <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-600/50">
-                                                                            Refresh models in AI Providers section
-                                                                        </p>
-                                                                    )}
+                                                                        <div className="flex items-center gap-1">
+                                                                            <div className={`w-2 h-2 rounded-full ${h.isAvailable ? 'bg-green-500' : 'bg-gray-500'}`}
+                                                                                title={h.isAvailable ? 'Handler available' : 'Handler unavailable'} />
+                                                                            {h.providerId && !hasKeyForProvider(h.providerId) && (
+                                                                                <span className="text-amber-500 text-xs" title="Missing API key">⚠️</span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="font-medium text-gray-100">
+                                                                                    {h.name}
+                                                                                </span>
+                                                                                {h.id === cap.defaultHandlerId && (
+                                                                                    <Check className="w-4 h-4 text-purple-400" />
+                                                                                )}
+                                                                            </div>
+                                                                            <span className="text-xs text-gray-500">
+                                                                                {h.source} • base priority {h.priority}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => setDefaultHandler(cap.id, h.id)}
+                                                                        className={`px-3 py-1 text-sm rounded-lg transition-colors ${h.id === cap.defaultHandlerId
+                                                                            ? 'text-purple-400 cursor-default'
+                                                                            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600'
+                                                                            }`}
+                                                                        disabled={h.id === cap.defaultHandlerId}
+                                                                    >
+                                                                        {h.id === cap.defaultHandlerId ? 'Default' : 'Set Default'}
+                                                                    </button>
                                                                 </div>
-                                                            );
-                                                        })}
+                                                                {/* Model Selection Row */}
+                                                                {providerModels.length > 0 && (
+                                                                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-600/50">
+                                                                        <span className="text-xs text-gray-400">Model:</span>
+                                                                        <select
+                                                                            value={currentHandlerModel}
+                                                                            onChange={(e) => setHandlerModel(handlerModelKey, e.target.value)}
+                                                                            className="flex-1 px-2 py-1 text-xs bg-gray-600 border border-gray-500 rounded text-gray-100 focus:ring-2 focus:ring-purple-500"
+                                                                        >
+                                                                            <option value="">Provider default</option>
+                                                                            {providerModels.map(model => (
+                                                                                <option key={model} value={model}>{model}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                )}
+                                                                {providerModels.length === 0 && h.providerId && (
+                                                                    <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-600/50">
+                                                                        Refresh models in AI Providers section
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </div>
@@ -439,72 +540,7 @@ export default function CapabilitiesPanel() {
             </div>
 
             {/* Add Capability Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
-                        <h3 className="text-lg font-semibold text-gray-100 mb-4">Add Custom Capability</h3>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">
-                                    Capability ID
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newCapId}
-                                    onChange={(e) => setNewCapId(e.target.value)}
-                                    placeholder="e.g., sentiment-analysis"
-                                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500"
-                                />
-                                <p className="mt-1 text-xs text-gray-500">Unique identifier, lowercase with hyphens</p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">
-                                    Display Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newCapName}
-                                    onChange={(e) => setNewCapName(e.target.value)}
-                                    placeholder="e.g., Sentiment Analysis"
-                                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">
-                                    Description
-                                </label>
-                                <textarea
-                                    value={newCapDesc}
-                                    onChange={(e) => setNewCapDesc(e.target.value)}
-                                    placeholder="What does this capability do?"
-                                    rows={2}
-                                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button
-                                onClick={() => setShowAddModal(false)}
-                                className="px-4 py-2 text-gray-400 hover:text-gray-200 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={addCapability}
-                                disabled={!newCapId || !newCapName}
-                                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white transition-colors"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Add Capability
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Add Capability modal removed - custom capabilities feature purged */}
 
             {/* Diagnostics Settings */}
             <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg space-y-4">

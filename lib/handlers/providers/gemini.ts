@@ -1,18 +1,28 @@
 /**
  * Gemini Handler (Stub)
  * FSD: lib/handlers/providers/gemini.ts
+ * 
+ * NOTE: This is a stub referencing the actual implementation in lib/ai/providers/gemini/
+ * The real handlers are registered via lib/ai/providers/gemini/capabilities.ts
  */
 
-import type { CapabilityHandler } from '@/lib/core/Engine';
+import type { CapabilityHandler, ExecuteResult } from '@/lib/ai/services/types';
 
 export const geminiHandler: CapabilityHandler = {
-    capability: 'llm:gemini',
-    name: 'Gemini AI',
-    provider: 'google',
-    execute: async (params) => {
-        // Defer to existing AI services
-        const { AIServices } = await import('@/lib/ai/services/AIServices');
-        const services = AIServices.getInstance();
-        return services.generateText(params.prompt, { provider: 'gemini', ...params.options });
+    id: 'gemini-stub',
+    name: 'Gemini AI (Stub)',
+    source: 'ai-provider',
+    providerId: 'gemini',
+    capabilities: ['generate'],
+    priority: 0, // Low priority - actual handlers in lib/ai/providers/gemini/ take precedence
+    isAvailable: false, // Use the real handlers instead
+    execute: async (): Promise<ExecuteResult> => {
+        return {
+            success: false,
+            error: 'Use actual Gemini handlers from lib/ai/providers/gemini/capabilities.ts',
+            handlerUsed: 'gemini-stub',
+            source: 'ai-provider',
+            latencyMs: 0,
+        };
     },
 };

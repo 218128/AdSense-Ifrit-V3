@@ -196,7 +196,7 @@ export function WPSiteCard({ site, onEdit }: WPSiteCardProps) {
                 >
                     <div className="flex items-center gap-2">
                         <Tag className="w-4 h-4 text-indigo-500" />
-                        <span>Site Profile {site.niche ? `(${site.niche})` : ''}</span>
+                        <span>Site Profile {site.profileData?.niche ? `(${site.profileData.niche})` : ''}</span>
                     </div>
                     {showProfile ? (
                         <ChevronUp className="w-4 h-4" />
@@ -238,7 +238,7 @@ export function WPSiteCard({ site, onEdit }: WPSiteCardProps) {
                                 site={site}
                                 siteName={site.name}
                                 domain={domain}
-                                niche={site.niche || 'general'}
+                                niche={site.profileData?.niche || 'general'}
                             />
                         </div>
                     )}

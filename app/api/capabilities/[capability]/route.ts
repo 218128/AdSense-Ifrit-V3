@@ -69,13 +69,42 @@ export async function POST(
         // Execute via CapabilityExecutor
         const executor = getCapabilityExecutor();
         const handlers = aiServices.getHandlers();
-        const config = aiServices.getConfig();
+
+        // Get base config and merge with server-side settings (from SQLite DB)
+        // This fixes the client-server settings wiring issue
+        let config = aiServices.getConfig();
+        let serverProviderKeys: Record<string, string> = {};
+        let serverSelectedModels: Record<string, string> = {};
+        try {
+            const { getAllCapabilitySettings, getAllHandlerModels, getAllProviderKeys, getAllSelectedModels } = await import('@/lib/db/settingsDb');
+            const serverCapSettings = getAllCapabilitySettings();
+            const serverHandlerModels = getAllHandlerModels();
+            serverProviderKeys = getAllProviderKeys();
+            serverSelectedModels = getAllSelectedModels();
+
+            // Merge server settings into config
+            config = {
+                ...config,
+                capabilitySettings: {
+                    ...config.capabilitySettings,
+                    ...serverCapSettings,
+                },
+                // Store handler models for handlers to read
+                handlerModels: serverHandlerModels,
+            } as typeof config;
+        } catch (e) {
+            console.warn('[Capability Route] Failed to load server settings, using defaults:', e);
+        }
 
         // Extract integration keys from body for image search handlers
         // SoC: Route merges integration keys into context for handlers
         const { unsplashKey, pexelsKey, serperApiKey, braveApiKey, perplexityApiKey, aggregated } = body;
         const mergedContext = {
             ...context,
+            // Provider API keys from server-side DB (for handlers to access)
+            providerKeys: serverProviderKeys,
+            // Selected models per provider (for handlers to access)
+            selectedModels: serverSelectedModels,
             // Only include if provided (avoid overwriting with undefined)
             ...(unsplashKey && { unsplashKey }),
             ...(pexelsKey && { pexelsKey }),

@@ -109,7 +109,7 @@ export const deepseekGenerateHandler: CapabilityHandler = {
     name: 'DeepSeek Chat',
     source: 'ai-provider',
     providerId: 'deepseek',
-    capabilities: ['generate', 'summarize', 'translate'],
+    capabilities: ['generate', 'summarize', 'translate', 'keywords'],
     priority: 85,
     isAvailable: true,
     requiresApiKey: true,

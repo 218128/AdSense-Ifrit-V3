@@ -20,20 +20,14 @@ export interface MCPServerConfig {
 /**
  * Available MCP Servers
  * Users can enable these in Settings
+ * 
+ * CLEANED: Removed unused servers (playwright, fetch, github, filesystem, brave-search)
+ * - Brave has dedicated handlers in imageSearchHandlers.ts
+ * - Playwright/Fetch/Filesystem were never used
+ * - GitHub was for legacy websites (deprecated)
  */
 export const MCP_SERVERS: MCPServerConfig[] = [
-    // Research & Web
-    {
-        id: 'brave-search',
-        name: 'Web Search (Brave)',
-        description: 'Real-time web search for article research',
-        command: 'npx',
-        args: ['-y', '@brave/brave-search-mcp-server'],
-        requiresApiKey: true,
-        apiKeyEnvVar: 'BRAVE_API_KEY',
-        apiKeyArg: '--brave-api-key',
-        category: 'research'
-    },
+    // AI Research (Perplexity via MCP - alternative to direct API)
     {
         id: 'perplexity',
         name: 'AI Research (Perplexity)',
@@ -44,38 +38,7 @@ export const MCP_SERVERS: MCPServerConfig[] = [
         apiKeyEnvVar: 'PERPLEXITY_API_KEY',
         category: 'research'
     },
-    {
-        id: 'playwright',
-        name: 'Browser Automation (Playwright)',
-        description: 'Navigate, scrape, and automate web pages',
-        command: 'npx',
-        args: ['-y', '@playwright/mcp@latest'],
-        requiresApiKey: false,
-        category: 'research'
-    },
-
-    // SEO & Keywords
-    {
-        id: 'fetch',
-        name: 'URL Fetcher',
-        description: 'Fetch content from URLs for analysis',
-        command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-fetch'],
-        requiresApiKey: false,
-        category: 'seo'
-    },
-
-    // Integrations
-    {
-        id: 'github',
-        name: 'GitHub',
-        description: 'Create repos, manage code, push changes',
-        command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-github'],
-        requiresApiKey: true,
-        apiKeyEnvVar: 'GITHUB_TOKEN',
-        category: 'integration'
-    },
+    // Hostinger WordPress Hosting
     {
         id: 'hostinger',
         name: 'Hostinger WordPress Hosting',
@@ -83,17 +46,8 @@ export const MCP_SERVERS: MCPServerConfig[] = [
         command: 'npx',
         args: ['-y', 'hostinger-api-mcp@latest'],
         requiresApiKey: true,
-        apiKeyEnvVar: 'API_TOKEN',  // Hostinger MCP expects API_TOKEN
+        apiKeyEnvVar: 'API_TOKEN',
         category: 'integration'
-    },
-    {
-        id: 'filesystem',
-        name: 'File System',
-        description: 'Read and write local files',
-        command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'],
-        requiresApiKey: false,
-        category: 'utility'
     }
 ];
 

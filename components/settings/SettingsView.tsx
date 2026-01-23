@@ -186,7 +186,7 @@ export default function SettingsModal({ inline = false }: SettingsModalProps) {
     const renderSectionContent = () => {
         switch (activeSection) {
             case 'ai-providers':
-                return <AIProvidersSection />;
+                return <AIProvidersSection onNavigateToCapabilities={() => setActiveSection('capabilities')} />;
             case 'capabilities':
                 return <CapabilitiesPanel />;
             case 'mcp':

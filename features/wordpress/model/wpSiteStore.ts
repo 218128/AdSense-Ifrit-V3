@@ -353,8 +353,8 @@ export const useWPSitesStore = create<WPSitesState & WPSitesActions>()(
                 }
 
                 // Service returned data, store just updates state
+                // NOTE: niche is now stored only in profileData, not as standalone field
                 get().updateSite(siteId, {
-                    niche: result.niche || site.niche,
                     profileData: result.profileData,
                 });
 
@@ -435,7 +435,6 @@ interface LegacySiteInput {
     username: string;
     appPassword: string;
     // Hunt data passthrough
-    niche?: string;
     siteType?: 'authority' | 'affiliate' | 'magazine' | 'business' | 'general';
     hostingProvider?: 'hostinger' | 'other';
     provisionedVia?: 'hostinger-mcp' | 'manual';
@@ -452,8 +451,7 @@ export const useWPSitesLegacy = () => {
             username: input.username,
             appPassword: input.appPassword,
             status: 'pending',
-            // Hunt data passthrough
-            niche: input.niche,
+            // Hunt data passthrough (niche is now in profileData only)
             siteType: input.siteType,
             hostingProvider: input.hostingProvider,
             provisionedVia: input.provisionedVia,
